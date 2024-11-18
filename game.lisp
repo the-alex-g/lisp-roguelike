@@ -17,7 +17,9 @@
     new-actor))
 
 (defparameter *player* (make-actor :pos '(4 . 4)
-			   :display-char #\@))
+				   :display-char #\@))
+(make-actor :pos '(6 . 5)
+	    :display-char #\C)
 
 (defun add-pos (p1 p2)
   (cons (+ (car p1) (car p2)) (+ (cdr p1) (cdr p2))))
