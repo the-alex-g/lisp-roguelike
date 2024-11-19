@@ -1,4 +1,6 @@
 (defparameter *actors* '())
+(defparameter *dynamic-actors* '())
+(defparameter *player-actions* 0)
 (setf *actors* '()) ;; not sure why this is necessary
 (defparameter *board* (make-hash-table :test 'equal))
 (defparameter *board-size* '(15 . 9))
@@ -7,6 +9,18 @@
 (defparameter +right+ '(1 . 0))
 (defparameter +up+ '(0 . -1))
 (defparameter +down+ '(0 . 1))
+(defparameter *actions* (make-hash-table :test 'equal))
+
+(defmacro defaction (key &body body)
+  `(setf (gethash ,key *actions*) (lambda () (incf *player-actions*) ,@body)))
+
+(defaction "a" (move *player* +left+))
+(defaction "d" (move *player* +right+))
+(defaction "w" (move *player* +up+))
+(defaction "s" (move *player* +down+))
+(defaction "i" (let ((actor (find-actor-at *player*)))
+		 (when actor
+		   (interact actor))))
 
 (defclass actor ()
   ((pos
@@ -19,8 +33,18 @@
     :initarg :name
     :accessor name)
    (solid
+    :initform t
     :initarg :solid
     :accessor solid)))
+
+(defclass enemy (actor)
+  ((spd
+    :initform 1
+    :initarg :spd
+    :accessor spd)
+   (enabled
+    :initform nil
+    :accessor enabled)))
 
 (defun make-actor (name display-char pos &key (solid t))
   (let ((new-actor (make-instance 'actor :pos pos
@@ -29,6 +53,15 @@
 					 :solid solid)))
     (push new-actor *actors*)
     new-actor))
+
+(defun make-enemy (name display-char pos &key (spd 1))
+  (let ((new-enemy (make-instance 'enemy :pos pos
+				         :display-char display-char
+					 :name name
+					 :spd spd)))
+    (push new-enemy *actors*)
+    (push new-enemy *dynamic-actors*)
+    new-enemy))
 
 (defparameter *player* (make-actor "player" #\@ '(4 . 4)))
 
@@ -61,6 +94,13 @@
 	(interact collider)
 	(when (gethash newpos *board*)
 	  (setf (pos obj) newpos)))))
+
+(defmethod update ((obj enemy))
+  (when (< (mod *player-actions* (spd obj)) 1)
+    (when (<= (distance (pos obj) (pos *player*)) *sight-distance*)
+      (setf (enabled obj) t))
+    (when (enabled obj)
+      (move obj +right+))))
 
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
@@ -96,24 +136,17 @@
 		      (fresh-line))))))
 
 (defmethod input (cmd)
-  (cond ((equal cmd "a")
-	 (move *player* +left+))
-	((equal cmd "d")
-	 (move *player* +right+))
-	((equal cmd "w")
-	 (move *player* +up+))
-	((equal cmd "s")
-	 (move *player* +down+))
-	((equal cmd "i")
-	 (let ((actor (find-actor-at *player*)))
-	   (when actor
-	     (interact actor))))))
+  (let ((action (gethash cmd *actions*)))
+    (when action
+      (funcall action))))
 
 (defun game-loop ()
   (print-board)
   (let ((cmd (read-line)))
     (unless (equal cmd "quit")
       (input cmd)
+      (loop for actor in *dynamic-actors*
+	    do (update actor))
       (game-loop))))
 
 (defun start ()

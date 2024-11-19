@@ -7,5 +7,6 @@
 		 do (setf (gethash (cons x y) *board*) 'hidden)))
 
 (make-actor "foo" #\C '(6 . 5))
+(make-enemy "goblin" #\g '(0 . 3))
 
 (start)
