@@ -75,9 +75,10 @@
   (princ (concatenate 'string "You interacted with a " (name obj)))
   (fresh-line))
 
-(defun find-actor-at (actor &key pos)
+(defun find-actor-at (&key pos actor)
   (unless pos
-    (setf pos (pos actor)))
+    (when actor
+      (setf pos (pos actor))))
   (loop for a2 in *actors*
 	unless (equal a2 actor)
 	  when (equal pos (pos a2))
@@ -85,26 +86,29 @@
 
 (defmethod move ((obj actor) distance)
   (let* ((newpos (add-pos (pos obj) distance))
-	 (collider (find-actor-at obj :pos newpos)))
+	 (collider (find-actor-at :actor obj :pos newpos)))
     (if (and collider (solid collider))
 	(interact collider)
 	(when (gethash newpos *board*)
 	  (setf (pos obj) newpos)))))
 
 (defun find-path (from to) ;; using breadth-first search
-  ;; TODO: implement early exit
-  ;; TODO: avoid other solid characters
   (let ((came-from (make-hash-table :test 'equal)))
     (setf (gethash from came-from) t)
     (labels ((neighbors (pos)
 	       (loop for direction in (list +left+ +right+ +up+ +down+)
-		     collect (if (gethash (add-pos pos direction)
-					  *board*)
-				 (add-pos pos direction)
-				 nil)))
+		     collect (let* ((newpos (add-pos pos direction))
+				    (actor (find-actor-at :pos newpos)))
+			       (if (gethash newpos *board*)
+				   (if (and actor (solid actor)
+					    (not (equal newpos to)))
+				       nil
+				       newpos)
+				   nil))))
 	     (iterate (frontier)
 	       (let ((current (car frontier)))
-		 (when current
+		 (when (and current
+			    (not (equal current to)))
 		   (loop for neighbor in (neighbors current)
 			 when neighbor
 			   do (unless (gethash neighbor came-from)
@@ -114,12 +118,14 @@
 				      (append frontier
 					      (list neighbor)))))
 		   (iterate (cdr frontier)))))
-	     (get-path (path pos)
+	     (build-path (path pos)
 	       (if (equal pos from)
 		   path
-		   (get-path (cons pos path) (gethash pos came-from)))))
+		   (build-path (cons pos path) (gethash pos came-from)))))
       (iterate (list from))
-      (get-path '() to))))
+      (if (gethash to came-from)
+	  (build-path '() to)
+	  (list from)))))
 
 (defun step-towards (to from)
   (sub-pos (car (find-path (pos from) (pos to))) (pos from)))
@@ -186,6 +192,6 @@
 (defaction "d" (move *player* +right+))
 (defaction "w" (move *player* +up+))
 (defaction "s" (move *player* +down+))
-(defaction "i" (let ((actor (find-actor-at *player*)))
+(defaction "i" (let ((actor (find-actor-at :actor *player*)))
 		 (when actor
 		   (interact actor))))
