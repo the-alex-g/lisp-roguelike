@@ -4,7 +4,7 @@
 (setf *actors* '()) ;; not sure why this is necessary
 (defparameter *board* (make-hash-table :test 'equal))
 (defparameter *board-size* '(15 . 9))
-(defparameter *sight-distance* -1)
+(defparameter *sight-distance* 3)
 (defparameter +left+ '(-1 . 0))
 (defparameter +right+ '(1 . 0))
 (defparameter +up+ '(0 . -1))
@@ -30,8 +30,9 @@
     :accessor solid)))
 
 (defclass enemy (actor)
-  ((spd
-    :initform 1
+  ((spd ;; speed of 1 is the same as the player
+        ;; speed of 2 is half as fast as the player
+    :initform 1.2
     :initarg :spd
     :accessor spd)
    (enabled
@@ -46,7 +47,7 @@
     (push new-actor *actors*)
     new-actor))
 
-(defun make-enemy (name display-char pos &key (spd 1))
+(defun make-enemy (name display-char pos &key (spd 1.2))
   (let ((new-enemy (make-instance 'enemy :pos pos
 				         :display-char display-char
 					 :name name
@@ -62,6 +63,9 @@
 
 (defun add-pos (p1 p2)
   (cons (+ (car p1) (car p2)) (+ (cdr p1) (cdr p2))))
+
+(defun sub-pos (a b)
+  (cons (- (car a) (car b)) (- (cdr a) (cdr b))))
 
 (defun distance (p1 p2)
   (sqrt (+ (square (- (car p2) (car p1)))
@@ -87,7 +91,9 @@
 	(when (gethash newpos *board*)
 	  (setf (pos obj) newpos)))))
 
-(defun find-path (from to)
+(defun find-path (from to) ;; using breadth-first search
+  ;; TODO: implement early exit
+  ;; TODO: avoid other solid characters
   (let ((came-from (make-hash-table :test 'equal)))
     (setf (gethash from came-from) t)
     (labels ((neighbors (pos)
@@ -115,8 +121,8 @@
       (iterate (list from))
       (get-path '() to))))
 
-(defun sub-pos (a b)
-  (cons (- (car a) (car b)) (- (cdr a) (cdr b))))
+(defun step-towards (to from)
+  (sub-pos (car (find-path (pos from) (pos to))) (pos from)))
 
 (defmethod update ((obj enemy))
   (when (< (mod *player-actions* (spd obj)) 1)
@@ -124,7 +130,7 @@
 	      (= *sight-distance* -1))
       (setf (enabled obj) t))
     (when (enabled obj)
-      (move obj +right+))))
+      (move obj (step-towards *player* obj)))))
 
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
