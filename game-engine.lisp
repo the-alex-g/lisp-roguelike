@@ -12,7 +12,7 @@
 (defparameter *actions* (make-hash-table :test 'equal))
 
 (defmacro defaction (key &body body)
-  `(setf (gethash ,key *actions*) (lambda () (incf *player-actions*) ,@body)))
+  `(setf (gethash ,key *actions*) (lambda () ,@body (incf *player-actions*) t)))
 
 (defclass actor ()
   ((pos
@@ -27,7 +27,11 @@
    (solid
     :initform t
     :initarg :solid
-    :accessor solid)))
+    :accessor solid)
+   (consumable
+    :initform nil
+    :initarg :consumable
+    :accessor consumable)))
 
 (defclass enemy (actor)
   ((spd ;; speed of 1 is the same as the player
@@ -39,11 +43,12 @@
     :initform nil
     :accessor enabled)))
 
-(defun make-actor (name display-char pos &key (solid t))
+(defun make-actor (name display-char pos &key (solid t) (consumable nil))
   (let ((new-actor (make-instance 'actor :pos pos
 					 :display-char display-char
 					 :name name
-					 :solid solid)))
+					 :solid solid
+					 :consumable consumable)))
     (push new-actor *actors*)
     new-actor))
 
@@ -55,6 +60,13 @@
     (push new-enemy *actors*)
     (push new-enemy *dynamic-actors*)
     new-enemy))
+
+(defmethod destroy ((obj actor))
+  (setf *actors* (remove obj *actors* :test 'equal)))
+
+(defmethod destroy ((obj enemy))
+  (setf *actors* (remove obj *actors* :test 'equal))
+  (setf *dynamic-actors* (remove obj *dynamic-actors* :test 'equal)))
 
 (defparameter *player* (make-actor "player" #\@ '(4 . 4)))
 
@@ -71,8 +83,10 @@
   (sqrt (+ (square (- (car p2) (car p1)))
 	   (square (- (cdr p2) (cdr p1))))))
 
-(defmethod interact ((obj actor))
-  (princ (concatenate 'string "You interacted with a " (name obj)))
+(defmethod interact ((a actor) (b actor))
+  (princ (concatenate 'string (name a) " interacted with a " (name b)))
+  (if (consumable b)
+      (destroy b))
   (fresh-line))
 
 (defun find-actor-at (&key pos actor)
@@ -88,7 +102,7 @@
   (let* ((newpos (add-pos (pos obj) distance))
 	 (collider (find-actor-at :actor obj :pos newpos)))
     (if (and collider (solid collider))
-	(interact collider)
+	(interact obj collider)
 	(when (gethash newpos *board*)
 	  (setf (pos obj) newpos)))))
 
@@ -180,9 +194,8 @@
   (print-board)
   (let ((cmd (read-line)))
     (unless (equal cmd "quit")
-      (input cmd)
-      (loop for actor in *dynamic-actors*
-	    do (update actor))
+      (when (input cmd)
+	(mapc 'update *dynamic-actors*))
       (game-loop))))
 
 (defun start ()
@@ -194,4 +207,4 @@
 (defaction "s" (move *player* +down+))
 (defaction "i" (let ((actor (find-actor-at :actor *player*)))
 		 (when actor
-		   (interact actor))))
+		   (interact *player* actor))))
