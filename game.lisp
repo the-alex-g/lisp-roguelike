@@ -6,8 +6,7 @@
 	       when (or (< x 7) (> x 8) (= y 4))
 		 do (setf (gethash (cons x y) *board*) 'hidden)))
 
-(make-actor :pos '(6 . 5)
-	    :display-char #\C)
+(make-actor "foo" #\C '(6 . 5) :solid nil)
 
 (defmethod input (cmd)
   (cond ((equal cmd "a")

@@ -10,21 +10,27 @@
 
 (defclass actor ()
   ((pos
-    :initform '(4 . 4)
     :initarg :pos
     :accessor pos)
    (display-char
-    :initform #\C
     :initarg :display-char
-    :accessor display-char)))
+    :accessor display-char)
+   (name
+    :initarg :name
+    :accessor name)
+   (solid
+    :initarg :solid
+    :accessor solid)))
 
-(defun make-actor (&key pos display-char)
-  (let ((new-actor (make-instance 'actor :pos pos :display-char display-char)))
+(defun make-actor (name display-char pos &key (solid t))
+  (let ((new-actor (make-instance 'actor :pos pos
+					 :display-char display-char
+					 :name name
+					 :solid solid)))
     (push new-actor *actors*)
     new-actor))
 
-(defparameter *player* (make-actor :pos '(4 . 4)
-				   :display-char #\@))
+(defparameter *player* (make-actor "player" #\@ '(4 . 4)))
 
 (defun square (number)
   (* number number))
@@ -36,13 +42,17 @@
   (sqrt (+ (square (- (car p2) (car p1)))
 	   (square (- (cdr p2) (cdr p1))))))
 
+(defmethod interact ((obj actor))
+  (princ (concatenate 'string "You interacted with a " (name actor))))
+
 (defmethod move ((obj actor) distance)
   (let ((newpos (add-pos (pos obj) distance)))
-    (unless (or (loop for actor in *actors*
-		  unless (equal obj actor)
-		    when (equal newpos (pos actor))
-		      return t)
-		(not (gethash newpos *board*)))
+    (unless (or (not (gethash newpos *board*))
+		(loop for actor in *actors*
+		      unless (equal obj actor)
+			when (and (equal newpos (pos actor))
+				  (solid actor))
+			  return t))
       (setf (pos obj) newpos))))
 
 (defun print-board ()
