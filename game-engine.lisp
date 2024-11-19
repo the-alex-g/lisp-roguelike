@@ -4,7 +4,7 @@
 (setf *actors* '()) ;; not sure why this is necessary
 (defparameter *board* (make-hash-table :test 'equal))
 (defparameter *board-size* '(15 . 9))
-(defparameter *sight-distance* 4)
+(defparameter *sight-distance* -1)
 (defparameter +left+ '(-1 . 0))
 (defparameter +right+ '(1 . 0))
 (defparameter +up+ '(0 . -1))
@@ -13,14 +13,6 @@
 
 (defmacro defaction (key &body body)
   `(setf (gethash ,key *actions*) (lambda () (incf *player-actions*) ,@body)))
-
-(defaction "a" (move *player* +left+))
-(defaction "d" (move *player* +right+))
-(defaction "w" (move *player* +up+))
-(defaction "s" (move *player* +down+))
-(defaction "i" (let ((actor (find-actor-at *player*)))
-		 (when actor
-		   (interact actor))))
 
 (defclass actor ()
   ((pos
@@ -79,7 +71,7 @@
   (princ (concatenate 'string "You interacted with a " (name obj)))
   (fresh-line))
 
-(defun find-actor-at (actor &key pos solid-only)
+(defun find-actor-at (actor &key pos)
   (unless pos
     (setf pos (pos actor)))
   (loop for a2 in *actors*
@@ -95,9 +87,41 @@
 	(when (gethash newpos *board*)
 	  (setf (pos obj) newpos)))))
 
+(defun find-path (from to)
+  (let ((came-from (make-hash-table :test 'equal)))
+    (setf (gethash from came-from) t)
+    (labels ((neighbors (pos)
+	       (loop for direction in (list +left+ +right+ +up+ +down+)
+		     collect (if (gethash (add-pos pos direction)
+					  *board*)
+				 (add-pos pos direction)
+				 nil)))
+	     (iterate (frontier)
+	       (let ((current (car frontier)))
+		 (when current
+		   (loop for neighbor in (neighbors current)
+			 when neighbor
+			   do (unless (gethash neighbor came-from)
+				(setf (gethash neighbor came-from)
+				      current)
+				(setf frontier
+				      (append frontier
+					      (list neighbor)))))
+		   (iterate (cdr frontier)))))
+	     (get-path (path pos)
+	       (if (equal pos from)
+		   path
+		   (get-path (cons pos path) (gethash pos came-from)))))
+      (iterate (list from))
+      (get-path '() to))))
+
+(defun sub-pos (a b)
+  (cons (- (car a) (car b)) (- (cdr a) (cdr b))))
+
 (defmethod update ((obj enemy))
   (when (< (mod *player-actions* (spd obj)) 1)
-    (when (<= (distance (pos obj) (pos *player*)) *sight-distance*)
+    (when (or (<= (distance (pos obj) (pos *player*)) *sight-distance*)
+	      (= *sight-distance* -1))
       (setf (enabled obj) t))
     (when (enabled obj)
       (move obj +right+))))
@@ -151,3 +175,11 @@
 
 (defun start ()
   (game-loop))
+
+(defaction "a" (move *player* +left+))
+(defaction "d" (move *player* +right+))
+(defaction "w" (move *player* +up+))
+(defaction "s" (move *player* +down+))
+(defaction "i" (let ((actor (find-actor-at *player*)))
+		 (when actor
+		   (interact actor))))
