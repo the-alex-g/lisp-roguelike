@@ -8,14 +8,4 @@
 
 (make-actor "foo" #\C '(6 . 5))
 
-(defmethod input (cmd)
-  (cond ((equal cmd "a")
-	 (move *player* +left+))
-	((equal cmd "d")
-	 (move *player* +right+))
-	((equal cmd "w")
-	 (move *player* +up+))
-	((equal cmd "s")
-	 (move *player* +down+))))
-
 (start)

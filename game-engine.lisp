@@ -46,14 +46,18 @@
   (princ (concatenate 'string "You interacted with a " (name obj)))
   (fresh-line))
 
+(defun find-actor-at (actor &key pos solid-only)
+  (unless pos
+    (setf pos (pos actor)))
+  (loop for a2 in *actors*
+	unless (equal a2 actor)
+	  when (equal pos (pos a2))
+	    return a2))
+
 (defmethod move ((obj actor) distance)
   (let* ((newpos (add-pos (pos obj) distance))
-	 (collider (loop for actor in *actors*
-		      unless (equal obj actor)
-			when (and (equal newpos (pos actor))
-				  (solid actor))
-			  return actor)))
-    (if collider
+	 (collider (find-actor-at obj :pos newpos)))
+    (if (and collider (solid collider))
 	(interact collider)
 	(when (gethash newpos *board*)
 	  (setf (pos obj) newpos)))))
@@ -91,7 +95,19 @@
 			    do (princ (get-char (cons x y))))
 		      (fresh-line))))))
 
-(defmethod input (text))
+(defmethod input (cmd)
+  (cond ((equal cmd "a")
+	 (move *player* +left+))
+	((equal cmd "d")
+	 (move *player* +right+))
+	((equal cmd "w")
+	 (move *player* +up+))
+	((equal cmd "s")
+	 (move *player* +down+))
+	((equal cmd "i")
+	 (let ((actor (find-actor-at *player*)))
+	   (when actor
+	     (interact actor))))))
 
 (defun game-loop ()
   (print-board)
