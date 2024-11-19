@@ -33,7 +33,16 @@
     :initarg :consumable
     :accessor consumable)))
 
-(defclass enemy (actor)
+(defclass combat-entity (actor)
+  ((def :initform 0 :accessor def :initarg :def)
+   (dmg :initform 6 :accessor dmg :initarg :dmg)
+   (str :initform 0 :accessor str :initarg :str)
+   (dex :initform 0 :accessor dex :initarg :dex)
+   (health :initform 6 :accessor health :initarg :health)))
+
+(defclass player (combat-entity) ())
+
+(defclass enemy (combat-entity)
   ((spd ;; speed of 1 is the same as the player
         ;; speed of 2 is half as fast as the player
     :initform 1.2
@@ -52,11 +61,29 @@
     (push new-actor *actors*)
     new-actor))
 
-(defun make-enemy (name display-char pos &key (spd 1.2))
+(defun make-player (name display-char pos)
+  (let ((new-player (make-instance 'player :name name
+				           :display-char display-char
+					   :pos pos)))
+    (push new-player *actors*)
+    new-player))
+
+(defun make-enemy (name display-char pos &key
+					   (spd 1.2)
+					   (health 6)
+					   (def 0)
+					   (str 0)
+					   (dex 0)
+					   (dmg 6))
   (let ((new-enemy (make-instance 'enemy :pos pos
 				         :display-char display-char
 					 :name name
-					 :spd spd)))
+					 :spd spd
+					 :def def
+					 :health health
+					 :str str
+					 :dex dex
+					 :dmg dmg)))
     (push new-enemy *actors*)
     (push new-enemy *dynamic-actors*)
     new-enemy))
@@ -68,7 +95,7 @@
   (setf *actors* (remove obj *actors* :test 'equal))
   (setf *dynamic-actors* (remove obj *dynamic-actors* :test 'equal)))
 
-(defparameter *player* (make-actor "player" #\@ '(4 . 4)))
+(defparameter *player* (make-player "player" #\@ '(4 . 4)))
 
 (defun square (number)
   (* number number))
@@ -83,11 +110,38 @@
   (sqrt (+ (square (- (car p2) (car p1)))
 	   (square (- (cdr p2) (cdr p1))))))
 
+(defun roll (d)
+  (1+ (random d)))
+
+(defun attack (a d)
+  (let ((accuracy (roll 20)))
+    (if (>= (+ accuracy (dex a)) (- 11 (def d)))
+	(let ((damage (- (+ (roll (dmg a)) (str a)) (def d)))
+	      (result "")
+	      (crit nil))
+	  (when (= accuracy 20)
+	    (setf crit t)
+	    (incf damage (roll (dmg a))))
+	  (decf (health d) (max 1 damage))
+	  (when (<= (health d) 0)
+	    (setf result ", killing it")
+	    (destroy d))
+	  (format t "~a~a hit a ~a for ~d damage~a~&"
+		  (if crit "CRITICAL! " "")
+		  (name a)
+		  (name d)
+		  damage
+		  result))
+	(format t "~a missed~&" (name a)))))
+
 (defmethod interact ((a actor) (b actor))
   (princ (concatenate 'string (name a) " interacted with a " (name b)))
   (if (consumable b)
       (destroy b))
   (fresh-line))
+
+(defmethod interact ((a combat-entity) (b combat-entity))
+  (attack a b))
 
 (defun find-actor-at (&key pos actor)
   (unless pos
@@ -106,7 +160,8 @@
 	(when (gethash newpos *board*)
 	  (setf (pos obj) newpos)))))
 
-(defun find-path (from to) ;; using breadth-first search
+;;; Use breadth-first search to find shortest path between the two input points
+(defun find-path (from to)
   (let ((came-from (make-hash-table :test 'equal)))
     (setf (gethash from came-from) t)
     (labels ((neighbors (pos)
@@ -159,7 +214,7 @@
     (labels ((on-board (pos) (gethash pos *board*))
 	     (foundp (pos) (eq (on-board pos) 'found))
 	     (get-char (pos)
-	       (if (on-board pos) ;; is the cell on the board?
+	       (if (on-board pos) ; is the cell on the board?
 		   ;; if so, check if it is in sight OR *sight-distance* is -1
 		   (if (or (<= (distance (pos *player*) pos) *sight-distance*)
 			   (= *sight-distance* -1))
@@ -169,16 +224,15 @@
 				(if c c #\.)))
 		       ;; otherwise, return an empty space
 		       #\space)
-		   ;; if the cell is not on the board,
-		   ;; check all adjacent cells and add walls
-		   ;; as necessary.
+		   ;; if the cell is not on the board, check all
+		   ;; adjacent cells and add walls as necessary.
 		   (cond ((or (foundp (add-pos pos +left+))
 			      (foundp (add-pos pos +right+)))
-			  #\|) ;; vertical wall
+			  #\|) ; vertical wall
 			 ((or (foundp (add-pos pos +up+))
 			      (foundp (add-pos pos +down+)))
-			  #\-) ;; horizontal wall
-			 (t #\space))))) ;; nothing
+			  #\-) ; horizontal wall
+			 (t #\space))))) ; nothing
       ;; print the board
       (loop for y from -1 to (+ (cdr *board-size*) 1)
 	    do (progn (loop for x from -1 to (+ (car *board-size*) 1)
