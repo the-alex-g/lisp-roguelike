@@ -1,6 +1,8 @@
 (defparameter *actors* '())
-(defparameter *board* '())
+(setf *actors* '()) ;; not sure why this is necessary
+(defparameter *board* (make-hash-table :test 'equal))
 (defparameter *board-size* '(15 . 9))
+(defparameter *sight-distance* 4)
 (defparameter +left+ '(-1 . 0))
 (defparameter +right+ '(1 . 0))
 (defparameter +up+ '(0 . -1))
@@ -40,25 +42,37 @@
 		  unless (equal obj actor)
 		    when (equal newpos (pos actor))
 		      return t)
-		(not (member newpos *board* :test 'equal)))
+		(not (gethash newpos *board*)))
       (setf (pos obj) newpos))))
 
-(defun print-board (board)
+(defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
     (loop for actor in *actors*
 	  do (setf (gethash (pos actor) actor-chars) (display-char actor)))
-    (labels ((on-board-p (pos) (member pos board :test 'equal))
+    (labels ((on-board (pos) (gethash pos *board*))
+	     (foundp (pos) (eq (on-board pos) 'found))
 	     (get-char (pos)
-	       (if (on-board-p pos)
-		   (let ((c (gethash pos actor-chars)))
-		     (if c c #\.))
-		   (cond ((or (on-board-p (add-pos pos +left+))
-			      (on-board-p (add-pos pos +right+)))
-			  #\|)
-			 ((or (on-board-p (add-pos pos +up+))
-			      (on-board-p (add-pos pos +down+)))
-			  #\-)
-			 (t #\space)))))
+	       (if (on-board pos) ;; is the cell on the board?
+		   ;; if so, check if it is in sight OR *sight-distance* is -1
+		   (if (or (<= (distance (pos *player*) pos) *sight-distance*)
+			   (= *sight-distance* -1))
+		       ;; if it is, populate it
+		       (progn (setf (gethash pos *board*) 'found)
+			      (let ((c (gethash pos actor-chars)))
+				(if c c #\.)))
+		       ;; otherwise, return an empty space
+		       #\space)
+		   ;; if the cell is not on the board,
+		   ;; check all adjacent cells and add walls
+		   ;; as necessary.
+		   (cond ((or (foundp (add-pos pos +left+))
+			      (foundp (add-pos pos +right+)))
+			  #\|) ;; vertical wall
+			 ((or (foundp (add-pos pos +up+))
+			      (foundp (add-pos pos +down+)))
+			  #\-) ;; horizontal wall
+			 (t #\space))))) ;; nothing
+      ;; print the board
       (loop for y from -1 to (+ (cdr *board-size*) 1)
 	    do (progn (loop for x from -1 to (+ (car *board-size*) 1)
 			    do (princ (get-char (cons x y))))
@@ -67,7 +81,7 @@
 (defmethod input (text))
 
 (defun game-loop ()
-  (print-board *board*)
+  (print-board)
   (let ((cmd (read-line)))
     (unless (equal cmd "quit")
       (input cmd)
