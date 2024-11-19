@@ -43,17 +43,20 @@
 	   (square (- (cdr p2) (cdr p1))))))
 
 (defmethod interact ((obj actor))
-  (princ (concatenate 'string "You interacted with a " (name actor))))
+  (princ (concatenate 'string "You interacted with a " (name obj)))
+  (fresh-line))
 
 (defmethod move ((obj actor) distance)
-  (let ((newpos (add-pos (pos obj) distance)))
-    (unless (or (not (gethash newpos *board*))
-		(loop for actor in *actors*
+  (let* ((newpos (add-pos (pos obj) distance))
+	 (collider (loop for actor in *actors*
 		      unless (equal obj actor)
 			when (and (equal newpos (pos actor))
 				  (solid actor))
-			  return t))
-      (setf (pos obj) newpos))))
+			  return actor)))
+    (if collider
+	(interact collider)
+	(when (gethash newpos *board*)
+	  (setf (pos obj) newpos)))))
 
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
