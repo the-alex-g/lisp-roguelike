@@ -1,7 +1,8 @@
 (load "./game-engine.lisp")
 
 (defenemy goblin #\g () :dmg 4 :health 4)
-(defenemy spawner #\G ((spawn-function #'make-goblin)) :dmg 1 :def 2 :spd 10)
+(defenemy spawner #\S (spawn-function) :dmg 1 :def 2 :spd 10)
+(defenemy goblin-spawner #\G nil :spawn-function #'make-goblin :inherit spawner)
 
 (defmethod update ((obj spawner))
   (funcall (spawn-function obj) (add-pos +up+ (pos obj))))
@@ -15,7 +16,7 @@
 (make-actor "foo" #\C '(6 . 5))
 
 (make-goblin '(0 . 0))
-(make-spawner '(10 . 4))
+(make-goblin-spawner '(10 . 4))
 
 (equip (make-equipment 'hand :dmg 6) *player*)
 

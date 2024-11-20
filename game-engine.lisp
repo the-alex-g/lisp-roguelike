@@ -9,6 +9,7 @@
 (defparameter +right+ '(1 . 0))
 (defparameter +up+ '(0 . -1))
 (defparameter +down+ '(0 . 1))
+(defparameter +zero+ '(0 . 0))
 (defparameter *actions* (make-hash-table :test 'equal))
 
 (defmacro defaction (key &body body)
@@ -89,27 +90,41 @@
   
 (defparameter *player* (make-player "player" #\@ '(4 . 4)))
 
-
 (defmacro defenemy (name display-char new-slots
-		   &key
-		     (spd 1.2) (health 6)
-		     (def 0) (str 0) (inherit '(enemy))
-		     (dex 0) (dmg 0))
+		    &rest keys
+		    &key (inherit 'enemy inheritp)
+		    &allow-other-keys)
+  (when inheritp
+    (setf keys (remove inherit (remove :inherit keys))))
   (labels ((build-slot (slt)
-	     (list `(,(car slt) :accessor ,(car slt)
-				:initform ,(cadr slt)
-				:initarg ,(intern (symbol-name (car slt))
-						  "KEYWORD"))))
-	   (constructor-name ()
-	     (read-from-string (concatenate 'string "make-"
-					    (symbol-name name)))))
-    `(progn (defclass ,name ,inherit ,(mapcan #'build-slot new-slots))
-	    (defun ,(constructor-name)
-		(pos)
+	     (list (if (listp slt)
+		       `(,(car slt) :accessor ,(car slt)
+				    :initform ,(cadr slt)
+				    :initarg ,(intern (symbol-name (car slt))
+						      "KEYWORD"))
+		       `(,slt :accessor ,slt
+			      :initform nil
+			      :initarg ,(intern (symbol-name slt) "KEYWORD")))))
+	   (reinit-slots (args slotlist slotname)
+	     (if (car args)
+		 (if slotname
+		     (reinit-slots (cdr args)
+				   (cons (list (read-from-string slotname)
+					       :initform
+					       (car args))
+					 slotlist)
+			  nil)
+		     (reinit-slots (cdr args)
+				   slotlist
+				   (symbol-name (car args))))
+		 slotlist))
+	 (constructor-name ()
+	   (read-from-string (concatenate 'string "make-"
+					  (symbol-name name)))))
+    `(progn (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
+					     ,@(reinit-slots keys nil nil)))
+	    (defun ,(constructor-name) (pos)
 	      (let ((new-enemy (make-instance (quote ,name)
-					      :spd ,spd :def ,def
-					      :str ,str :dex ,dex
-					      :dmg ,dmg :health ,health
 					      :pos pos
 					      :display-char ,display-char
 					      :name (quote ,name))))
@@ -164,7 +179,7 @@
 	   (square (- (cdr p2) (cdr p1))))))
 
 (defun roll (d)
-  (1+ (random d)))
+  (1+ (random (max 1 d))))
 
 (defun attack (a d)
   (let ((accuracy (roll 20)))
