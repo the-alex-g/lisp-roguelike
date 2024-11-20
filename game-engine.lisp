@@ -50,6 +50,7 @@
    (equips :initform (make-hash-table) :accessor equips)
    (health :initform 6 :initarg :health)))
 
+;; generate setters and getters for combat-entity stats
 (mapc (lambda (name)
 	(eval `(progn
 		 (defmethod ,name ((obj combat-entity))
@@ -58,7 +59,7 @@
 			    sum (slot-value eq (quote ,name)))))
 		 (defmethod (setf ,name) (new-val (obj combat-entity))
 		   (setf (slot-value obj (quote ,name)) new-val)))))	
-      '(def str health dmg dex))
+      '(def str health dmg dex)) ; this is the list of stats
 
 (defclass player (combat-entity) ())
 
@@ -90,13 +91,16 @@
   
 (defparameter *player* (make-player "player" #\@ '(4 . 4)))
 
+;; define new monster class and matching constructor function
 (defmacro defenemy (name display-char new-slots
 		    &rest keys
 		    &key (inherit 'enemy inheritp)
 		    &allow-other-keys)
+  ;; remove :inherit from key list to prevent odd behavior
   (when inheritp
     (setf keys (remove inherit (remove :inherit keys))))
-  (labels ((build-slot (slt)
+  ;; define helper functions
+  (labels ((build-slot (slt) ; creates slot information for new slots
 	     (list (if (listp slt)
 		       `(,(car slt) :accessor ,(car slt)
 				    :initform ,(cadr slt)
@@ -105,7 +109,7 @@
 		       `(,slt :accessor ,slt
 			      :initform nil
 			      :initarg ,(intern (symbol-name slt) "KEYWORD")))))
-	   (reinit-slots (args slotlist slotname)
+	   (reinit-slots (args slotlist slotname) ; updates slot information
 	     (if (car args)
 		 (if slotname
 		     (reinit-slots (cdr args)
@@ -113,42 +117,28 @@
 					       :initform
 					       (car args))
 					 slotlist)
-			  nil)
+				   nil)
 		     (reinit-slots (cdr args)
 				   slotlist
 				   (symbol-name (car args))))
 		 slotlist))
-	 (constructor-name ()
+	 (constructor-name () ; get the name of the constructor function
 	   (read-from-string (concatenate 'string "make-"
 					  (symbol-name name)))))
-    `(progn (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
-					     ,@(reinit-slots keys nil nil)))
-	    (defun ,(constructor-name) (pos)
-	      (let ((new-enemy (make-instance (quote ,name)
-					      :pos pos
-					      :display-char ,display-char
-					      :name (quote ,name))))
-		(push new-enemy *actors*)
-		(push new-enemy *dynamic-actors*)
-		new-enemy)))))
-
-(defun make-enemy (name display-char pos
-		   &key
-		     (spd 1.2) (health 6)
-		     (def 0) (str 0)
-		     (dex 0) (dmg 0))
-  (let ((new-enemy (apply 'make-instance 'enemy :pos pos
-				               :display-char display-char
-					       :name name
-					       :spd spd
-					       :def def
-					       :health health
-					       :str str
-					       :dex dex
-					       :dmg dmg)))
-    (push new-enemy *actors*)
-    (push new-enemy *dynamic-actors*)
-    new-enemy))
+    `(progn
+       ;; declare new monster class, including new keys and setting initform of
+       ;; old values
+       (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
+					,@(reinit-slots keys nil nil)))
+       ;; define constructor for new class
+       (defun ,(constructor-name) (pos)
+	 (let ((new-enemy (make-instance (quote ,name)
+					 :pos pos
+					 :display-char ,display-char
+					 :name (quote ,name))))
+	   (push new-enemy *actors*)
+	   (push new-enemy *dynamic-actors*)
+	   new-enemy)))))
 
 (defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
 				    (dex 0) (health 0))
@@ -178,12 +168,13 @@
   (sqrt (+ (square (- (car p2) (car p1)))
 	   (square (- (cdr p2) (cdr p1))))))
 
+;; generate a random number between 1 and d
 (defun roll (d)
   (1+ (random (max 1 d))))
 
 (defun attack (a d)
   (let ((accuracy (roll 20)))
-    (if (>= (+ accuracy (dex a)) (- 11 (def d)))
+    (if (>= (+ accuracy (dex a)) (+ (- 11 (def d)) (dex d)))
 	(let ((damage (- (+ (roll (dmg a)) (str a)) (def d)))
 	      (result "")
 	      (crit nil))
