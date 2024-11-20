@@ -89,22 +89,20 @@
   
 (defparameter *player* (make-player "player" #\@ '(4 . 4)))
 
-(defun make-enemy (name display-char pos &key
-					   (spd 1.2)
-					   (health 6)
-					   (def 0)
-					   (str 0)
-					   (dex 0)
-					   (dmg 0))
-  (let ((new-enemy (make-instance 'enemy :pos pos
-				         :display-char display-char
-					 :name name
-					 :spd spd
-					 :def def
-					 :health health
-					 :str str
-					 :dex dex
-					 :dmg dmg)))
+(defun make-enemy (name display-char pos
+		   &key
+		     (spd 1.2) (health 6)
+		     (def 0) (str 0)
+		     (dex 0) (dmg 0))
+  (let ((new-enemy (apply 'make-instance 'enemy :pos pos
+				               :display-char display-char
+					       :name name
+					       :spd spd
+					       :def def
+					       :health health
+					       :str str
+					       :dex dex
+					       :dmg dmg)))
     (push new-enemy *actors*)
     (push new-enemy *dynamic-actors*)
     new-enemy))
