@@ -300,11 +300,7 @@
   (sub-pos (car (find-path (pos from) (pos to))) (pos from)))
 
 (defmethod update ((obj enemy))
-  (when (or (<= (distance (pos obj) (pos *player*)) *sight-distance*)
-	    (= *sight-distance* -1))
-    (setf (enabled obj) t))
-  (when (enabled obj)
-    (move obj (step-towards *player* obj))))
+  (move obj (step-towards *player* obj)))
 
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
@@ -343,15 +339,28 @@
     (when action
       (funcall action))))
 
+;;; iterate through *dynamic-actors* and update them if applicable
+(defun update-all-actors ()
+  (mapc (lambda (actor)
+	  ;; enable the actor if it's in sight
+	  (when (or (<= (distance (pos actor) (pos *player*))
+			*sight-distance*)
+		    (= *sight-distance* -1))
+	    (setf (enabled actor) t))
+	  ;; update the actor if it's enabled and *player-actions* lines
+	  ;; up to speed
+	  (when (and (enabled actor)
+		     (< (mod *player-actions* (spd actor)) 1))
+	    (update actor)))
+	*dynamic-actors*))
+
 (defun game-loop ()
   (print-board)
   (let ((cmd (read-line)))
     (unless (equal cmd "quit")
+      ;; only update if input was a valid command
       (when (input cmd)
-	(mapc (lambda (actor)
-		(when (< (mod *player-actions* (spd actor)) 1)
-		  (update actor)))
-	      *dynamic-actors*))
+	(update-all-actors))
       (game-loop))))
 
 (defun start ()
