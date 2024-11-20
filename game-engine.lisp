@@ -1,7 +1,7 @@
 (defparameter *actors* '())
 (defparameter *dynamic-actors* '())
 (defparameter *player-actions* 0)
-(setf *actors* '()) ;; not sure why this is necessary
+(setf *actors* '()) ; not sure why this is necessary
 (defparameter *board* (make-hash-table :test 'equal))
 (defparameter *board-size* '(15 . 9))
 (defparameter *sight-distance* 3)
@@ -193,6 +193,8 @@
 		  result))
 	(format t "~a missed~&" (name a)))))
 
+(defgeneric interact (a b))
+
 (defmethod interact ((a actor) (b actor))
   (princ (concatenate 'string (name a) " interacted with a " (name b)))
   (if (consumable b)
@@ -204,6 +206,42 @@
 
 (defmethod interact ((a enemy) (b player))
   (attack a b))
+
+;; Return an item, chosen by the player, from the given list
+;; If the list items are not printable, pass a naming-function that gets a
+;; printable name from the list item.
+(defun get-item-from-list (lst &optional (naming-function (lambda (x) x)))
+  (labels ((print-list (l i)
+	     (when (car l)
+	       (format t "~d) ~a~%" i (funcall naming-function (car l)))
+	       (print-list (cdr l) (1+ i))))
+	   (pick-item ()
+	     (fresh-line)
+	     (princ "Choose an object: ")
+	     (let ((choice (read-from-string (read-line))))
+	       (if (and (numberp choice) (< choice (length lst)))
+		   (nth choice lst)
+		   (progn (princ "That was an invalid choice")
+			  (pick-item))))))
+    (print-list lst 0)
+    (pick-item)))
+
+;; returns a direction value pair chosen by the user.
+(defun get-direction ()
+  (fresh-line)
+  (princ "Pick a direction (w, a, s, d): ")
+  (let ((input (read-line)))
+    (cond ((equal input "a")
+	   +left+)
+	  ((equal input "d")
+	   +right+)
+	  ((equal input "w")
+	   +up+)
+	  ((equal input "s")
+	   +down+)
+	  (t
+	   (princ "That was not a direction")
+	   (get-direction)))))
 
 (defun find-actor-at (&key pos actor)
   (unless pos
