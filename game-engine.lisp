@@ -14,6 +14,14 @@
 (defmacro defaction (key &body body)
   `(setf (gethash ,key *actions*) (lambda () ,@body (incf *player-actions*) t)))
 
+(defclass equipment ()
+  ((def :initform 0 :accessor def :initarg :def)
+   (dmg :initform 0 :accessor dmg :initarg :dmg)
+   (str :initform 0 :accessor str :initarg :str)
+   (dex :initform 0 :accessor dex :initarg :dex)
+   (health :initform 0 :accessor health :initarg :health)
+   (equip-slot :initform 'any :accessor equip-slot :initarg :equip-slot)))
+
 (defclass actor ()
   ((pos
     :initarg :pos
@@ -34,11 +42,22 @@
     :accessor consumable)))
 
 (defclass combat-entity (actor)
-  ((def :initform 0 :accessor def :initarg :def)
-   (dmg :initform 6 :accessor dmg :initarg :dmg)
-   (str :initform 0 :accessor str :initarg :str)
-   (dex :initform 0 :accessor dex :initarg :dex)
-   (health :initform 6 :accessor health :initarg :health)))
+  ((def :initform 0 :initarg :def)
+   (dmg :initform 0 :initarg :dmg)
+   (str :initform 0 :initarg :str)
+   (dex :initform 0 :initarg :dex)
+   (equips :initform (make-hash-table) :accessor equips)
+   (health :initform 6 :initarg :health)))
+
+(mapc (lambda (name)
+	(eval `(progn
+		 (defmethod ,name ((obj combat-entity))
+		   (+ (slot-value obj (quote ,name)) 
+		      (loop for eq being the hash-values of (equips obj)
+			    sum (slot-value eq (quote ,name)))))
+		 (defmethod (setf ,name) (new-val (obj combat-entity))
+		   (setf (slot-value obj (quote ,name)) new-val)))))	
+      '(def str health dmg dex))
 
 (defclass player (combat-entity) ())
 
@@ -67,6 +86,8 @@
 					   :pos pos)))
     (push new-player *actors*)
     new-player))
+  
+(defparameter *player* (make-player "player" #\@ '(4 . 4)))
 
 (defun make-enemy (name display-char pos &key
 					   (spd 1.2)
@@ -74,7 +95,7 @@
 					   (def 0)
 					   (str 0)
 					   (dex 0)
-					   (dmg 6))
+					   (dmg 0))
   (let ((new-enemy (make-instance 'enemy :pos pos
 				         :display-char display-char
 					 :name name
@@ -88,6 +109,11 @@
     (push new-enemy *dynamic-actors*)
     new-enemy))
 
+(defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
+				    (dex 0) (health 0))
+  (make-instance 'equipment :def def :str str :dmg dmg
+			    :dex dex :health health :equip-slot equip-slot))
+
 (defmethod destroy ((obj actor))
   (setf *actors* (remove obj *actors* :test 'equal)))
 
@@ -95,7 +121,8 @@
   (setf *actors* (remove obj *actors* :test 'equal))
   (setf *dynamic-actors* (remove obj *dynamic-actors* :test 'equal)))
 
-(defparameter *player* (make-player "player" #\@ '(4 . 4)))
+(defmethod equip ((item equipment) (obj combat-entity))
+  (setf (gethash (equip-slot item) (equips obj)) item))
 
 (defun square (number)
   (* number number))

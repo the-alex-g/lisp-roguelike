@@ -9,4 +9,6 @@
 (make-actor "foo" #\C '(6 . 5))
 (make-enemy "goblin" #\g '(0 . 0) :health 4 :dmg 4)
 
+(equip (make-equipment 'hand :dmg 6) *player*)
+
 (start)
