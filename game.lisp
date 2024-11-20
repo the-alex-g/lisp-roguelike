@@ -1,5 +1,11 @@
 (load "./game-engine.lisp")
 
+(defenemy goblin #\g () :dmg 4 :health 4)
+(defenemy spawner #\G ((spawn-function #'make-goblin)) :dmg 1 :def 2 :spd 10)
+
+(defmethod update ((obj spawner))
+  (funcall (spawn-function obj) (add-pos +up+ (pos obj))))
+
 ;; generate a sample board
 (loop for x below (car *board-size*)
       do (loop for y below (cdr *board-size*)
@@ -7,7 +13,9 @@
 		 do (setf (gethash (cons x y) *board*) 'hidden)))
 
 (make-actor "foo" #\C '(6 . 5))
-(make-enemy "goblin" #\g '(0 . 0) :health 4 :dmg 4)
+
+(make-goblin '(0 . 0))
+(make-spawner '(10 . 4))
 
 (equip (make-equipment 'hand :dmg 6) *player*)
 

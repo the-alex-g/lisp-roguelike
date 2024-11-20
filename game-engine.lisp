@@ -89,6 +89,34 @@
   
 (defparameter *player* (make-player "player" #\@ '(4 . 4)))
 
+
+(defmacro defenemy (name display-char new-slots
+		   &key
+		     (spd 1.2) (health 6)
+		     (def 0) (str 0) (inherit '(enemy))
+		     (dex 0) (dmg 0))
+  (labels ((build-slot (slt)
+	     (list `(,(car slt) :accessor ,(car slt)
+				:initform ,(cadr slt)
+				:initarg ,(intern (symbol-name (car slt))
+						  "KEYWORD"))))
+	   (constructor-name ()
+	     (read-from-string (concatenate 'string "make-"
+					    (symbol-name name)))))
+    `(progn (defclass ,name ,inherit ,(mapcan #'build-slot new-slots))
+	    (defun ,(constructor-name)
+		(pos)
+	      (let ((new-enemy (make-instance (quote ,name)
+					      :spd ,spd :def ,def
+					      :str ,str :dex ,dex
+					      :dmg ,dmg :health ,health
+					      :pos pos
+					      :display-char ,display-char
+					      :name (quote ,name))))
+		(push new-enemy *actors*)
+		(push new-enemy *dynamic-actors*)
+		new-enemy)))))
+
 (defun make-enemy (name display-char pos
 		   &key
 		     (spd 1.2) (health 6)
@@ -225,12 +253,11 @@
   (sub-pos (car (find-path (pos from) (pos to))) (pos from)))
 
 (defmethod update ((obj enemy))
-  (when (< (mod *player-actions* (spd obj)) 1)
-    (when (or (<= (distance (pos obj) (pos *player*)) *sight-distance*)
-	      (= *sight-distance* -1))
-      (setf (enabled obj) t))
-    (when (enabled obj)
-      (move obj (step-towards *player* obj)))))
+  (when (or (<= (distance (pos obj) (pos *player*)) *sight-distance*)
+	    (= *sight-distance* -1))
+    (setf (enabled obj) t))
+  (when (enabled obj)
+    (move obj (step-towards *player* obj))))
 
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
@@ -274,7 +301,10 @@
   (let ((cmd (read-line)))
     (unless (equal cmd "quit")
       (when (input cmd)
-	(mapc 'update *dynamic-actors*))
+	(mapc (lambda (actor)
+		(when (< (mod *player-actions* (spd actor)) 1)
+		  (update actor)))
+	      *dynamic-actors*))
       (game-loop))))
 
 (defun start ()
