@@ -199,7 +199,10 @@
       (destroy b))
   (fresh-line))
 
-(defmethod interact ((a combat-entity) (b combat-entity))
+(defmethod interact ((a player) (b enemy))
+  (attack a b))
+
+(defmethod interact ((a enemy) (b player))
   (attack a b))
 
 (defun find-actor-at (&key pos actor)

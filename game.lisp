@@ -7,7 +7,7 @@
 
 ;; custom update function for spawner class
 (defmethod update ((obj spawner))
-  (funcall (spawn-function obj) (add-pos +up+ (pos obj))))
+  (setf (enabled (funcall (spawn-function obj) (add-pos +up+ (pos obj)))) t))
 
 ;; generate a sample board
 (loop for x below (car *board-size*)
