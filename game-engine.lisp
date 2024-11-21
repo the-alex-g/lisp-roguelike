@@ -24,6 +24,7 @@
    (dex :initform 0 :accessor dex :initarg :dex)
    (health :initform 0 :accessor health :initarg :health)
    (name :initform "" :accessor name :initarg :name)
+   (consumable :initform nil :accessor consumable :initarg :consumable)
    (equip-slot :initform 'any :accessor equip-slot :initarg :equip-slot)))
 
 (defclass actor ()
@@ -129,6 +130,7 @@
 				   slotlist
 				   (symbol-name (car args))))
 		 slotlist)))
+
   ;; define new monster class and matching constructor function
   (defmacro defenemy (name display-char new-slots
 		      &rest keys
@@ -151,6 +153,8 @@
 	   (push new-enemy *actors*)
 	   (push new-enemy *dynamic-actors*)
 	   new-enemy))))
+  
+  ;; define class and constructor function for equipment
   (defmacro defequipment (name new-slots
 			  &rest keys
 			  &key (inherit 'equipment inheritp)
@@ -184,7 +188,9 @@
   (:method ((obj enemy))
     (setf *dynamic-actors* (remove obj *dynamic-actors* :test 'equal))
     (when (next-method-p)
-      (call-next-method))))
+      (call-next-method)))
+  (:method ((obj equipment))
+    (setf *inventory* (remove obj *inventory*))))
 
 (defgeneric equip (item obj)
   (:method ((item equipment) (obj combat-entity))
@@ -198,6 +204,9 @@
 	  (call-next-method)))))
 
 (defgeneric use (item target)
+  (:method :after ((item equipment) target)
+    (when (consumable item)
+      (destroy item)))
   (:method (item target)
     (format t "That cannot be used")))
 
@@ -317,9 +326,10 @@
 	  when (equal pos (pos a2))
 	    return a2))
 
+;; use flood-fill algorithm to determine where the player can see
 (defun update-los ()
   (let ((reached (list (pos *player*))))
-    (labels ((manhattan (a b)
+    (labels ((manhattan (a b) ; returns manhattan distance between a and b
 	       (abs (+ (- (car b) (car a)) (- (cdr b) (cdr a)))))
 	     (neighbors (pos)
 	       (loop for direction in (list +left+ +right+ +up+ +down+)

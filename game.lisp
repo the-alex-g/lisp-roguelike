@@ -5,7 +5,15 @@
 (defenemy spawner #\S (spawn-function) :dmg 1 :def 2 :spd 10)
 (defenemy goblin-spawner #\G nil :spawn-function #'make-goblin :inherit spawner)
 
-;; custom update function for spawner class
+;; define equipment types
+(defequipment food () :equip-slot 'none :health 2 :consumable t)
+
+;;; custom use function for food
+(defmethod use ((item food) (target actor))
+  (format t "You ate ~a and regained ~d health~%" (name item) (health item))
+  (incf (health target) (health item)))
+
+;;; custom update function for spawner class
 (defmethod update ((obj spawner))
   (setf (enabled (funcall (spawn-function obj) (add-pos +up+ (pos obj)))) t))
 
@@ -16,14 +24,17 @@
 		 do (setf (gethash (cons x y) *board*) 'hidden)))
 
 ;; add actors to board
-(make-actor "foo" #\C '(6 . 5))
 (make-goblin '(0 . 0))
 (make-goblin-spawner '(10 . 4))
 
 ;; give player a weapon
 (equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
 
+;; put some stuff in the inventory
 (push (make-equipment 'hand :dmg 8 :name "big sword") *inventory*)
+(push (make-food) *inventory*)
+
+;; define actions
 (defaction "a" (move *player* +left+))
 (defaction "d" (move *player* +right+))
 (defaction "w" (move *player* +up+))
