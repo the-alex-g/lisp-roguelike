@@ -44,6 +44,15 @@
     :initarg :consumable
     :accessor consumable)))
 
+(defclass pickup (actor)
+  ((consumable :initform t)
+   (display-char :initform #\*)
+   (solid :initform nil)
+   (equipment :initarg :equipment :accessor equipment)))
+
+(defmethod name ((obj pickup))
+  (name (equipment obj)))
+
 (defclass combat-entity (actor)
   ((def :initform 0 :initarg :def)
    (dmg :initform 0 :initarg :dmg)
@@ -142,6 +151,11 @@
 	   (push new-enemy *dynamic-actors*)
 	   new-enemy)))))
 
+(defun make-pickup (equipment pos)
+  (let ((pickup (make-instance 'pickup :equipment equipment :pos pos)))
+    (push pickup *actors*)
+    pickup))
+
 (defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
 				    (dex 0) (health 0) (name ""))
   (make-instance 'equipment :def def :str str :dmg dmg :name name
@@ -218,6 +232,9 @@
 	(destroy b)))
   (:method ((a player) (b enemy))
     (attack a b))
+  (:method ((a player) (b pickup))
+    (format t "You have picked up a ~a~%" (name b))
+    (push (equipment b) *inventory*))
   (:method ((a enemy) (b player))
     (attack a b)))
 
@@ -394,28 +411,3 @@
 
 (defun start ()
   (game-loop))
-
-(defaction "a" (move *player* +left+))
-(defaction "d" (move *player* +right+))
-(defaction "w" (move *player* +up+))
-(defaction "s" (move *player* +down+))
-(defaction "i" (let ((actor (find-actor-at :actor *player*)))
-		 (when actor
-		   (interact *player* actor))))
-(defaction "e"
-  (if (> (length *inventory*) 0)
-      (let* ((new-item (get-item-from-list *inventory* :naming-function #'name))
-	     (old-item (when new-item
-			 (equip new-item *player*))))
-	(when new-item
-	  (setf *inventory* (remove new-item *inventory* :test #'equal))
-	  (when old-item
-	    (push old-item *inventory*))))
-      (format t "You have nothing to equip!")))
-(defaction "u"
-  (if (> (length *inventory*) 0)
-      (let ((item (get-item-from-list *inventory* :naming-function #'name)))
-	(when item
-	  (use item *player*)))
-      (format t "You have nothing to use!")))
-(defaction "v" (print-inventory))
