@@ -221,7 +221,7 @@
 		  (if crit "CRITICAL! " "")
 		  (name a)
 		  (name d)
-		  damage
+		  (max 1 damage)
 		  result))
 	(format t "~a missed~&" (name a)))))
 
