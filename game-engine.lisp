@@ -25,6 +25,17 @@
 		     'string))))
     (apply #'format t control-string (mapcar #'convert-to-string args))))
 
+(defun pretty-print-to-string (control-string &rest args)
+  (labels ((convert-to-string (item)
+	     (if (stringp item)
+		 item
+		 (coerce (loop for c in (coerce (prin1-to-string item) 'list)
+			       collect (if (eql c #\-)
+					   #\space
+					   (char-downcase c)))
+		     'string))))
+    (apply #'format nil control-string (mapcar #'convert-to-string args))))
+
 (defmacro defaction (key &body body)
   `(setf (gethash ,key *actions*) (lambda () ,@body (incf *player-actions*) t)))
 
@@ -214,6 +225,28 @@
 	       'failed)
 	(when (next-method-p)
 	  (call-next-method)))))
+
+(defgeneric display (obj &key as-lines fields)
+  (:method (obj &key as-lines fields)
+    (declare (ignore fields))
+    (if as-lines
+	(list (pretty-print-to-string "~a" obj))
+	(pretty-print "~a~%" obj)))
+  (:method ((obj actor) &key as-lines (fields '(name)))
+    (let ((lines (mapcar (lambda (field)
+			   (pretty-print-to-string
+			    "~a: ~a" field
+			    (funcall field obj)))
+			 fields)))
+      (if as-lines
+	  lines
+	  (format t "~{~a~%~}" lines))))
+  (:method :around ((obj combat-entity) &key as-lines
+					  (fields '(name str dex
+						    def dmg health)))
+    (when (next-method-p)
+      (call-next-method obj :as-lines as-lines
+		            :fields fields))))
 
 (defgeneric use (item target)
   (:method :after ((item equipment) target)
