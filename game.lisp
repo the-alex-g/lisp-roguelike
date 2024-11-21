@@ -1,8 +1,10 @@
 (load "./game-engine.lisp")
 
 ;; define monster types
-(defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1)
-(defenemy spawner #\S (spawn-function) :dmg 1 :def 2 :spd 10 :dex -4)
+(defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1
+  :description "a small, green-skinned humanoid with a sharp dagger")
+(defenemy spawner #\S (spawn-function) :dmg 1 :def 2 :spd 10 :dex -4
+  :description "a filthy nest")
 (defenemy goblin-spawner #\G nil :spawn-function #'make-goblin :inherit spawner)
 
 ;; define equipment types
@@ -62,6 +64,10 @@
 	  (use item *player*)))
       (format t "You have nothing to use!~%")))
 (defaction "v" (print-inventory))
+(defaction "l"
+  (display (find-actor-at :pos (add-pos (pos *player*) (get-direction)))
+	   :fields '(description)
+	   :headers nil))
 
 ;; start game
 (start)

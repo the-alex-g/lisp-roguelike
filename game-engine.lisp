@@ -59,6 +59,10 @@
    (name
     :initarg :name
     :accessor name)
+   (description
+    :initform ""
+    :initarg :description
+    :accessor description)
    (solid
     :initform t
     :initarg :solid
@@ -226,26 +230,31 @@
 	(when (next-method-p)
 	  (call-next-method)))))
 
-(defgeneric display (obj &key as-lines fields)
-  (:method (obj &key as-lines fields)
-    (declare (ignore fields))
+(defgeneric display (obj &key as-lines fields headers)
+  (:method (obj &key as-lines fields headers)
+    (declare (ignore fields headers))
     (if as-lines
 	(list (pretty-print-to-string "~a" obj))
 	(pretty-print "~a~%" obj)))
-  (:method ((obj actor) &key as-lines (fields '(name)))
+  (:method ((obj actor) &key as-lines (fields '(name description)) (headers t))
     (let ((lines (mapcar (lambda (field)
-			   (pretty-print-to-string
-			    "~a: ~a" field
-			    (funcall field obj)))
+			   (if headers
+			       (pretty-print-to-string
+				"~a: ~a" field
+				(funcall field obj))
+			       (pretty-print-to-string
+				"~a" (funcall field obj))))
 			 fields)))
       (if as-lines
 	  lines
 	  (format t "~{~a~%~}" lines))))
   (:method :around ((obj combat-entity) &key as-lines
-					  (fields '(name str dex
-						    def dmg health)))
+					  (headers t)
+					  (fields '(name health str dex
+						    def dmg description)))
     (when (next-method-p)
       (call-next-method obj :as-lines as-lines
+			    :headers headers
 		            :fields fields))))
 
 (defgeneric use (item target)
