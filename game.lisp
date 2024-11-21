@@ -1,8 +1,8 @@
 (load "./game-engine.lisp")
 
 ;; define monster types
-(defenemy goblin #\g () :dmg 4 :health 4)
-(defenemy spawner #\S (spawn-function) :dmg 1 :def 2 :spd 10)
+(defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1)
+(defenemy spawner #\S (spawn-function) :dmg 1 :def 2 :spd 10 :dex -4)
 (defenemy goblin-spawner #\G nil :spawn-function #'make-goblin :inherit spawner)
 
 ;; define equipment types
@@ -10,7 +10,7 @@
 
 ;;; custom use function for food
 (defmethod use ((item food) (target actor))
-  (format t "You ate ~a and regained ~d health~%" (name item) (health item))
+  (pretty-print "You ate ~a and regained ~d health~%" (name item) (health item))
   (incf (health target) (health item)))
 
 ;;; custom update function for spawner class
@@ -31,7 +31,7 @@
 (equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
 
 ;; put some stuff in the inventory
-(push (make-equipment 'hand :dmg 8 :name "big sword") *inventory*)
+(push (make-equipment 'hand :dmg 8 :name 'big-sword) *inventory*)
 (push (make-food) *inventory*)
 
 ;; define actions
@@ -47,20 +47,20 @@
       (let* ((new-item (get-item-from-list *inventory* :naming-function #'name))
 	     (old-item (when new-item
 			 (equip new-item *player*))))
-	(when new-item
-	  (format t "You have equipped ~a" (name new-item))
+	(when (and new-item (not (eq old-item 'failed)))
+	  (pretty-print "You have equipped ~a" (name new-item))
 	  (setf *inventory* (remove new-item *inventory* :test #'equal))
 	  (when old-item
-	    (format t " instead of ~a" (name old-item))
+	    (pretty-print " instead of ~a" (name old-item))
 	    (push old-item *inventory*))))
-      (format t "You have nothing to equip!"))
+      (format t "You have nothing to equip!~%"))
   (fresh-line))
 (defaction "u"
   (if (> (length *inventory*) 0)
       (let ((item (get-item-from-list *inventory* :naming-function #'name)))
 	(when item
 	  (use item *player*)))
-      (format t "You have nothing to use!")))
+      (format t "You have nothing to use!~%")))
 (defaction "v" (print-inventory))
 
 ;; start game

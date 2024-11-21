@@ -14,6 +14,17 @@
 (defparameter *inventory* '())
 (defparameter *light-zone* '())
 
+(defun pretty-print (control-string &rest args)
+  (labels ((convert-to-string (item)
+	     (if (stringp item)
+		 item
+		 (coerce (loop for c in (coerce (prin1-to-string item) 'list)
+			       collect (if (eql c #\-)
+					   #\space
+					   (char-downcase c)))
+		     'string))))
+    (apply #'format t control-string (mapcar #'convert-to-string args))))
+
 (defmacro defaction (key &body body)
   `(setf (gethash ,key *actions*) (lambda () ,@body (incf *player-actions*) t)))
 
@@ -182,7 +193,7 @@
 
 (defgeneric destroy (obj)
   (:method (obj)
-    (format t "~a destroyed~&" obj))
+    (pretty-print "~a destroyed~&" obj))
   (:method ((obj actor))
     (setf *actors* (remove obj *actors* :test 'equal)))
   (:method ((obj enemy))
@@ -199,7 +210,8 @@
       old-item))
   (:method :around ((item equipment) (obj combat-entity))
     (if (eq (equip-slot item) 'none)
-	(format t "That cannot be equipped")
+	(progn (format t "That cannot be equipped~%")
+	       'failed)
 	(when (next-method-p)
 	  (call-next-method)))))
 
@@ -208,7 +220,7 @@
     (when (consumable item)
       (destroy item)))
   (:method (item target)
-    (format t "That cannot be used")))
+    (format t "That cannot be used~%")))
 
 (defun square (number)
   (* number number))
@@ -240,24 +252,24 @@
 	  (when (<= (health d) 0)
 	    (setf result ", killing it")
 	    (destroy d))
-	  (format t "~a~a hit a ~a for ~d damage~a~&"
-		  (if crit "CRITICAL! " "")
-		  (name a)
-		  (name d)
-		  (max 1 damage)
-		  result))
-	(format t "~a missed~&" (name a)))))
+	  (pretty-print "~a~a hit a ~a for ~d damage~a~&"
+			(if crit "CRITICAL! " "")
+			(name a)
+			(name d)
+			(max 1 damage)
+			result))
+	(pretty-print "~a missed~&" (name a)))))
 
 (defgeneric interact (a b)
   (:method (a b)
-    (format t "~a interacted with a ~a~&" a b))
+    (pretty-print "~a interacted with a ~a~&" a b))
   (:method :after (a (b actor))
     (if (consumable b)
 	(destroy b)))
   (:method ((a player) (b enemy))
     (attack a b))
   (:method ((a player) (b pickup))
-    (format t "You have picked up a ~a~%" (name b))
+    (pretty-print "You have picked up a ~a~%" (name b))
     (push (equipment b) *inventory*))
   (:method ((a enemy) (b player))
     (attack a b)))
@@ -270,7 +282,7 @@
 				 (exit-option t))
   (labels ((print-list (l i)
 	     (when (car l)
-	       (format t "~d) ~a~%" i (funcall naming-function (car l)))
+	       (pretty-print "~d) ~a~%" i (funcall naming-function (car l)))
 	       (print-list (cdr l) (1+ i))))
 	   (pick-item ()
 	     (fresh-line)
@@ -329,9 +341,7 @@
 ;; use flood-fill algorithm to determine where the player can see
 (defun update-los ()
   (let ((reached (list (pos *player*))))
-    (labels ((manhattan (a b) ; returns manhattan distance between a and b
-	       (abs (+ (- (car b) (car a)) (- (cdr b) (cdr a)))))
-	     (neighbors (pos)
+    (labels ((neighbors (pos)
 	       (loop for direction in (list +left+ +right+ +up+ +down+)
 		     collect (let ((newpos (add-pos pos direction)))
 			       (if (gethash newpos *board*)
@@ -340,7 +350,7 @@
 	     (iterate (frontier)
 	       (let ((current (car frontier)))
 		 (when (and current
-			    (< (manhattan (pos *player*) current)
+			    (< (distance (pos *player*) current)
 				*sight-distance*))
 		   (loop for neighbor in (neighbors current)
 			 when neighbor
@@ -440,8 +450,7 @@
 
 (defun print-inventory ()
   (mapc (lambda (item)
-	  (princ (name item))
-	  (fresh-line))
+	  (pretty-print "~a~%" (name item)))
 	*inventory*))
 
 (defun input (cmd)
