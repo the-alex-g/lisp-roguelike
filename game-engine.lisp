@@ -168,6 +168,10 @@
 	(when (next-method-p)
 	  (call-next-method)))))
 
+(defgeneric use (item target)
+  (:method (item target)
+    (format t "That cannot be used")))
+
 (defun square (number)
   (* number number))
 
@@ -353,6 +357,12 @@
 			    do (princ (get-char (cons x y))))
 		      (fresh-line))))))
 
+(defun print-inventory ()
+  (mapc (lambda (item)
+	  (princ (name item))
+	  (fresh-line))
+	*inventory*))
+
 (defun input (cmd)
   (let ((action (gethash cmd *actions*)))
     (when action
@@ -402,3 +412,10 @@
 	  (when old-item
 	    (push old-item *inventory*))))
       (format t "You have nothing to equip!")))
+(defaction "u"
+  (if (> (length *inventory*) 0)
+      (let ((item (get-item-from-list *inventory* :naming-function #'name)))
+	(when item
+	  (use item *player*)))
+      (format t "You have nothing to use!")))
+(defaction "v" (print-inventory))
