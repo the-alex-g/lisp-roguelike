@@ -12,6 +12,7 @@
 (defparameter +zero+ '(0 . 0))
 (defparameter *actions* (make-hash-table :test 'equal))
 (defparameter *inventory* '())
+(defparameter *light-zone* '())
 
 (defmacro defaction (key &body body)
   `(setf (gethash ,key *actions*) (lambda () ,@body (incf *player-actions*) t)))
@@ -266,6 +267,16 @@
       (format t "~d) cancel~%" (length lst)))
     (pick-item)))
 
+(defgeneric visiblep (obj)
+  (:method :around (obj)
+    (if (= *sight-distance* -1)
+	t
+	(call-next-method)))
+  (:method ((obj list))
+    (member obj *light-zone* :test 'equal))
+  (:method ((obj actor))
+    (visiblep (pos obj))))
+
 ;; returns a direction value pair chosen by the user.
 (defun get-direction ()
   (fresh-line)
@@ -292,13 +303,43 @@
 	  when (equal pos (pos a2))
 	    return a2))
 
-(defmethod move ((obj actor) distance)
-  (let* ((newpos (add-pos (pos obj) distance))
-	 (collider (find-actor-at :actor obj :pos newpos)))
-    (if (and collider (solid collider))
-	(interact obj collider)
-	(when (gethash newpos *board*)
-	  (setf (pos obj) newpos)))))
+(defun update-los ()
+  (let ((reached (list (pos *player*))))
+    (labels ((manhattan (a b)
+	       (abs (+ (- (car b) (car a)) (- (cdr b) (cdr a)))))
+	     (neighbors (pos)
+	       (loop for direction in (list +left+ +right+ +up+ +down+)
+		     collect (let ((newpos (add-pos pos direction)))
+			       (if (gethash newpos *board*)
+				   newpos
+				   nil))))
+	     (iterate (frontier)
+	       (let ((current (car frontier)))
+		 (when (and current
+			    (< (manhattan (pos *player*) current)
+				*sight-distance*))
+		   (loop for neighbor in (neighbors current)
+			 when neighbor
+			   do (unless (member neighbor reached :test 'equal)
+				(push neighbor reached)
+				(setf frontier
+				      (append frontier
+					      (list neighbor)))))
+		   (iterate (cdr frontier))))))
+      (iterate (list (pos *player*))))
+    (setf *light-zone* reached)))
+
+(defgeneric move (obj distance)
+  (:method ((obj actor) (distance list))
+    (let* ((newpos (add-pos (pos obj) distance))
+	   (collider (find-actor-at :actor obj :pos newpos)))
+      (if (and collider (solid collider))
+	  (interact obj collider)
+	  (when (gethash newpos *board*)
+	    (setf (pos obj) newpos)))))
+  (:method ((obj player) (distance list))
+    (call-next-method)
+    (update-los)))
 
 ;;; Use breadth-first search to find shortest path between the two input points
 (defun find-path (from to)
@@ -351,8 +392,7 @@
 	     (get-char (pos)
 	       (if (on-board pos) ; is the cell on the board?
 		   ;; if so, check if it is in sight OR *sight-distance* is -1
-		   (if (or (<= (distance (pos *player*) pos) *sight-distance*)
-			   (= *sight-distance* -1))
+		   (if (visiblep pos)
 		       ;; if it is, populate it
 		       (progn (setf (gethash pos *board*) 'found)
 			      (let ((c (gethash pos actor-chars)))
@@ -389,9 +429,7 @@
 (defun update-all-actors ()
   (mapc (lambda (actor)
 	  ;; enable the actor if it's in sight
-	  (when (or (<= (distance (pos actor) (pos *player*))
-			*sight-distance*)
-		    (= *sight-distance* -1))
+	  (when (visiblep actor)
 	    (setf (enabled actor) t))
 	  ;; update the actor if it's enabled and *player-actions* lines
 	  ;; up to speed
@@ -410,4 +448,5 @@
       (game-loop))))
 
 (defun start ()
+  (update-los)
   (game-loop))
