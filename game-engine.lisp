@@ -103,16 +103,11 @@
   
 (defparameter *player* (make-player "player" #\@ '(4 . 4)))
 
-;; define new monster class and matching constructor function
-(defmacro defenemy (name display-char new-slots
-		    &rest keys
-		    &key (inherit 'enemy inheritp)
-		    &allow-other-keys)
-  ;; remove :inherit from key list to prevent odd behavior
-  (when inheritp
-    (setf keys (remove inherit (remove :inherit keys))))
-  ;; define helper functions
-  (labels ((build-slot (slt) ; creates slot information for new slots
+;; initialize helper functions for macros
+(labels ((constructor (name)
+	   (read-from-string (concatenate 'string "make-"
+					  (symbol-name name))))
+	 (build-slot (slt) ; creates slot information for new slots
 	     (list (if (listp slt)
 		       `(,(car slt) :accessor ,(car slt)
 				    :initform ,(cadr slt)
@@ -133,24 +128,43 @@
 		     (reinit-slots (cdr args)
 				   slotlist
 				   (symbol-name (car args))))
-		 slotlist))
-	 (constructor-name () ; get the name of the constructor function
-	   (read-from-string (concatenate 'string "make-"
-					  (symbol-name name)))))
+		 slotlist)))
+  ;; define new monster class and matching constructor function
+  (defmacro defenemy (name display-char new-slots
+		      &rest keys
+		      &key (inherit 'enemy inheritp)
+		      &allow-other-keys)
+    ;; remove :inherit from key list to prevent odd behavior
+    (when inheritp
+      (setf keys (remove inherit (remove :inherit keys))))
     `(progn
        ;; declare new monster class, including new keys and setting initform of
        ;; old values
        (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
 					,@(reinit-slots keys nil nil)))
        ;; define constructor for new class
-       (defun ,(constructor-name) (pos)
+       (defun ,(constructor name) (pos)
 	 (let ((new-enemy (make-instance (quote ,name)
 					 :pos pos
 					 :display-char ,display-char
 					 :name (quote ,name))))
 	   (push new-enemy *actors*)
 	   (push new-enemy *dynamic-actors*)
-	   new-enemy)))))
+	   new-enemy))))
+  (defmacro defequipment (name new-slots
+			  &rest keys
+			  &key (inherit 'equipment inheritp)
+			  &allow-other-keys)
+    (when inheritp
+      (setf keys (remove inherit (remove :inherit keys))))
+    `(progn
+       ;; define equipment class
+       (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
+					,@(reinit-slots keys nil nil)
+					(name :initform (quote ,name))))
+       ;; make instance of new class
+       (defun ,(constructor name) (&rest keys &key &allow-other-keys)
+	 (apply #'make-instance (quote ,name) keys)))))
 
 (defun make-pickup (equipment pos)
   (let ((pickup (make-instance 'pickup :equipment equipment :pos pos)))
