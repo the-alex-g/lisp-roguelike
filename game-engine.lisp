@@ -476,10 +476,15 @@
 			  #\-) ; horizontal wall
 			 (t #\space))))) ; nothing
       ;; print the board
-      (loop for y from -1 to (+ (cdr *board-size*) 1)
-	    do (progn (loop for x from -1 to (+ (car *board-size*) 1)
-			    do (princ (get-char (cons x y))))
-		      (fresh-line))))))
+      (let ((player-info (display *player* :as-lines t
+					   :fields '(health str dex def dmg))))
+	(loop for y from -1 to (+ (cdr *board-size*) 1)
+	      do (format t "~{~c~} ~a~%"
+			 (loop for x from -1 to (+ (car *board-size*) 1)
+			       collect (get-char (cons x y)))
+			 (if (and (>= y 0) (< y (length player-info)))
+			     (nth y player-info)
+			     "")))))))
 
 (defun print-inventory ()
   (mapc (lambda (item)
