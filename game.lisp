@@ -8,7 +8,8 @@
 (defenemy goblin-spawner #\G nil :spawn-function #'make-goblin :inherit spawner)
 
 ;; define equipment types
-(defequipment food () :equip-slot 'none :health 2 :consumable t)
+(defequipment food () :equip-slot 'none :health 2 :consumable t
+  :description "food")
 
 ;;; custom use function for food
 (defmethod use ((item food) (target actor))
@@ -27,6 +28,7 @@
 
 ;; add actors to board
 (make-goblin '(0 . 0))
+(make-pickup (make-food) +zero+)
 (make-goblin-spawner '(10 . 4))
 
 ;; give player a weapon
@@ -41,7 +43,7 @@
 (defaction "d" (move *player* +right+))
 (defaction "w" (move *player* +up+))
 (defaction "s" (move *player* +down+))
-(defaction "i" (let ((actor (find-actor-at :actor *player*)))
+(defaction "i" (let ((actor (find-actor-at *player*)))
 		 (when actor
 		   (interact *player* actor))))
 (defaction "e"
@@ -65,9 +67,17 @@
       (format t "You have nothing to use!~%")))
 (defaction "v" (print-inventory))
 (defaction "l"
-  (display (find-actor-at :pos (add-pos (pos *player*) (get-direction)))
-	   :fields '(description)
-	   :headers nil))
+    (let ((position (get-direction :include-zero t)))
+      (when position
+	(let ((actors (find-all-actors-at (add-pos (pos *player*) position)
+					  *player*)))
+	  (if actors
+	      (mapc (lambda (actor)
+		      (princ "you see ")
+		      (display actor :fields '(description)
+				     :headers nil))
+		    actors)
+	      (format t "there's nothing there~%"))))))
 
 ;; start game
 (start)

@@ -1,3 +1,5 @@
+(load "./utils.lisp")
+
 (defparameter *actors* '())
 (defparameter *dynamic-actors* '())
 (defparameter *player-actions* 0)
@@ -14,28 +16,6 @@
 (defparameter *inventory* '())
 (defparameter *light-zone* '())
 
-(defun pretty-print (control-string &rest args)
-  (labels ((convert-to-string (item)
-	     (if (stringp item)
-		 item
-		 (coerce (loop for c in (coerce (prin1-to-string item) 'list)
-			       collect (if (eql c #\-)
-					   #\space
-					   (char-downcase c)))
-		     'string))))
-    (apply #'format t control-string (mapcar #'convert-to-string args))))
-
-(defun pretty-print-to-string (control-string &rest args)
-  (labels ((convert-to-string (item)
-	     (if (stringp item)
-		 item
-		 (coerce (loop for c in (coerce (prin1-to-string item) 'list)
-			       collect (if (eql c #\-)
-					   #\space
-					   (char-downcase c)))
-		     'string))))
-    (apply #'format nil control-string (mapcar #'convert-to-string args))))
-
 (defmacro defaction (key &body body)
   `(setf (gethash ,key *actions*) (lambda () ,@body (incf *player-actions*) t)))
 
@@ -46,6 +26,7 @@
    (dex :initform 0 :accessor dex :initarg :dex)
    (health :initform 0 :accessor health :initarg :health)
    (name :initform "" :accessor name :initarg :name)
+   (description :initform "" :accessor description :initarg :description)
    (consumable :initform nil :accessor consumable :initarg :consumable)
    (equip-slot :initform 'any :accessor equip-slot :initarg :equip-slot)))
 
@@ -80,6 +61,9 @@
 
 (defmethod name ((obj pickup))
   (name (equipment obj)))
+
+(defmethod description ((obj pickup))
+  (description (equipment obj)))
 
 (defclass combat-entity (actor)
   ((def :initform 0 :initarg :def)
@@ -236,7 +220,7 @@
     (if as-lines
 	(list (pretty-print-to-string "~a" obj))
 	(pretty-print "~a~%" obj)))
-  (:method ((obj actor) &key as-lines (fields '(name description)) (headers t))
+  (:method ((obj actor) &key as-lines (fields '(description)) (headers t))
     (let ((lines (mapcar (lambda (field)
 			   (if headers
 			       (pretty-print-to-string
@@ -247,15 +231,7 @@
 			 fields)))
       (if as-lines
 	  lines
-	  (format t "~{~a~%~}" lines))))
-  (:method :around ((obj combat-entity) &key as-lines
-					  (headers t)
-					  (fields '(name health str dex
-						    def dmg description)))
-    (when (next-method-p)
-      (call-next-method obj :as-lines as-lines
-			    :headers headers
-		            :fields fields))))
+	  (format t "~{~a~%~}" lines)))))
 
 (defgeneric use (item target)
   (:method :after ((item equipment) target)
@@ -263,23 +239,6 @@
       (destroy item)))
   (:method (item target)
     (format t "That cannot be used~%")))
-
-(defun square (number)
-  (* number number))
-
-(defun add-pos (p1 p2)
-  (cons (+ (car p1) (car p2)) (+ (cdr p1) (cdr p2))))
-
-(defun sub-pos (a b)
-  (cons (- (car a) (car b)) (- (cdr a) (cdr b))))
-
-(defun distance (p1 p2)
-  (sqrt (+ (square (- (car p2) (car p1)))
-	   (square (- (cdr p2) (cdr p1))))))
-
-;; generate a random number between 1 and d
-(defun roll (d)
-  (1+ (random (max 1 d))))
 
 (defun attack (a d)
   (let ((accuracy (roll 20)))
@@ -355,9 +314,10 @@
     (visiblep (pos obj))))
 
 ;; returns a direction value pair chosen by the user.
-(defun get-direction ()
-  (fresh-line)
-  (princ "Pick a direction (w, a, s, d): ")
+(defun get-direction (&key include-zero (cancel t))
+  (format t "~&Pick a direction (w, a, s, d~a~a): "
+	  (if include-zero ", (h)ere" "")
+	  (if cancel ", (c)ancel" ""))
   (let ((input (read-line)))
     (cond ((equal input "a")
 	   +left+)
@@ -367,18 +327,36 @@
 	   +up+)
 	  ((equal input "s")
 	   +down+)
+	  ((and (equal input "h") include-zero)
+	   +zero+)
+	  ((and (equal input "c") cancel)
+	   nil)
 	  (t
 	   (princ "That was not a direction")
 	   (get-direction)))))
 
-(defun find-actor-at (&key pos actor)
-  (unless pos
-    (when actor
-      (setf pos (pos actor))))
-  (loop for a2 in *actors*
-	unless (equal a2 actor)
-	  when (equal pos (pos a2))
-	    return a2))
+(defgeneric find-actor-at (a &rest actors-to-ignore)
+  (:method ((a list) &rest actors-to-ignore)
+    (loop for actor in *actors*
+	  unless (member actor actors-to-ignore :test #'equal)
+	    when (equal a (pos actor))
+	      return actor))
+  (:method ((a actor) &rest actors-to-ignore)
+    (apply #'find-actor-at (pos a) a actors-to-ignore)))
+
+(defgeneric find-all-actors-at (a &rest actors-to-ignore)
+  (:method ((a list) &rest actors-to-ignore)
+    (loop for actor in *actors*
+	  unless (member actor actors-to-ignore :test #'equal)
+	    when (equal a (pos actor))
+	      collect actor))
+  (:method ((a actor) &rest actors-to-ignore)
+    (apply #'find-all-actors-at (pos a) a actors-to-ignore)))
+
+(defmethod find-solid-actor-at (a &rest actors-to-ignore)
+  (loop for actor in (apply #'find-all-actors-at a actors-to-ignore)
+	when (solid actor)
+	  return actor))
 
 ;; use flood-fill algorithm to determine where the player can see
 (defun update-los ()
@@ -408,8 +386,8 @@
 (defgeneric move (obj distance)
   (:method ((obj actor) (distance list))
     (let* ((newpos (add-pos (pos obj) distance))
-	   (collider (find-actor-at :actor obj :pos newpos)))
-      (if (and collider (solid collider))
+	   (collider (find-solid-actor-at newpos obj)))
+      (if (and collider)
 	  (interact obj collider)
 	  (when (gethash newpos *board*)
 	    (setf (pos obj) newpos)))))
@@ -423,10 +401,9 @@
     (setf (gethash from came-from) t)
     (labels ((neighbors (pos)
 	       (loop for direction in (list +left+ +right+ +up+ +down+)
-		     collect (let* ((newpos (add-pos pos direction))
-				    (actor (find-actor-at :pos newpos)))
+		     collect (let ((newpos (add-pos pos direction)))
 			       (if (gethash newpos *board*)
-				   (if (and actor (solid actor)
+				   (if (and (find-solid-actor-at newpos)
 					    (not (equal newpos to)))
 				       nil
 				       newpos)
@@ -454,6 +431,7 @@
 	  (list from)))))
 
 (defun step-towards (to from)
+  (pretty-print  "to ~a from ~a" (name to) (name from))
   (sub-pos (car (find-path (pos from) (pos to))) (pos from)))
 
 (defmethod update ((obj enemy))
