@@ -21,7 +21,9 @@
 (make-goblin-spawner '(10 . 4))
 
 ;; give player a weapon
-(equip (make-equipment 'hand :dmg 6) *player*)
+(equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
+
+(push (make-equipment 'hand :dmg 8 :name "big sword") *inventory*)
 
 ;; start game
 (start)

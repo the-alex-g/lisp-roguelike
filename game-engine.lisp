@@ -11,6 +11,7 @@
 (defparameter +down+ '(0 . 1))
 (defparameter +zero+ '(0 . 0))
 (defparameter *actions* (make-hash-table :test 'equal))
+(defparameter *inventory* '())
 
 (defmacro defaction (key &body body)
   `(setf (gethash ,key *actions*) (lambda () ,@body (incf *player-actions*) t)))
@@ -21,6 +22,7 @@
    (str :initform 0 :accessor str :initarg :str)
    (dex :initform 0 :accessor dex :initarg :dex)
    (health :initform 0 :accessor health :initarg :health)
+   (name :initform "" :accessor name :initarg :name)
    (equip-slot :initform 'any :accessor equip-slot :initarg :equip-slot)))
 
 (defclass actor ()
@@ -141,19 +143,30 @@
 	   new-enemy)))))
 
 (defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
-				    (dex 0) (health 0))
-  (make-instance 'equipment :def def :str str :dmg dmg
+				    (dex 0) (health 0) (name ""))
+  (make-instance 'equipment :def def :str str :dmg dmg :name name
 			    :dex dex :health health :equip-slot equip-slot))
 
-(defmethod destroy ((obj actor))
-  (setf *actors* (remove obj *actors* :test 'equal)))
+(defgeneric destroy (obj)
+  (:method (obj)
+    (format t "~a destroyed~&" obj))
+  (:method ((obj actor))
+    (setf *actors* (remove obj *actors* :test 'equal)))
+  (:method ((obj enemy))
+    (setf *dynamic-actors* (remove obj *dynamic-actors* :test 'equal))
+    (when (next-method-p)
+      (call-next-method))))
 
-(defmethod destroy ((obj enemy))
-  (setf *actors* (remove obj *actors* :test 'equal))
-  (setf *dynamic-actors* (remove obj *dynamic-actors* :test 'equal)))
-
-(defmethod equip ((item equipment) (obj combat-entity))
-  (setf (gethash (equip-slot item) (equips obj)) item))
+(defgeneric equip (item obj)
+  (:method ((item equipment) (obj combat-entity))
+    (let ((old-item (gethash (equip-slot item) (equips obj))))
+      (setf (gethash (equip-slot item) (equips obj)) item)
+      old-item))
+  (:method :around ((item equipment) (obj combat-entity))
+    (if (eq (equip-slot item) 'none)
+	(format t "That cannot be equipped")
+	(when (next-method-p)
+	  (call-next-method)))))
 
 (defun square (number)
   (* number number))
@@ -193,24 +206,23 @@
 		  result))
 	(format t "~a missed~&" (name a)))))
 
-(defgeneric interact (a b))
-
-(defmethod interact ((a actor) (b actor))
-  (princ (concatenate 'string (name a) " interacted with a " (name b)))
-  (if (consumable b)
-      (destroy b))
-  (fresh-line))
-
-(defmethod interact ((a player) (b enemy))
-  (attack a b))
-
-(defmethod interact ((a enemy) (b player))
-  (attack a b))
+(defgeneric interact (a b)
+  (:method (a b)
+    (format t "~a interacted with a ~a~&" a b))
+  (:method :after (a (b actor))
+    (if (consumable b)
+	(destroy b)))
+  (:method ((a player) (b enemy))
+    (attack a b))
+  (:method ((a enemy) (b player))
+    (attack a b)))
 
 ;; Return an item, chosen by the player, from the given list
 ;; If the list items are not printable, pass a naming-function that gets a
 ;; printable name from the list item.
-(defun get-item-from-list (lst &optional (naming-function (lambda (x) x)))
+(defun get-item-from-list (lst &key
+				 (naming-function (lambda (x) x))
+				 (exit-option t))
   (labels ((print-list (l i)
 	     (when (car l)
 	       (format t "~d) ~a~%" i (funcall naming-function (car l)))
@@ -219,11 +231,18 @@
 	     (fresh-line)
 	     (princ "Choose an object: ")
 	     (let ((choice (read-from-string (read-line))))
-	       (if (and (numberp choice) (< choice (length lst)))
-		   (nth choice lst)
-		   (progn (princ "That was an invalid choice")
-			  (pick-item))))))
+	       (cond ((and (numberp choice) (< choice (length lst)))
+		      (nth choice lst))
+		     ((and (numberp choice)
+			   (= choice (length lst))
+			   exit-option)
+		      nil)
+		     (t
+		      (princ "That was an invalid choice")
+		      (pick-item))))))
     (print-list lst 0)
+    (when exit-option
+      (format t "~d) cancel~%" (length lst)))
     (pick-item)))
 
 ;; returns a direction value pair chosen by the user.
@@ -334,7 +353,7 @@
 			    do (princ (get-char (cons x y))))
 		      (fresh-line))))))
 
-(defmethod input (cmd)
+(defun input (cmd)
   (let ((action (gethash cmd *actions*)))
     (when action
       (funcall action))))
@@ -373,3 +392,13 @@
 (defaction "i" (let ((actor (find-actor-at :actor *player*)))
 		 (when actor
 		   (interact *player* actor))))
+(defaction "e"
+  (if (> (length *inventory*) 0)
+      (let* ((new-item (get-item-from-list *inventory* :naming-function #'name))
+	     (old-item (when new-item
+			 (equip new-item *player*))))
+	(when new-item
+	  (setf *inventory* (remove new-item *inventory* :test #'equal))
+	  (when old-item
+	    (push old-item *inventory*))))
+      (format t "You have nothing to equip!")))
