@@ -1,4 +1,5 @@
 (load "./game-engine.lisp")
+(load "./dungeon-generator.lisp")
 
 ;; define monster types
 (defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1
@@ -21,10 +22,12 @@
   (setf (enabled (funcall (spawn-function obj) (add-pos +up+ (pos obj)))) t))
 
 ;; generate a sample board
-(loop for x below (car *board-size*)
-      do (loop for y below (cdr *board-size*)
-	       when (or (< x 7) (> x 8) (= y 4))
-		 do (setf (gethash (cons x y) *board*) 'hidden)))
+(loop for pos in (generate-board)
+      do (setf (gethash pos *board*) 'hidden))
+;(loop for x below (car *board-size*)
+;      do (loop for y below (cdr *board-size*)
+;	       when (or (< x 7) (> x 8) (= y 4))
+;		 do (setf (gethash (cons x y) *board*) 'hidden)))
 
 ;; add actors to board
 (make-goblin '(0 . 0))

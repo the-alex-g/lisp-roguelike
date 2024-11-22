@@ -431,7 +431,6 @@
 	  (list from)))))
 
 (defun step-towards (to from)
-  (pretty-print  "to ~a from ~a" (name to) (name from))
   (sub-pos (car (find-path (pos from) (pos to))) (pos from)))
 
 (defmethod update ((obj enemy))
