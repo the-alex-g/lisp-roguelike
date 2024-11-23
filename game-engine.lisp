@@ -1,4 +1,8 @@
 (load "./utils.lisp")
+(load "./colors.lisp")
+
+(load "~/quicklisp/setup.lisp")
+(ql:quickload :trivial-raw-io)
 
 (defparameter *actors* '())
 (defparameter *dynamic-actors* '())
@@ -15,6 +19,13 @@
 (defparameter *actions* (make-hash-table :test 'equal))
 (defparameter *inventory* '())
 (defparameter *light-zone* '())
+(defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
+			      (error () nil)))
+
+(defun custom-read-char ()
+  (if *in-terminal*
+      (trivial-raw-io:read-char)
+      (read-char)))
 
 (defmacro defaction (key &body body)
   `(setf (gethash ,key *actions*) (lambda () ,@body (incf *player-actions*) t)))
@@ -48,10 +59,19 @@
     :initform t
     :initarg :solid
     :accessor solid)
+   (color
+    :initform 0
+    :initarg :color
+    :accessor color)
    (consumable
     :initform nil
     :initarg :consumable
     :accessor consumable)))
+
+(defmethod get-ascii ((obj actor))
+  (if *in-terminal*
+      (format nil "~c[~dm~c~c[0m" #\esc (color obj) (display-char obj) #\esc)
+      (display-char obj)))
 
 (defclass pickup (actor)
   ((consumable :initform t)
@@ -107,6 +127,7 @@
 
 (defun make-player (name display-char pos)
   (let ((new-player (make-instance 'player :name name
+					   :color +red+
 				           :display-char display-char
 					   :pos pos)))
     (push new-player *actors*)
@@ -288,10 +309,10 @@
 	   (pick-item ()
 	     (fresh-line)
 	     (princ "Choose an object: ")
-	     (let ((choice (read-from-string (read-line))))
-	       (cond ((and (numberp choice) (< choice (length lst)))
+	     (let ((choice (digit-char-p (custom-read-char))))
+	       (cond ((and choice (< choice (length lst)))
 		      (nth choice lst))
-		     ((and (numberp choice)
+		     ((and choice
 			   (= choice (length lst))
 			   exit-option)
 		      nil)
@@ -318,18 +339,18 @@
   (format t "~&Pick a direction (w, a, s, d~a~a): "
 	  (if include-zero ", (h)ere" "")
 	  (if cancel ", (c)ancel" ""))
-  (let ((input (read-line)))
-    (cond ((equal input "a")
+  (let ((input (custom-read-char)))
+    (cond ((equal input #\a)
 	   +left+)
-	  ((equal input "d")
+	  ((equal input #\d)
 	   +right+)
-	  ((equal input "w")
+	  ((equal input #\w)
 	   +up+)
-	  ((equal input "s")
+	  ((equal input #\s)
 	   +down+)
-	  ((and (equal input "h") include-zero)
+	  ((and (equal input #\h) include-zero)
 	   +zero+)
-	  ((and (equal input "c") cancel)
+	  ((and (equal input #\c) cancel)
 	   nil)
 	  (t
 	   (princ "That was not a direction")
@@ -439,7 +460,7 @@
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
     (loop for actor in *actors*
-	  do (setf (gethash (pos actor) actor-chars) (display-char actor)))
+	  do (setf (gethash (pos actor) actor-chars) (get-ascii actor)))
     (labels ((on-board (pos) (gethash pos *board*))
 	     (foundp (pos) (eq (on-board pos) 'found))
 	     (get-char (pos)
@@ -465,7 +486,7 @@
       (let ((player-info (display *player* :as-lines t
 					   :fields '(health str dex def dmg))))
 	(loop for y from -1 to (+ (cdr *board-size*) 1)
-	      do (format t "~{~c~} ~a~%"
+	      do (format t "~{~a~} ~a~%"
 			 (loop for x from -1 to (+ (car *board-size*) 1)
 			       collect (get-char (cons x y)))
 			 (if (and (>= y 0) (< y (length player-info)))
@@ -495,14 +516,16 @@
 	    (update actor)))
 	*dynamic-actors*))
 
-(defun game-loop ()
+(defun game-loop (&optional cmd)
+  ;; clear the screen if possible
+  (when *in-terminal*
+    (format t "~cc" #\esc))
   (print-board)
-  (let ((cmd (read-line)))
-    (unless (equal cmd "quit")
-      ;; only update if input was a valid command
-      (when (input cmd)
-	(update-all-actors))
-      (game-loop))))
+  (unless (equal cmd #\q)
+    ;; only update if input was a valid command
+    (when (input cmd)
+      (update-all-actors))
+    (game-loop (custom-read-char))))
 
 (defun start ()
   (update-los)

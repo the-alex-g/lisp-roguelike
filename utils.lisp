@@ -1,14 +1,3 @@
-(defun pretty-print (control-string &rest args)
-  (labels ((convert-to-string (item)
-	     (if (stringp item)
-		 item
-		 (coerce (loop for c in (coerce (prin1-to-string item) 'list)
-			       collect (if (eql c #\-)
-					   #\space
-					   (char-downcase c)))
-		     'string))))
-    (apply #'format t control-string (mapcar #'convert-to-string args))))
-
 (defun pretty-print-to-string (control-string &rest args)
   (labels ((convert-to-string (item)
 	     (if (stringp item)
@@ -20,6 +9,17 @@
 		     'string))))
     (apply #'format nil control-string (mapcar #'convert-to-string args))))
 
+(defun pretty-print (control-string &rest args)
+  (labels ((convert-to-string (item)
+	     (if (stringp item)
+		 item
+		 (coerce (loop for c in (coerce (prin1-to-string item) 'list)
+			       collect (if (eql c #\-)
+					   #\space
+					   (char-downcase c)))
+		     'string))))
+    (push (apply #'format t control-string (mapcar #'convert-to-string args)))))
+  
 (defun square (number)
   (* number number))
 

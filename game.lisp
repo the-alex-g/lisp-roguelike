@@ -2,11 +2,13 @@
 (load "./dungeon-generator.lisp")
 
 ;; define monster types
-(defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1
+(defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1 :color +green+
   :description "a small, green-skinned humanoid with a sharp dagger")
 (defenemy spawner #\S (spawn-function) :dmg 1 :def 2 :spd 10 :dex -4
   :description "a filthy nest")
-(defenemy goblin-spawner #\G nil :spawn-function #'make-goblin :inherit spawner)
+(defenemy goblin-spawner #\G nil :spawn-function #'make-goblin
+  :color +dark-teal+
+  :inherit spawner)
 
 ;; define equipment types
 (defequipment food () :equip-slot 'none :health 2 :consumable t
@@ -42,14 +44,14 @@
 (push (make-food) *inventory*)
 
 ;; define actions
-(defaction "a" (move *player* +left+))
-(defaction "d" (move *player* +right+))
-(defaction "w" (move *player* +up+))
-(defaction "s" (move *player* +down+))
-(defaction "i" (let ((actor (find-actor-at *player*)))
+(defaction #\a (move *player* +left+))
+(defaction #\d (move *player* +right+))
+(defaction #\w (move *player* +up+))
+(defaction #\s (move *player* +down+))
+(defaction #\i (let ((actor (find-actor-at *player*)))
 		 (when actor
 		   (interact *player* actor))))
-(defaction "e"
+(defaction #\e
   (if (> (length *inventory*) 0)
       (let* ((new-item (get-item-from-list *inventory* :naming-function #'name))
 	     (old-item (when new-item
@@ -62,14 +64,14 @@
 	    (push old-item *inventory*))))
       (format t "You have nothing to equip!~%"))
   (fresh-line))
-(defaction "u"
+(defaction #\u
   (if (> (length *inventory*) 0)
       (let ((item (get-item-from-list *inventory* :naming-function #'name)))
 	(when item
 	  (use item *player*)))
       (format t "You have nothing to use!~%")))
-(defaction "v" (print-inventory))
-(defaction "l"
+(defaction #\v (print-inventory))
+(defaction #\l
     (let ((position (get-direction :include-zero t)))
       (when position
 	(let ((actors (find-all-actors-at (add-pos (pos *player*) position)
