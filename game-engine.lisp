@@ -382,6 +382,11 @@
 	when (solid actor)
 	  return actor))
 
+(defun update-spaces-found ()
+  (mapc (lambda (pos)
+	  (setf (gethash pos *board*) 'found))
+	*light-zone*))
+
 ;; use flood-fill algorithm to determine where the player can see
 (defun update-los ()
   (let ((reached (list (pos *player*))))
@@ -405,7 +410,8 @@
 					      (list neighbor)))))
 		   (iterate (cdr frontier))))))
       (iterate (list (pos *player*))))
-    (setf *light-zone* reached)))
+    (setf *light-zone* reached))
+  (update-spaces-found))
 
 (defgeneric move (obj distance)
   (:method ((obj actor) (distance list))
@@ -471,9 +477,8 @@
 		   ;; if so, check if it is in sight OR *sight-distance* is -1
 		   (if (visiblep pos)
 		       ;; if it is, populate it
-		       (progn (setf (gethash pos *board*) 'found)
-			      (let ((c (gethash pos actor-chars)))
-				(if c c #\.)))
+		       (let ((c (gethash pos actor-chars)))
+			 (if c c #\.))
 		       ;; otherwise, return an empty space
 		       #\space)
 		   ;; if the cell is not on the board, check all
