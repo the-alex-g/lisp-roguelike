@@ -23,12 +23,15 @@
 			      (error () nil)))
 
 (defun custom-read-char ()
+  (force-output)
   (if *in-terminal*
       (trivial-raw-io:read-char)
       (read-char)))
 
 (defmacro defaction (key &body body)
-  `(setf (gethash ,key *actions*) (lambda () ,@body (incf *player-actions*) t)))
+  `(setf (gethash ,key *actions*) (lambda ()
+				    ,@body
+				    (incf *player-actions*) t)))
 
 (defclass equipment ()
   ((def :initform 0 :accessor def :initarg :def)
@@ -252,7 +255,7 @@
 			 fields)))
       (if as-lines
 	  lines
-	  (print-to-log "~{~a~%~}" lines)))))
+	  (log-to-string "~{~a~%~}" lines)))))
 
 (defgeneric use (item target)
   (:method :after ((item equipment) target)
@@ -339,7 +342,6 @@
   (print-to-screen "Pick a direction (w, a, s, d~a~a): "
 		(if include-zero ", (h)ere" "")
 		(if cancel ", (c)ancel" ""))
-  (force-output)
   (let ((input (custom-read-char)))
     (cond ((equal input #\a)
 	   +left+)
@@ -517,17 +519,24 @@
 	    (update actor)))
 	*dynamic-actors*))
 
-(defun game-loop (&optional cmd)
-  ;; clear the screen if possible
+;; clears the terminal if possible
+(defun clear-terminal ()
   (when *in-terminal*
-    (format t "~cc" #\esc))
+    (format t "~cc" #\esc)))
+
+(defun print-log (&optional (clear t))
+  (format t "~{~a~&~}" *log*)
+  (when clear
+    (setf *log* '())))
+
+(defun game-loop (&optional cmd)
   (unless (equal cmd #\q)
     ;; only update if input was a valid command
     (when (input cmd)
       (update-all-actors))
+    (clear-terminal)
     (print-board)
-    (format t "~{~a~&~}" *log*)
-    (setf *log* '())
+    (print-log)
     (game-loop (custom-read-char))))
 
 (defun start ()

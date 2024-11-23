@@ -2,13 +2,16 @@
 
 (defun log-to-string (control-string &rest args)
   (labels ((convert-to-string (item)
-	     (if (stringp item)
-		 item
-		 (coerce (loop for c in (coerce (prin1-to-string item) 'list)
-			       collect (if (eql c #\-)
-					   #\space
-					   (char-downcase c)))
-		     'string))))
+	     (cond
+	       ((listp item)
+		(mapcar #'convert-to-string item))
+	       ((symbolp item)
+		(coerce (loop for c in (coerce (prin1-to-string item) 'list)
+			      collect (if (eql c #\-)
+					  #\space
+					  (char-downcase c)))
+			'string))
+	       (t item))))
     (apply #'format nil control-string (mapcar #'convert-to-string args))))
 
 (defun print-to-log (control-string &rest args)

@@ -4,11 +4,6 @@
 ;; define monster types
 (defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1 :color +green+
   :description "a small, green-skinned humanoid with a sharp dagger")
-(defenemy spawner #\S (spawn-function) :dmg 1 :def 2 :spd 10 :dex -4
-  :description "a filthy nest")
-(defenemy goblin-spawner #\G nil :spawn-function #'make-goblin
-  :color +dark-teal+
-  :inherit spawner)
 
 ;; define equipment types
 (defequipment food () :equip-slot 'none :health 2 :consumable t
@@ -19,22 +14,9 @@
   (print-to-log "You ate ~a and regained ~d health~%" (name item) (health item))
   (incf (health target) (health item)))
 
-;;; custom update function for spawner class
-(defmethod update ((obj spawner))
-  (setf (enabled (funcall (spawn-function obj) (add-pos +up+ (pos obj)))) t))
-
 ;; generate a sample board
 (loop for pos in (generate-board)
       do (setf (gethash pos *board*) 'hidden))
-;(loop for x below (car *board-size*)
-;      do (loop for y below (cdr *board-size*)
-;	       when (or (< x 7) (> x 8) (= y 4))
-;		 do (setf (gethash (cons x y) *board*) 'hidden)))
-
-;; add actors to board
-(make-goblin '(0 . 0))
-(make-pickup (make-food) +zero+)
-(make-goblin-spawner '(10 . 4))
 
 ;; give player a weapon
 (equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
@@ -54,16 +36,19 @@
 (defaction #\e
   (if (> (length *inventory*) 0)
       (let* ((new-item (get-item-from-list *inventory* :naming-function #'name))
+	     (output "")
 	     (old-item (when new-item
 			 (equip new-item *player*))))
 	(when (and new-item (not (eq old-item 'failed)))
-	  (print-to-log "You have equipped ~a" (name new-item))
+	  (setf output (log-to-string "You have equipped ~a" (name new-item)))
 	  (setf *inventory* (remove new-item *inventory* :test #'equal))
 	  (when old-item
-	    (print-to-log " instead of ~a" (name old-item))
-	    (push old-item *inventory*))))
-      (print-to-log "You have nothing to equip!"))
-  (fresh-line))
+	    (setf output (concatenate 'string output
+				      (log-to-string " instead of ~a"
+						     (name old-item))))
+	    (push old-item *inventory*)))
+	(print-to-log output))
+      (print-to-log "You have nothing to equip!")))
 (defaction #\u
   (if (> (length *inventory*) 0)
       (let ((item (get-item-from-list *inventory* :naming-function #'name)))
