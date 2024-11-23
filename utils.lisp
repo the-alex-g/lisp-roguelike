@@ -1,4 +1,6 @@
-(defun pretty-print-to-string (control-string &rest args)
+(defparameter *log* '())
+
+(defun log-to-string (control-string &rest args)
   (labels ((convert-to-string (item)
 	     (if (stringp item)
 		 item
@@ -9,17 +11,14 @@
 		     'string))))
     (apply #'format nil control-string (mapcar #'convert-to-string args))))
 
-(defun pretty-print (control-string &rest args)
-  (labels ((convert-to-string (item)
-	     (if (stringp item)
-		 item
-		 (coerce (loop for c in (coerce (prin1-to-string item) 'list)
-			       collect (if (eql c #\-)
-					   #\space
-					   (char-downcase c)))
-		     'string))))
-    (push (apply #'format t control-string (mapcar #'convert-to-string args)))))
-  
+(defun print-to-log (control-string &rest args)
+  (setf *log* (append
+	       *log*
+	       (list (apply #'log-to-string control-string args)))))
+
+(defun print-to-screen (control-string &rest args)
+  (princ (apply #'log-to-string control-string args)))
+
 (defun square (number)
   (* number number))
 

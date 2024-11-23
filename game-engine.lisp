@@ -213,7 +213,7 @@
 
 (defgeneric destroy (obj)
   (:method (obj)
-    (pretty-print "~a destroyed~&" obj))
+    (print-to-log "~a destroyed~&" obj))
   (:method ((obj actor))
     (setf *actors* (remove obj *actors* :test 'equal)))
   (:method ((obj enemy))
@@ -230,7 +230,7 @@
       old-item))
   (:method :around ((item equipment) (obj combat-entity))
     (if (eq (equip-slot item) 'none)
-	(progn (format t "That cannot be equipped~%")
+	(progn (print-to-log "That cannot be equipped")
 	       'failed)
 	(when (next-method-p)
 	  (call-next-method)))))
@@ -239,27 +239,27 @@
   (:method (obj &key as-lines fields headers)
     (declare (ignore fields headers))
     (if as-lines
-	(list (pretty-print-to-string "~a" obj))
-	(pretty-print "~a~%" obj)))
+	(list (log-to-string "~a" obj))
+	(print-to-log "~a~%" obj)))
   (:method ((obj actor) &key as-lines (fields '(description)) (headers t))
     (let ((lines (mapcar (lambda (field)
 			   (if headers
-			       (pretty-print-to-string
+			       (log-to-string
 				"~a: ~a" field
 				(funcall field obj))
-			       (pretty-print-to-string
+			       (log-to-string
 				"~a" (funcall field obj))))
 			 fields)))
       (if as-lines
 	  lines
-	  (format t "~{~a~%~}" lines)))))
+	  (print-to-log "~{~a~%~}" lines)))))
 
 (defgeneric use (item target)
   (:method :after ((item equipment) target)
     (when (consumable item)
       (destroy item)))
   (:method (item target)
-    (format t "That cannot be used~%")))
+    (print-to-log "That cannot be used")))
 
 (defun attack (a d)
   (let ((accuracy (roll 20)))
@@ -274,24 +274,24 @@
 	  (when (<= (health d) 0)
 	    (setf result ", killing it")
 	    (destroy d))
-	  (pretty-print "~a~a hit a ~a for ~d damage~a~&"
+	  (print-to-log "~a~a hit a ~a for ~d damage~a~&"
 			(if crit "CRITICAL! " "")
 			(name a)
 			(name d)
 			(max 1 damage)
 			result))
-	(pretty-print "~a missed~&" (name a)))))
+	(print-to-log "~a missed~&" (name a)))))
 
 (defgeneric interact (a b)
   (:method (a b)
-    (pretty-print "~a interacted with a ~a~&" a b))
+    (print-to-log "~a interacted with a ~a~&" a b))
   (:method :after (a (b actor))
     (if (consumable b)
 	(destroy b)))
   (:method ((a player) (b enemy))
     (attack a b))
   (:method ((a player) (b pickup))
-    (pretty-print "You have picked up a ~a~%" (name b))
+    (print-to-log "You have picked up a ~a~%" (name b))
     (push (equipment b) *inventory*))
   (:method ((a enemy) (b player))
     (attack a b)))
@@ -304,11 +304,11 @@
 				 (exit-option t))
   (labels ((print-list (l i)
 	     (when (car l)
-	       (pretty-print "~d) ~a~%" i (funcall naming-function (car l)))
+	       (print-to-screen "~d) ~a~%" i (funcall naming-function (car l)))
 	       (print-list (cdr l) (1+ i))))
 	   (pick-item ()
 	     (fresh-line)
-	     (princ "Choose an object: ")
+	     (print-to-screen "Choose an object: ")
 	     (let ((choice (digit-char-p (custom-read-char))))
 	       (cond ((and choice (< choice (length lst)))
 		      (nth choice lst))
@@ -317,11 +317,11 @@
 			   exit-option)
 		      nil)
 		     (t
-		      (princ "That was an invalid choice")
+		      (print-to-screen "That was an invalid choice")
 		      (pick-item))))))
     (print-list lst 0)
     (when exit-option
-      (format t "~d) cancel~%" (length lst)))
+      (print-to-screen "~d) cancel" (length lst)))
     (pick-item)))
 
 (defgeneric visiblep (obj)
@@ -336,9 +336,10 @@
 
 ;; returns a direction value pair chosen by the user.
 (defun get-direction (&key include-zero (cancel t))
-  (format t "~&Pick a direction (w, a, s, d~a~a): "
-	  (if include-zero ", (h)ere" "")
-	  (if cancel ", (c)ancel" ""))
+  (print-to-screen "Pick a direction (w, a, s, d~a~a): "
+		(if include-zero ", (h)ere" "")
+		(if cancel ", (c)ancel" ""))
+  (force-output)
   (let ((input (custom-read-char)))
     (cond ((equal input #\a)
 	   +left+)
@@ -353,7 +354,7 @@
 	  ((and (equal input #\c) cancel)
 	   nil)
 	  (t
-	   (princ "That was not a direction")
+	   (print-to-screen "That was not a direction")
 	   (get-direction)))))
 
 (defgeneric find-actor-at (a &rest actors-to-ignore)
@@ -495,7 +496,7 @@
 
 (defun print-inventory ()
   (mapc (lambda (item)
-	  (pretty-print "~a~%" (name item)))
+	  (print-to-log "~a" (name item)))
 	*inventory*))
 
 (defun input (cmd)
@@ -520,11 +521,13 @@
   ;; clear the screen if possible
   (when *in-terminal*
     (format t "~cc" #\esc))
-  (print-board)
   (unless (equal cmd #\q)
     ;; only update if input was a valid command
     (when (input cmd)
       (update-all-actors))
+    (print-board)
+    (format t "~{~a~&~}" *log*)
+    (setf *log* '())
     (game-loop (custom-read-char))))
 
 (defun start ()

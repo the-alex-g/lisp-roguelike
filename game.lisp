@@ -16,7 +16,7 @@
 
 ;;; custom use function for food
 (defmethod use ((item food) (target actor))
-  (pretty-print "You ate ~a and regained ~d health~%" (name item) (health item))
+  (print-to-log "You ate ~a and regained ~d health~%" (name item) (health item))
   (incf (health target) (health item)))
 
 ;;; custom update function for spawner class
@@ -57,19 +57,19 @@
 	     (old-item (when new-item
 			 (equip new-item *player*))))
 	(when (and new-item (not (eq old-item 'failed)))
-	  (pretty-print "You have equipped ~a" (name new-item))
+	  (print-to-log "You have equipped ~a" (name new-item))
 	  (setf *inventory* (remove new-item *inventory* :test #'equal))
 	  (when old-item
-	    (pretty-print " instead of ~a" (name old-item))
+	    (print-to-log " instead of ~a" (name old-item))
 	    (push old-item *inventory*))))
-      (format t "You have nothing to equip!~%"))
+      (print-to-log "You have nothing to equip!"))
   (fresh-line))
 (defaction #\u
   (if (> (length *inventory*) 0)
       (let ((item (get-item-from-list *inventory* :naming-function #'name)))
 	(when item
 	  (use item *player*)))
-      (format t "You have nothing to use!~%")))
+      (print-to-log "You have nothing to use!")))
 (defaction #\v (print-inventory))
 (defaction #\l
     (let ((position (get-direction :include-zero t)))
@@ -78,11 +78,11 @@
 					  *player*)))
 	  (if actors
 	      (mapc (lambda (actor)
-		      (princ "you see ")
-		      (display actor :fields '(description)
-				     :headers nil))
+		      (print-to-log "You see ~a"
+				    (display actor :fields '(description)
+						   :headers nil)))
 		    actors)
-	      (format t "there's nothing there~%"))))))
+	      (print-to-log "there's nothing there"))))))
 
 ;; start game
 (start)
