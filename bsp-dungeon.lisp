@@ -1,0 +1,58 @@
+(defun foo (board &optional (depth 0))
+  (let* ((board-offset (cons (loop for pos in board minimize (car pos))
+			     (loop for pos in board minimize (cdr pos))))
+	 (board-size (cons (- (loop for pos in board maximize (car pos))
+			      (car board-offset))
+			   (- (loop for pos in board maximize (cdr pos))
+			      (cdr board-offset))))
+	 (partition-1 nil)
+	 (partition-2 nil)
+	 (split-direction (if (= (random 2) 0) 'h 'v))
+	 (split-position (if (eq split-direction 'h)
+			     (+ (/ (car board-size) 2)
+				(car board-offset)
+				(random 5)
+				-2)
+			     (+ (/ (cdr board-size) 2)
+				(cdr board-offset)
+				(random 5)
+				-2))))
+    (if (< depth 3)
+	(progn
+	  (loop for pos in board
+		do (if (eq split-direction 'h)
+		       (if (<= (car pos) split-position)
+			   (push pos partition-1)
+			   (push pos partition-2))
+		       (if (<= (cdr pos) split-position)
+			   (push pos partition-1)
+			   (push pos partition-2))))
+	  (cons (foo partition-1 (1+ depth))
+		(list (foo partition-2 (1+ depth)))))
+	board)))
+
+(defun main ()
+  (let ((board (foo (apply #'append (loop for x below 40
+					  collect (loop for y below 20
+							collect (cons x y))))))
+	(printing (make-hash-table :test 'equal))
+	(chars '(#\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8))
+	(char-index 0))
+    (labels ((bar (l)
+	       (if (= (length l) 2)
+		   (progn (bar (car l))
+			  (bar (cadr l)))
+		   (loop for pos in l
+			 do (setf (gethash pos printing) (nth char-index chars))
+			 finally (incf char-index)))))
+      (bar board))
+    (format t "~{~{~c~}~%~}" (loop for y below 20
+				   collect (loop for x below 40
+						 collect (gethash
+							  (cons x y)
+							  printing)))))
+  (unless (eq (read-char) #\q)
+    (format t "~%~%~%")
+    (main)))
+
+(main)
