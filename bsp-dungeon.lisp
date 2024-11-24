@@ -1,3 +1,28 @@
+(defun partial-fill (region)
+  (let* ((region-offset (cons (loop for pos in region minimize (car pos))
+			      (loop for pos in region minimize (cdr pos))))
+	 (region-size (cons (- (loop for pos in region maximize (car pos))
+			       (car region-offset))
+			    (- (loop for pos in region maximize (cdr pos))
+			       (cdr region-offset))))
+	 (fill-size (cons (1+ (random (max 1 (car region-size))))
+			  (1+ (random (max 1 (cdr region-size))))))
+	 (fill-offset (cons (random (max 1
+					 (- (car region-size)
+					    (car fill-size))))
+			    (random (max 1
+					 (- (cdr region-size)
+					    (cdr fill-size)))))))
+    (apply #'append
+	   (loop for x below (car fill-size)
+		 collect (loop for y below (cdr fill-size)
+			       collect (cons (+ (car fill-offset)
+						(car region-offset)
+						x)
+					     (+ (cdr fill-offset)
+						(cdr region-offset)
+						y)))))))
+
 (defun foo (board &optional (depth 0))
   (let* ((board-offset (cons (loop for pos in board minimize (car pos))
 			     (loop for pos in board minimize (cdr pos))))
@@ -17,7 +42,7 @@
 				(cdr board-offset)
 				(random 5)
 				-2))))
-    (if (< depth 3)
+    (if (< depth 2)
 	(progn
 	  (loop for pos in board
 		do (if (eq split-direction 'h)
@@ -29,11 +54,11 @@
 			   (push pos partition-2))))
 	  (cons (foo partition-1 (1+ depth))
 		(list (foo partition-2 (1+ depth)))))
-	board)))
+	(partial-fill board))))
 
 (defun main ()
-  (let ((board (foo (apply #'append (loop for x below 40
-					  collect (loop for y below 20
+  (let ((board (foo (apply #'append (loop for x below 20
+					  collect (loop for y below 10
 							collect (cons x y))))))
 	(printing (make-hash-table :test 'equal))
 	(chars '(#\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8))
@@ -43,16 +68,19 @@
 		   (progn (bar (car l))
 			  (bar (cadr l)))
 		   (loop for pos in l
-			 do (setf (gethash pos printing) (nth char-index chars))
+			 do (setf (gethash pos printing)
+				  (nth char-index chars))
 			 finally (incf char-index)))))
       (bar board))
-    (format t "~{~{~c~}~%~}" (loop for y below 20
-				   collect (loop for x below 40
-						 collect (gethash
-							  (cons x y)
-							  printing)))))
+    (format t "~{~{~c~}~%~}"
+	    (loop for y below 10
+		  collect (loop for x below 20
+				collect (let ((c (gethash
+						  (cons x y)
+						  printing)))
+					  (if c c #\space))))))
   (unless (eq (read-char) #\q)
-    (format t "~%~%~%")
+    (format t "--------------------------------------------------%")
     (main)))
 
 (main)
