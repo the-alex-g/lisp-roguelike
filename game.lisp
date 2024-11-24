@@ -15,8 +15,10 @@
   (incf (health target) (health item)))
 
 ;; generate a sample board
-(loop for pos in (generate-board)
-      do (setf (gethash pos *board*) 'hidden))
+(let ((board (generate-board)))
+  (loop for pos in board
+	do (setf (gethash pos *board*) 'hidden))
+  (setf (pos *player*) (car board)))
 
 ;; give player a weapon
 (equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
