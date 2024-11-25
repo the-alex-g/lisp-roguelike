@@ -1,3 +1,8 @@
+(defun randval (v)
+  (if (<= v 0)
+      v
+      (random v)))
+
 (defun partial-fill (region)
   (let* ((region-offset (cons (loop for pos in region minimize (car pos))
 			      (loop for pos in region minimize (cdr pos))))
@@ -5,14 +10,12 @@
 			       (car region-offset))
 			    (- (loop for pos in region maximize (cdr pos))
 			       (cdr region-offset))))
-	 (fill-size (cons (1+ (random (max 1 (car region-size))))
-			  (1+ (random (max 1 (cdr region-size))))))
-	 (fill-offset (cons (random (max 1
-					 (- (car region-size)
-					    (car fill-size))))
-			    (random (max 1
-					 (- (cdr region-size)
-					    (cdr fill-size)))))))
+	 (fill-size (cons (+ 3 (randval (- (car region-size) 3)))
+			  (+ 3 (randval (- (cdr region-size) 3)))))
+	 (fill-offset (cons (randval (- (car region-size)
+					(car fill-size)))
+			    (randval (- (cdr region-size)
+					(cdr fill-size))))))
     (apply #'append
 	   (loop for x below (car fill-size)
 		 collect (loop for y below (cdr fill-size)
@@ -32,17 +35,21 @@
 			      (cdr board-offset))))
 	 (partition-1 nil)
 	 (partition-2 nil)
-	 (split-direction (if (= (random 2) 0) 'h 'v))
+	 (split-direction (cond ((> 6 (car board-size)) 'v)
+				((> 6 (cdr board-size)) 'h)
+				(t (if (= (random 2) 0) 'h 'v))))
+	 (variance (cons (- (car board-size) 6)
+			 (- (cdr board-size) 6)))
 	 (split-position (if (eq split-direction 'h)
 			     (+ (/ (car board-size) 2)
 				(car board-offset)
-				(random 5)
-				-2)
+				(randval (1+ (car variance)))
+				(- (max 0 (/ (car variance) 2))))
 			     (+ (/ (cdr board-size) 2)
 				(cdr board-offset)
-				(random 5)
-				-2))))
-    (if (< depth 2)
+				(randval (1+ (cdr variance)))
+				(- (max 0 (/ (cdr variance) 2)))))))
+    (if (< depth 4)
 	(progn
 	  (loop for pos in board
 		do (if (eq split-direction 'h)
@@ -56,31 +63,27 @@
 		(list (foo partition-2 (1+ depth)))))
 	(partial-fill board))))
 
-(defun main ()
-  (let ((board (foo (apply #'append (loop for x below 20
-					  collect (loop for y below 10
+(defun main (size)
+  (let ((board (foo (apply #'append (loop for x below (car size)
+					  collect (loop for y below (cdr size)
 							collect (cons x y))))))
-	(printing (make-hash-table :test 'equal))
-	(chars '(#\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8))
-	(char-index 0))
+	(printing (make-hash-table :test 'equal)))
     (labels ((bar (l)
 	       (if (= (length l) 2)
 		   (progn (bar (car l))
 			  (bar (cadr l)))
 		   (loop for pos in l
-			 do (setf (gethash pos printing)
-				  (nth char-index chars))
-			 finally (incf char-index)))))
+			 do (setf (gethash pos printing) #\#)))))
       (bar board))
     (format t "~{~{~c~}~%~}"
-	    (loop for y below 10
-		  collect (loop for x below 20
+	    (loop for y below (cdr size)
+		  collect (loop for x below (car size)
 				collect (let ((c (gethash
 						  (cons x y)
 						  printing)))
 					  (if c c #\space))))))
   (unless (eq (read-char) #\q)
-    (format t "--------------------------------------------------%")
-    (main)))
+    (format t "-------------------------------------------------~%")
+    (main size)))
 
-(main)
+(main '(50 . 20))
