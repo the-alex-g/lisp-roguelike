@@ -48,7 +48,7 @@
 			 region)))))
     region))
 
-(defun partition (board &optional (depth 0))
+(defun partition (board max-depth &optional (cur-depth 0))
   (let* ((board-offset (cons (loop for pos in board minimize (car pos))
 			     (loop for pos in board minimize (cdr pos))))
 	 (board-size (cons (- (loop for pos in board maximize (car pos))
@@ -71,7 +71,7 @@
 				(cdr board-offset)
 				(randval (1+ (cdr variance)))
 				(- (max 0 (/ (cdr variance) 2)))))))
-    (if (< depth 4)
+    (if (< cur-depth max-depth)
 	(progn
 	  (loop for pos in board
 		do (if (eq split-direction 'h)
@@ -81,15 +81,17 @@
 		       (if (<= (cdr pos) split-position)
 			   (push pos partition-1)
 			   (push pos partition-2))))
-	  (connect (partition partition-1 (1+ depth))
-		  (partition partition-2 (1+ depth))))
+	  (connect (partition partition-1 max-depth (1+ cur-depth))
+		  (partition partition-2 max-depth (1+ cur-depth))))
 	(partial-fill board))))
 
+;; a function for testing the boards
 (defun main (size)
   (let ((board (partition (apply #'append
 				 (loop for x below (car size)
 				       collect (loop for y below (cdr size)
-						     collect (cons x y)))))))
+						     collect (cons x y))))
+			  4)))
     (format t "~{~{~c~}~%~}"
 	    (loop for y below (cdr size)
 		  collect (loop for x below (car size)
@@ -102,4 +104,9 @@
     (format t "-------------------------------------------------~%")
     (main size)))
 
-(main '(60 . 20))
+(defun generate-board (size depth)
+  (partition (apply #'append
+		    (loop for x below (car size)
+			  collect (loop for y below (cdr size)
+					collect (cons x y))))
+	     depth))

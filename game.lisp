@@ -1,5 +1,5 @@
 (load "./game-engine.lisp")
-(load "./dungeon-generator.lisp")
+(load "./bsp-dungeon.lisp")
 
 ;; define monster types
 (defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1 :color +green+
@@ -15,10 +15,12 @@
   (incf (health target) (health item)))
 
 ;; generate a sample board
-(let ((board (generate-board)))
+(let ((board (generate-board '(60 . 20) 4)))
   (loop for pos in board
 	do (setf (gethash pos *board*) 'hidden))
+  (print *board*)
   (setf (pos *player*) (car board)))
+(setf *board-size* '(60 . 20)) ; this needs to be automatic
 
 ;; give player a weapon
 (equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
