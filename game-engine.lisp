@@ -19,6 +19,7 @@
 (defparameter *actions* (make-hash-table :test 'equal))
 (defparameter *inventory* '())
 (defparameter *light-zone* '())
+(defparameter *show-found-spaces* nil)
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 
@@ -71,9 +72,12 @@
     :initarg :consumable
     :accessor consumable)))
 
+(defun apply-color (char color)
+  (format nil "~c[~dm~c~c[0m" #\esc color char #\esc))
+
 (defmethod get-ascii ((obj actor))
   (if *in-terminal*
-      (format nil "~c[~dm~c~c[0m" #\esc (color obj) (display-char obj) #\esc)
+      (apply-color (display-char obj) (color obj))
       (display-char obj)))
 
 (defclass pickup (actor)
@@ -480,7 +484,9 @@
 		       (let ((c (gethash pos actor-chars)))
 			 (if c c #\.))
 		       ;; otherwise, return an empty space
-		       #\space)
+		       (if (and *show-found-spaces* *in-terminal* (foundp pos))
+			   (apply-color #\. +grey+)
+			   #\space))
 		   ;; if the cell is not on the board, check all
 		   ;; adjacent cells and add walls as necessary.
 		   (cond ((or (foundp (add-pos pos +left+))
@@ -489,7 +495,7 @@
 			 ((or (foundp (add-pos pos +up+))
 			      (foundp (add-pos pos +down+)))
 			  #\-) ; horizontal wall
-			 (t #\space))))) ; nothing
+			 (t #\space)))))
       ;; print the board
       (let ((player-info (display *player* :as-lines t
 					   :fields '(health str dex def dmg))))
