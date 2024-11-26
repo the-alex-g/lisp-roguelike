@@ -4,12 +4,9 @@
 (load "~/quicklisp/setup.lisp")
 (ql:quickload :trivial-raw-io)
 
-(defparameter *actors* '())
-(defparameter *dynamic-actors* '())
+(defparameter *layers* '())
+(defparameter *current-layer* nil)
 (defparameter *player-actions* 0)
-(setf *actors* '()) ; not sure why this is necessary
-(defparameter *board* (make-hash-table :test 'equal))
-(defparameter *board-size* '(15 . 9))
 (defparameter *sight-distance* 3)
 (defparameter +left+ '(-1 . 0))
 (defparameter +right+ '(1 . 0))
@@ -127,13 +124,51 @@
     :initform nil
     :accessor enabled)))
 
+(defclass layer ()
+  ((board :initarg :board)
+   (dynamic-actors :initform '())
+   (actors :initform '())
+   (board-size :initarg :board-size)))
+
+(defun make-layer (board)
+  (let ((layer (make-instance
+		'layer
+		:board (loop for pos in board
+			     with table = (make-hash-table :test #'equal)
+			     do (setf (gethash pos table) 'hidden)
+			     finally (return table))
+		:board-size (loop for pos in board
+				  maximize (car pos) into x
+				  maximize (cdr pos) into y
+				  finally (return (cons x y))))))
+    (push layer *layers*)
+    layer))
+
+(defun dynamic-actors ()
+  (slot-value *current-layer* 'dynamic-actors))
+
+(defun (setf dynamic-actors) (value)
+  (setf (slot-value *current-layer* 'dynamic-actors) value))
+
+(defun actors ()
+  (cons *player* (append (slot-value *current-layer* 'actors) (dynamic-actors))))
+
+(defun (setf actors) (value)
+  (setf (slot-value *current-layer* 'actors) value))
+
+(defun board ()
+  (slot-value *current-layer* 'board))
+
+(defun board-size ()
+  (slot-value *current-layer* 'board-size))
+
 (defun make-actor (name display-char pos &key (solid t) (consumable nil))
   (let ((new-actor (make-instance 'actor :pos pos
 					 :display-char display-char
 					 :name name
 					 :solid solid
 					 :consumable consumable)))
-    (push new-actor *actors*)
+    (push new-actor (actors))
     new-actor))
 
 ;; initialize helper functions for macros
@@ -182,7 +217,7 @@
 					 :pos pos
 					 :display-char ,display-char
 					 :name (quote ,name))))
-	   (push new-enemy *dynamic-actors*)
+	   (push new-enemy (dynamic-actors))
 	   new-enemy))))
   
   ;; define class and constructor function for equipment
@@ -203,7 +238,7 @@
 
 (defun make-pickup (equipment pos)
   (let ((pickup (make-instance 'pickup :equipment equipment :pos pos)))
-    (push pickup *actors*)
+    (push pickup (actors))
     pickup))
 
 (defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
@@ -215,9 +250,9 @@
   (:method (obj)
     (print-to-log "~a destroyed~&" obj))
   (:method ((obj actor))
-    (setf *actors* (remove obj *actors* :test 'equal)))
+    (setf (actors) (remove obj (actors) :test 'equal)))
   (:method ((obj enemy))
-    (setf *dynamic-actors* (remove obj *dynamic-actors* :test 'equal)))
+    (setf (dynamic-actors) (remove obj (dynamic-actors) :test 'equal)))
   (:method ((obj equipment))
     (setf *inventory* (remove obj *inventory*))))
 
@@ -258,9 +293,6 @@
       (destroy item)))
   (:method (item target)
     (print-to-log "That cannot be used")))
-
-(defun actors ()
-  (cons *player* (append *actors* *dynamic-actors*)))
 
 (defun attack (a d)
   (let ((accuracy (roll 20)))
@@ -382,7 +414,7 @@
 
 (defun update-spaces-found ()
   (mapc (lambda (pos)
-	  (setf (gethash pos *board*) 'found))
+	  (setf (gethash pos (board)) 'found))
 	*light-zone*))
 
 ;; use flood-fill algorithm to determine where the player can see
@@ -391,7 +423,7 @@
     (labels ((neighbors (pos)
 	       (loop for direction in (list +left+ +right+ +up+ +down+)
 		     collect (let ((newpos (add-pos pos direction)))
-			       (if (gethash newpos *board*)
+			       (if (gethash newpos (board))
 				   newpos
 				   nil))))
 	     (iterate (frontier)
@@ -417,7 +449,7 @@
 	   (collider (find-solid-actor-at newpos obj)))
       (if (and collider)
 	  (interact obj collider)
-	  (when (gethash newpos *board*)
+	  (when (gethash newpos (board))
 	    (setf (pos obj) newpos)))))
   (:method ((obj player) (distance list))
     (call-next-method)
@@ -430,7 +462,7 @@
     (labels ((neighbors (pos)
 	       (loop for direction in (list +left+ +right+ +up+ +down+)
 		     collect (let ((newpos (add-pos pos direction)))
-			       (if (gethash newpos *board*)
+			       (if (gethash newpos (board))
 				   (if (and (find-solid-actor-at newpos)
 					    (not (equal newpos to)))
 				       nil
@@ -468,7 +500,7 @@
   (let ((actor-chars (make-hash-table :test 'equal)))
     (loop for actor in (actors)
 	  do (setf (gethash (pos actor) actor-chars) (get-ascii actor)))
-    (labels ((on-board (pos) (gethash pos *board*))
+    (labels ((on-board (pos) (gethash pos (board)))
 	     (foundp (pos) (eq (on-board pos) 'found))
 	     (get-char (pos)
 	       (if (on-board pos) ; is the cell on the board?
@@ -493,9 +525,9 @@
       ;; print the board
       (let ((player-info (display *player* :as-lines t
 					   :fields '(health str dex def dmg))))
-	(loop for y from -1 to (+ (cdr *board-size*) 1)
+	(loop for y from -1 to (+ (cdr (board-size)) 1)
 	      do (format t "~{~a~} ~a~%"
-			 (loop for x from -1 to (+ (car *board-size*) 1)
+			 (loop for x from -1 to (+ (car (board-size)) 1)
 			       collect (get-char (cons x y)))
 			 (if (and (>= y 0) (< y (length player-info)))
 			     (nth y player-info)
@@ -522,7 +554,7 @@
 	  (when (and (enabled actor)
 		     (< (mod *player-actions* (spd actor)) 1))
 	    (update actor)))
-	*dynamic-actors*))
+	(dynamic-actors)))
 
 ;; clears the terminal if possible
 (defun clear-terminal ()

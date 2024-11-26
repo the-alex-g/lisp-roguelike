@@ -16,11 +16,8 @@
 
 ;; generate a sample board
 (let ((board (generate-board '(60 . 20) 4)))
-  (loop for pos in board
-	do (setf (gethash pos *board*) 'hidden))
-  (setf (pos *player*) (car board))
-  (make-goblin (cadddr board)))
-(setf *board-size* '(60 . 20)) ; this needs to be automatic
+  (setf *current-layer* (make-layer board))
+  (setf (pos *player*) (car board)))
 
 ;; give player a weapon
 (equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
