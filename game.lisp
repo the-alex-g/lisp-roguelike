@@ -40,6 +40,11 @@
 (defaction #\d (move *player* +right+))
 (defaction #\w (move *player* +up+))
 (defaction #\s (move *player* +down+))
+(defaction #\D (with-item-from-inventory
+		   (when item
+		     (make-pickup item (pos *player*))
+		     (remove-from-inventory item)
+		     (print-to-log "you dropped ~a" (name item)))))
 (defaction #\r (let ((weapon (gethash 'hand (equips *player*))))
 		 (when (slot-exists-p weapon 'range)
 		   (let ((direction (get-direction)))
@@ -54,27 +59,22 @@
 		 (when actor
 		   (interact *player* actor))))
 (defaction #\e
-  (if (> (length *inventory*) 0)
-      (let* ((new-item (get-item-from-list *inventory* :naming-function #'name))
-	     (output "")
-	     (old-item (when new-item
-			 (equip new-item *player*))))
-	(when (and new-item (not (eq old-item 'failed)))
-	  (setf output (log-to-string "You have equipped ~a" (name new-item)))
-	  (setf *inventory* (remove new-item *inventory* :test #'equal))
+  (with-item-from-inventory
+      (let ((output "")
+	    (old-item (when item
+			(equip item *player*))))
+	(when (and item (not (eq old-item 'failed)))
+	  (setf output (log-to-string "You have equipped ~a" (name item)))
+	  (remove-from-inventory item)
 	  (when old-item
 	    (setf output (concatenate 'string output
 				      (log-to-string " instead of ~a"
 						     (name old-item))))
-	    (push old-item *inventory*)))
-	(print-to-log output))
-      (print-to-log "You have nothing to equip!")))
-(defaction #\u
-  (if (> (length *inventory*) 0)
-      (let ((item (get-item-from-list *inventory* :naming-function #'name)))
-	(when item
-	  (use item *player*)))
-      (print-to-log "You have nothing to use!")))
+	    (add-to-inventory old-item)))
+	(print-to-log output))))
+(defaction #\u (with-item-from-inventory
+		   (when item
+		     (use item *player*))))
 (defaction #\v (print-inventory))
 (defaction #\l
     (let ((position (get-direction :include-zero t)))

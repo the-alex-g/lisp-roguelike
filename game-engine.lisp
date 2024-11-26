@@ -256,6 +256,16 @@
     (push layer *layers*)
     layer))
 
+(defun remove-from-inventory (item)
+  (setf *inventory* (remove item *inventory* :test #'equal)))
+
+(defun add-to-inventory (item)
+  (if (< (length *inventory*) 10)
+      (push item *inventory*)
+      (progn (print-to-log "your inventory is full")
+	     (make-pickup item (pos *player*))
+	     nil)))
+
 (defgeneric destroy (obj)
   (:method (obj)
     (print-to-log "~a destroyed~&" obj))
@@ -264,7 +274,7 @@
   (:method ((obj enemy))
     (setf (dynamic-actors) (remove obj (dynamic-actors) :test 'equal)))
   (:method ((obj equipment))
-    (setf *inventory* (remove obj *inventory*))))
+    (remove-from-inventory obj)))
 
 (defgeneric equip (item obj)
   (:method ((item equipment) (obj combat-entity))
@@ -335,8 +345,8 @@
   (:method ((a player) (b enemy))
     (attack a b))
   (:method ((a player) (b pickup))
-    (print-to-log "You have picked up a ~a~%" (name b))
-    (push (equipment b) *inventory*))
+    (when (add-to-inventory (equipment b))
+      (print-to-log "You have picked up a ~a~%" (name b))))
   (:method ((a enemy) (b player))
     (attack a b)))
 
@@ -367,6 +377,15 @@
     (when exit-option
       (print-to-screen "~d) cancel" (length lst)))
     (pick-item)))
+
+(defun get-item-from-inventory ()
+  (get-item-from-list *inventory* :naming-function #'name))
+
+(defmacro with-item-from-inventory (&body body)
+  `(if (= (length *inventory*) 0)
+       (print-to-log "you have nothing in your inventory")
+       (let ((item (get-item-from-inventory)))
+	 ,@body)))
 
 (defgeneric visiblep (obj)
   (:method :around (obj)
