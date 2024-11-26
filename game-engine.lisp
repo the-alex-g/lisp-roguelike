@@ -39,9 +39,14 @@
    (dex :initform 0 :accessor dex :initarg :dex)
    (health :initform 0 :accessor health :initarg :health)
    (name :initform "" :accessor name :initarg :name)
-   (description :initform "" :accessor description :initarg :description)
+   (description :accessor description :initarg :description)
    (consumable :initform nil :accessor consumable :initarg :consumable)
    (equip-slot :initform 'any :accessor equip-slot :initarg :equip-slot)))
+
+(defmethod description ((obj equipment))
+  (if (slot-boundp obj 'description)
+      (slot-value obj 'description)
+      (log-to-string "a ~a" (name obj))))
 
 (defclass actor ()
   ((pos
@@ -70,10 +75,11 @@
     :initarg :consumable
     :accessor consumable)))
 
-(defmethod get-ascii ((obj actor))
-  (if *in-terminal*
-      (apply-color (display-char obj) (color obj))
-      (display-char obj)))
+(defgeneric get-ascii (obj)
+  (:method ((obj actor))
+    (if *in-terminal*
+	(apply-color (display-char obj) (color obj))
+	(display-char obj))))
 
 (defclass pickup (actor)
   ((consumable :initform t)
