@@ -113,6 +113,10 @@
 
 (defclass player (combat-entity) ())
 
+(defparameter *player* (make-instance 'player :name 'player
+					      :color +red+
+					      :display-char #\@))
+
 (defclass enemy (combat-entity)
   ((spd ;; speed of 1 is the same as the player
         ;; speed of 2 is half as fast as the player
@@ -131,16 +135,6 @@
 					 :consumable consumable)))
     (push new-actor *actors*)
     new-actor))
-
-(defun make-player (name display-char pos)
-  (let ((new-player (make-instance 'player :name name
-					   :color +red+
-				           :display-char display-char
-					   :pos pos)))
-    (push new-player *actors*)
-    new-player))
-  
-(defparameter *player* (make-player "player" #\@ '(4 . 4)))
 
 ;; initialize helper functions for macros
 (labels ((constructor (name)
@@ -188,7 +182,6 @@
 					 :pos pos
 					 :display-char ,display-char
 					 :name (quote ,name))))
-	   (push new-enemy *actors*)
 	   (push new-enemy *dynamic-actors*)
 	   new-enemy))))
   
@@ -224,9 +217,7 @@
   (:method ((obj actor))
     (setf *actors* (remove obj *actors* :test 'equal)))
   (:method ((obj enemy))
-    (setf *dynamic-actors* (remove obj *dynamic-actors* :test 'equal))
-    (when (next-method-p)
-      (call-next-method)))
+    (setf *dynamic-actors* (remove obj *dynamic-actors* :test 'equal)))
   (:method ((obj equipment))
     (setf *inventory* (remove obj *inventory*))))
 
@@ -267,6 +258,9 @@
       (destroy item)))
   (:method (item target)
     (print-to-log "That cannot be used")))
+
+(defun actors ()
+  (cons *player* (append *actors* *dynamic-actors*)))
 
 (defun attack (a d)
   (let ((accuracy (roll 20)))
@@ -365,7 +359,7 @@
 
 (defgeneric find-actor-at (a &rest actors-to-ignore)
   (:method ((a list) &rest actors-to-ignore)
-    (loop for actor in *actors*
+    (loop for actor in (actors)
 	  unless (member actor actors-to-ignore :test #'equal)
 	    when (equal a (pos actor))
 	      return actor))
@@ -374,7 +368,7 @@
 
 (defgeneric find-all-actors-at (a &rest actors-to-ignore)
   (:method ((a list) &rest actors-to-ignore)
-    (loop for actor in *actors*
+    (loop for actor in (actors)
 	  unless (member actor actors-to-ignore :test #'equal)
 	    when (equal a (pos actor))
 	      collect actor))
@@ -472,7 +466,7 @@
 
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
-    (loop for actor in *actors*
+    (loop for actor in (actors)
 	  do (setf (gethash (pos actor) actor-chars) (get-ascii actor)))
     (labels ((on-board (pos) (gethash pos *board*))
 	     (foundp (pos) (eq (on-board pos) 'found))

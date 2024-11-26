@@ -18,7 +18,8 @@
 (let ((board (generate-board '(60 . 20) 4)))
   (loop for pos in board
 	do (setf (gethash pos *board*) 'hidden))
-  (setf (pos *player*) (car board)))
+  (setf (pos *player*) (car board))
+  (make-goblin (cadddr board)))
 (setf *board-size* '(60 . 20)) ; this needs to be automatic
 
 ;; give player a weapon
