@@ -7,7 +7,9 @@
 (defenemy ogre #\O () :dmg 6 :health 6 :str 2 :dex -2 :color +orange+ :speed 1.75
   :description "a hulking ogre")
 
-(defactor banana #\( nil :solid nil :color +light-orange+ :description "a ripe banana")
+(defactor trap #\. ((dmg 4) (save-dc 10) (real-char #\!) (real-color +red))
+  :interact-action-only nil :solid nil
+  :description "a cunning trap")
 
 ;; define equipment types
 (defequipment food () :equip-slot 'none :health 2 :consumable t
@@ -20,11 +22,20 @@
   (print-to-log "You ate ~a and regained ~d health~%" (name item) (health item))
   (incf (health target) (health item)))
 
+(defmethod interact ((a player) (b trap))
+  (when (= 0 (random 2))
+    (setf (display-char b) (real-char b))
+    (setf (color b) (real-color b))
+    (if (>= (+ (roll 20) (dex a)) (save-dc b))
+	(print-to-log "you triggered ~a but dodged out of the way" (description b))
+	(print-to-log "you triggered ~a and took ~d damage"
+		      (description b) (damage a (roll (dmg b)))))))
+
 ;; generate a sample board
 (make-layer (generate-dungeon '(50 . 20) 3
 			      (list (list #'make-goblin #'make-ogre)
 				    #'make-food-pickup
-				    #'make-banana)))
+				    #'make-trap)))
 
 ;; give player a weapon
 (equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
