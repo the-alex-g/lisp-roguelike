@@ -32,6 +32,9 @@
 (defun sub-pos (a b)
   (cons (- (car a) (car b)) (- (cdr a) (cdr b))))
 
+(defun mul-pos (a scalar)
+  (cons (* (car a) scalar) (* (cdr a) scalar)))
+
 (defun distance (p1 p2)
   (sqrt (+ (square (- (car p2) (car p1)))
 	   (square (- (cdr p2) (cdr p1))))))

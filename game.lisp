@@ -10,6 +10,8 @@
 ;; define equipment types
 (defequipment food () :equip-slot 'none :health 2 :consumable t
   :description "food")
+(defequipment ranged-weapon (range) :equip-slot 'hand :dex -2)
+(defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
 
 ;;; custom use function for food
 (defmethod use ((item food) (target actor))
@@ -31,12 +33,23 @@
 ;; put some stuff in the inventory
 (push (make-equipment 'hand :dmg 8 :name 'big-sword) *inventory*)
 (push (make-food) *inventory*)
+(push (make-bow) *inventory*)
 
 ;; define actions
 (defaction #\a (move *player* +left+))
 (defaction #\d (move *player* +right+))
 (defaction #\w (move *player* +up+))
 (defaction #\s (move *player* +down+))
+(defaction #\r (let ((weapon (gethash 'hand (equips *player*))))
+		 (when (slot-exists-p weapon 'range)
+		   (let ((direction (get-direction)))
+		     (loop for r from 1 to (1- (range weapon))
+			   do (let ((d (find-solid-actor-at
+					(add-pos (pos *player*)
+						 (mul-pos direction r)))))
+				(when d
+				  (attack *player* d)
+				  (return nil))))))))
 (defaction #\i (let ((actor (find-actor-at *player*)))
 		 (when actor
 		   (interact *player* actor))))
