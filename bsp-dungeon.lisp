@@ -1,7 +1,30 @@
+(defclass dungeon ()
+  ((board :initform '())
+   (actors :initform (make-hash-table :test 'equal))))
+
 (defun randval (v)
   (if (<= v 1)
       0
       (random (round v))))
+
+(defun randnth (l)
+  (if (listp l)
+      (nth (randval (length l)) l)
+      l))
+
+(defun populate (region functions board)
+  (loop for pos in region
+	when (= (random 8) 0)
+	  do (setf (gethash pos (slot-value board 'actors))
+		   (let ((r (random 6))
+			 (priority (random 3)))
+		     (cond ((<= r 3)
+			    (randnth (nth priority functions)))
+			   ((= r 4)
+			    (randnth (nth (mod (1+ priority) 3) functions)))
+			   ((= r 5)
+			    (randnth (nth (mod (1- priority) 3) functions)))))))
+  region)
 
 (defun partial-fill (offset size)
   (let* ((fill-size (cons (+ 3 (randval (- (car size) 4)))
@@ -19,7 +42,7 @@
 (defun connect (r1 r2)
   (let ((region (append r1 r2)))
     (when (and r1 r2)
-      (let* ((cp1 (nth (randval (length r1)) r1))
+      (let* ((cp1 (randnth r1))
 	     (px (loop for point in r2
 		      with min-x = 1000
 		      when (< (abs (- (car cp1) (car point))) min-x)
@@ -34,7 +57,6 @@
 	     (dx (- px (car cp1)))
 	     (dy (- py (cdr cp1)))
 	     (cp2 (cons px py)))
-	(format t "connecting from ~a to ~a~%" cp1 cp2)
 	(unless (eq (cdr cp1) (cdr cp2))
 	  (loop for y from 0 to (abs dy)
 		do (push (cons (car cp1)
@@ -58,7 +80,7 @@
       (+ val (round (* (1- (random 2.0))
 		       (/ val 2))))))
 
-(defun partition (offset size max-depth &optional (cur-depth 0))
+(defun partition (offset size max-depth functions board &optional (cur-depth 0))
   (if (< cur-depth max-depth)
       (let* ((split-direction (cond ((> 8 (car size)) 'h)
 				    ((> 8 (cdr size)) 'v)
@@ -69,24 +91,27 @@
 	(if (eq split-direction 'v)
 	    (connect (partition offset
 				(cons split (cdr size))
-				max-depth (1+ cur-depth))
+				max-depth functions board (1+ cur-depth))
 		     (partition (cons (+ (car offset) split) (cdr offset))
 				(cons (- (car size) split) (cdr size))
-				max-depth (1+ cur-depth)))
+				 max-depth functions board (1+ cur-depth)))
 	    (connect (partition offset
 				(cons (car size) split)
-				max-depth (1+ cur-depth))
+				max-depth functions board (1+ cur-depth))
 		     (partition (cons (car offset) (+ (cdr offset) split))
 				(cons (car size) (- (cdr size) split))
-				max-depth (1+ cur-depth)))))
-      (partial-fill offset size)))
+				max-depth functions board (1+ cur-depth)))))
+      (populate (partial-fill offset size) functions board)))
 
-(defun generate-board (size depth)
-  (partition '(0 . 0) size depth))
+(defun generate-dungeon (size depth functions)
+  (let ((dungeon (make-instance 'dungeon)))
+    (setf (slot-value dungeon 'board)
+	  (partition '(0 . 0) size depth functions dungeon))
+    dungeon))
 
 ;; a function for testing the boards
 (defun main (size depth)
-  (let ((board (generate-board size depth)))
+  (let ((board (generate-dungeon size depth ())))
     (format t "~{~{~c~}~%~}"
 	    (loop for y below (cdr size)
 		  collect (loop for x below (car size)

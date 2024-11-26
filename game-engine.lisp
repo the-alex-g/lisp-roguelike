@@ -6,6 +6,7 @@
 
 (defparameter *layers* '())
 (defparameter *current-layer* nil)
+(defparameter *layer-index* 0)
 (defparameter *player-actions* 0)
 (defparameter *sight-distance* 3)
 (defparameter +left+ '(-1 . 0))
@@ -69,9 +70,6 @@
     :initarg :consumable
     :accessor consumable)))
 
-(defun apply-color (char color)
-  (format nil "~c[~dm~c~c[0m" #\esc color char #\esc))
-
 (defmethod get-ascii ((obj actor))
   (if *in-terminal*
       (apply-color (display-char obj) (color obj))
@@ -114,6 +112,33 @@
 					      :color +red+
 					      :display-char #\@))
 
+(defclass layer ()
+  ((board :initarg :board)
+   (dynamic-actors :initform '())
+   (actors :initform '())
+   (board-size :initarg :board-size)))
+
+(defun dynamic-actors ()
+  (slot-value *current-layer* 'dynamic-actors))
+
+(defun static-actors ()
+  (slot-value *current-layer* 'actors))
+
+(defun (setf static-actors) (value)
+  (setf (slot-value *current-layer* 'actors) value))
+
+(defun (setf dynamic-actors) (value)
+  (setf (slot-value *current-layer* 'dynamic-actors) value))
+
+(defun actors ()
+  (append (slot-value *current-layer* 'actors) (dynamic-actors) (list *player*)))
+
+(defun board ()
+  (slot-value *current-layer* 'board))
+
+(defun board-size ()
+  (slot-value *current-layer* 'board-size))
+
 (defclass enemy (combat-entity)
   ((spd ;; speed of 1 is the same as the player
         ;; speed of 2 is half as fast as the player
@@ -124,51 +149,16 @@
     :initform nil
     :accessor enabled)))
 
-(defclass layer ()
-  ((board :initarg :board)
-   (dynamic-actors :initform '())
-   (actors :initform '())
-   (board-size :initarg :board-size)))
-
-(defun make-layer (board)
-  (let ((layer (make-instance
-		'layer
-		:board (loop for pos in board
-			     with table = (make-hash-table :test #'equal)
-			     do (setf (gethash pos table) 'hidden)
-			     finally (return table))
-		:board-size (loop for pos in board
-				  maximize (car pos) into x
-				  maximize (cdr pos) into y
-				  finally (return (cons x y))))))
-    (push layer *layers*)
-    layer))
-
-(defun dynamic-actors ()
-  (slot-value *current-layer* 'dynamic-actors))
-
-(defun (setf dynamic-actors) (value)
-  (setf (slot-value *current-layer* 'dynamic-actors) value))
-
-(defun actors ()
-  (cons *player* (append (slot-value *current-layer* 'actors) (dynamic-actors))))
-
-(defun (setf actors) (value)
-  (setf (slot-value *current-layer* 'actors) value))
-
-(defun board ()
-  (slot-value *current-layer* 'board))
-
-(defun board-size ()
-  (slot-value *current-layer* 'board-size))
-
-(defun make-actor (name display-char pos &key (solid t) (consumable nil))
+(defun make-actor (name display-char pos &key (solid t) (consumable nil) (color 0)
+					   (description ""))
   (let ((new-actor (make-instance 'actor :pos pos
 					 :display-char display-char
 					 :name name
 					 :solid solid
+					 :color color
+					 :description description
 					 :consumable consumable)))
-    (push new-actor (actors))
+    (push new-actor (static-actors))
     new-actor))
 
 ;; initialize helper functions for macros
@@ -238,7 +228,7 @@
 
 (defun make-pickup (equipment pos)
   (let ((pickup (make-instance 'pickup :equipment equipment :pos pos)))
-    (push pickup (actors))
+    (push pickup (static-actors))
     pickup))
 
 (defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
@@ -246,11 +236,31 @@
   (make-instance 'equipment :def def :str str :dmg dmg :name name
 			    :dex dex :health health :equip-slot equip-slot))
 
+(defun make-layer (dungeon)
+  (let* ((layer (make-instance
+		 'layer
+		 :board (loop for pos in (slot-value dungeon 'board)
+			      with table = (make-hash-table :test #'equal)
+			      do (setf (gethash pos table) 'hidden)
+			      finally (return table))
+		 :board-size (loop for pos in (slot-value dungeon 'board)
+				   maximize (car pos) into x
+				   maximize (cdr pos) into y
+				   finally (return (cons x y))))))
+    (setf *current-layer* layer)
+    (setf (pos *player*) (car (slot-value dungeon 'board)))
+    (loop for pos being the hash-keys of (slot-value dungeon 'actors)
+	  do (let ((fxn (gethash pos (slot-value dungeon 'actors))))
+	       (when fxn
+		 (funcall fxn pos))))
+    (push layer *layers*)
+    layer))
+
 (defgeneric destroy (obj)
   (:method (obj)
     (print-to-log "~a destroyed~&" obj))
   (:method ((obj actor))
-    (setf (actors) (remove obj (actors) :test 'equal)))
+    (setf (static-actors) (remove obj (static-actors) :test 'equal)))
   (:method ((obj enemy))
     (setf (dynamic-actors) (remove obj (dynamic-actors) :test 'equal)))
   (:method ((obj equipment))
@@ -577,5 +587,6 @@
     (game-loop (custom-read-char))))
 
 (defun start ()
+  (setf *current-layer* (car *layers*))
   (update-los)
   (game-loop))

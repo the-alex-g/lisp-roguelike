@@ -3,7 +3,9 @@
 
 ;; define monster types
 (defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1 :color +green+
-  :description "a small, green-skinned humanoid with a sharp dagger")
+  :description "a goblin with a sharp dagger")
+(defenemy ogre #\O () :dmg 6 :health 6 :str 2 :dex -2 :color +orange+ :speed 1.75
+  :description "a hulking ogre")
 
 ;; define equipment types
 (defequipment food () :equip-slot 'none :health 2 :consumable t
@@ -15,9 +17,13 @@
   (incf (health target) (health item)))
 
 ;; generate a sample board
-(let ((board (generate-board '(60 . 20) 4)))
-  (setf *current-layer* (make-layer board))
-  (setf (pos *player*) (car board)))
+(make-layer (generate-dungeon '(50 . 20) 3
+			      (list (list #'make-goblin #'make-ogre)
+				    (lambda (pos) (make-pickup (make-food) pos))
+				    (lambda (pos) (make-actor 'banana #\( pos
+							      :solid nil
+							      :description "a ripe banana"
+							      :color +light-orange+)))))
 
 ;; give player a weapon
 (equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
