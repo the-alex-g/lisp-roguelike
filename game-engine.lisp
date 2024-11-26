@@ -174,6 +174,13 @@
     (push new-actor (static-actors))
     new-actor))
 
+
+(defun make-pickup (equipment pos)
+  (let ((pickup (make-instance 'pickup :equipment equipment :pos pos
+				       :interact-action-only t)))
+    (push pickup (static-actors))
+    pickup))
+
 ;; initialize helper functions for macros
 (labels ((constructor (name)
 	   (read-from-string (concatenate 'string "make-"
@@ -200,7 +207,6 @@
 				   slotlist
 				   (symbol-name (car args))))
 		 slotlist)))
-
   ;; define new monster class and matching constructor function
   (defmacro defenemy (name display-char new-slots
 		      &rest keys
@@ -235,15 +241,13 @@
        (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
 					,@(reinit-slots keys nil nil)
 					(name :initform (quote ,name))))
-       ;; make instance of new class
+       ;; define constructor function
        (defun ,(constructor name) (&rest keys &key &allow-other-keys)
-	 (apply #'make-instance (quote ,name) keys)))))
-
-(defun make-pickup (equipment pos)
-  (let ((pickup (make-instance 'pickup :equipment equipment :pos pos
-				       :interact-action-only t)))
-    (push pickup (static-actors))
-    pickup))
+	 (apply #'make-instance (quote ,name) keys))
+       ;; define pickup constructor function
+       (defun ,(read-from-string (concatenate 'string "make-" (symbol-name name) "-pickup"))
+	   (pos)
+	 (make-pickup (,(constructor name)) pos)))))
 
 (defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
 				    (dex 0) (health 0) (name ""))

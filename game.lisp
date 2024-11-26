@@ -21,7 +21,7 @@
 ;; generate a sample board
 (make-layer (generate-dungeon '(50 . 20) 3
 			      (list (list #'make-goblin #'make-ogre)
-				    (lambda (pos) (make-pickup (make-food) pos))
+				    #'make-food-pickup
 				    (lambda (pos) (make-actor 'banana #\( pos
 							      :solid nil
 							      :description "a ripe banana"
