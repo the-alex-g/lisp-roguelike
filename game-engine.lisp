@@ -66,6 +66,9 @@
     :initform t
     :initarg :solid
     :accessor solid)
+   (interact-action-only :initform nil
+			 :initarg :interact-action-only
+			 :accessor interact-action-only)
    (color
     :initform 0
     :initarg :color
@@ -156,11 +159,15 @@
     :accessor enabled)))
 
 (defun make-actor (name display-char pos &key (solid t) (consumable nil) (color 0)
-					   (description ""))
+					   (description "")
+					   (interact-action-only nil interact-action-p))
   (let ((new-actor (make-instance 'actor :pos pos
 					 :display-char display-char
 					 :name name
 					 :solid solid
+					 :interact-action-only (if interact-action-p
+								   interact-action-only
+								   (not solid))
 					 :color color
 					 :description description
 					 :consumable consumable)))
@@ -233,7 +240,8 @@
 	 (apply #'make-instance (quote ,name) keys)))))
 
 (defun make-pickup (equipment pos)
-  (let ((pickup (make-instance 'pickup :equipment equipment :pos pos)))
+  (let ((pickup (make-instance 'pickup :equipment equipment :pos pos
+				       :interact-action-only t)))
     (push pickup (static-actors))
     pickup))
 
@@ -483,10 +491,14 @@
   (:method ((obj actor) (distance list))
     (let* ((newpos (add-pos (pos obj) distance))
 	   (collider (find-solid-actor-at newpos obj)))
-      (if (and collider)
-	  (interact obj collider)
+      (if collider
+	  (unless (interact-action-only collider)
+	      (interact obj collider))
 	  (when (gethash newpos (board))
-	    (setf (pos obj) newpos)))))
+	    (setf (pos obj) newpos)
+	    (loop for actor in (find-all-actors-at obj)
+		  unless (interact-action-only actor)
+		    do (interact obj actor))))))
   (:method ((obj player) (distance list))
     (call-next-method)
     (update-los)))
