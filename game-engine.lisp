@@ -66,9 +66,10 @@
     :initform t
     :initarg :solid
     :accessor solid)
-   (interact-action-only :initform nil
-			 :initarg :interact-action-only
-			 :accessor interact-action-only)
+   (interact-action-only
+    :initform nil
+    :initarg :interact-action-only
+    :accessor interact-action-only)
    (color
     :initform 0
     :initarg :color
@@ -174,7 +175,6 @@
     (push new-actor (static-actors))
     new-actor))
 
-
 (defun make-pickup (equipment pos)
   (let ((pickup (make-instance 'pickup :equipment equipment :pos pos
 				       :interact-action-only t)))
@@ -194,18 +194,17 @@
 		       `(,slt :accessor ,slt
 			      :initform nil
 			      :initarg ,(intern (symbol-name slt) "KEYWORD")))))
-	   (reinit-slots (args slotlist slotname) ; updates slot information
-	     (if (car args)
-		 (if slotname
+	   (reinit-slots (args slotlist &key (slotname nil slotnamep))
+	     (if (> (length args) 0) ; cannot check for (car arg) because it might be nil
+		 (if slotnamep
 		     (reinit-slots (cdr args)
 				   (cons (list (read-from-string slotname)
 					       :initform
 					       (car args))
-					 slotlist)
-				   nil)
+					 slotlist))
 		     (reinit-slots (cdr args)
 				   slotlist
-				   (symbol-name (car args))))
+				   :slotname (symbol-name (car args))))
 		 slotlist)))
   ;; define new monster class and matching constructor function
   (defmacro defenemy (name display-char new-slots
@@ -219,7 +218,7 @@
        ;; declare new monster class, including new keys and setting initform of
        ;; old values
        (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
-					,@(reinit-slots keys nil nil)))
+					,@(reinit-slots keys nil)))
        ;; define constructor for new class
        (defun ,(constructor name) (pos)
 	 (let ((new-enemy (make-instance (quote ,name)
@@ -228,6 +227,23 @@
 					 :name (quote ,name))))
 	   (push new-enemy (dynamic-actors))
 	   new-enemy))))
+
+  (defmacro defactor (name display-char new-slots
+		      &rest keys
+		      &key (inherit 'actor inheritp)
+		      &allow-other-keys)
+    (when inheritp
+      (setf keys (remove inherit (remove :inherit keys))))
+    `(progn (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
+					     ,@(reinit-slots keys nil)
+					     (name :initform (quote ,name))
+					     (display-char :initform ,display-char)))
+	    (defun ,(constructor name) (pos)
+	      (let ((new-actor (make-instance (quote ,name) :pos pos)))
+		(unless ,(member :interact-action-only keys)
+		  (setf (interact-action-only new-actor) (not (solid new-actor))))
+		(push new-actor (static-actors))
+		new-actor))))
   
   ;; define class and constructor function for equipment
   (defmacro defequipment (name new-slots
@@ -239,7 +255,7 @@
     `(progn
        ;; define equipment class
        (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
-					,@(reinit-slots keys nil nil)
+					,@(reinit-slots keys nil)
 					(name :initform (quote ,name))))
        ;; define constructor function
        (defun ,(constructor name) (&rest keys &key &allow-other-keys)

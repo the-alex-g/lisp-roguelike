@@ -7,6 +7,8 @@
 (defenemy ogre #\O () :dmg 6 :health 6 :str 2 :dex -2 :color +orange+ :speed 1.75
   :description "a hulking ogre")
 
+(defactor banana #\( nil :solid nil :color +light-orange+ :description "a ripe banana")
+
 ;; define equipment types
 (defequipment food () :equip-slot 'none :health 2 :consumable t
   :description "food")
@@ -22,10 +24,7 @@
 (make-layer (generate-dungeon '(50 . 20) 3
 			      (list (list #'make-goblin #'make-ogre)
 				    #'make-food-pickup
-				    (lambda (pos) (make-actor 'banana #\( pos
-							      :solid nil
-							      :description "a ripe banana"
-							      :color +light-orange+)))))
+				    #'make-banana)))
 
 ;; give player a weapon
 (equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
