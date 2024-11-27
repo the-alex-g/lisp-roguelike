@@ -7,7 +7,7 @@
 (defenemy ogre #\O () :dmg 6 :health 6 :str 2 :dex -2 :color +orange+ :speed 1.75
   :description "a hulking ogre")
 
-(defactor trap #\? ((dmg 4) (save-dc 10) (real-char #\!) (real-color +red+)
+(defactor trap #\. ((dmg 4) (save-dc 10) (real-char #\!) (real-color +red+)
 			    (discoverable t) (discovered nil))
   :interact-action-only nil :solid nil :destructible nil
   :description "a cunning trap")
@@ -47,7 +47,9 @@
 
 ;; generate a sample board
 (make-layer (generate-dungeon '(50 . 20) 3
-			      (list (list #'make-goblin #'make-ogre)
+			      (list #'make-ogre #'make-food-pickup #'make-trap)))
+(make-layer (generate-dungeon '(50 . 20) 3
+			      (list #'make-goblin
 				    #'make-food-pickup
 				    #'make-trap)))
 

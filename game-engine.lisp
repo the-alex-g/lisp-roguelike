@@ -132,6 +132,8 @@
   ((board :initarg :board)
    (dynamic-actors :initform '())
    (actors :initform '())
+   (up-ladder-pos :initarg :up-ladder-pos :accessor up-ladder-pos)
+   (down-ladder-pos :initarg :down-ladder-pos :accessor down-ladder-pos)
    (board-size :initarg :board-size)))
 
 (defun dynamic-actors ()
@@ -272,28 +274,38 @@
 	   (pos)
 	 (make-pickup (,(constructor name)) pos)))))
 
+(defactor ladder #\# (direction) :destructible nil :solid nil :description "a ladder")
+
 (defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
 				    (dex 0) (health 0) (name ""))
   (make-instance 'equipment :def def :str str :dmg dmg :name name
 			    :dex dex :health health :equip-slot equip-slot))
 
 (defun make-layer (dungeon)
-  (let* ((layer (make-instance
+  (let* ((dungeon-board (slot-value dungeon 'board))
+	 (up-ladder-pos (nth (random (1- (length dungeon-board))) (cdr dungeon-board)))
+	 (down-ladder-pos (car dungeon-board))
+	 (layer (make-instance
 		 'layer
-		 :board (loop for pos in (slot-value dungeon 'board)
+		 :up-ladder-pos up-ladder-pos
+		 :down-ladder-pos down-ladder-pos
+		 :board (loop for pos in dungeon-board
 			      with table = (make-hash-table :test #'equal)
 			      do (setf (gethash pos table) 'hidden)
 			      finally (return table))
-		 :board-size (loop for pos in (slot-value dungeon 'board)
+		 :board-size (loop for pos in dungeon-board
 				   maximize (car pos) into x
 				   maximize (cdr pos) into y
 				   finally (return (cons x y))))))
     (setf *current-layer* layer)
-    (setf (pos *player*) (car (slot-value dungeon 'board)))
+    (setf (pos *player*) up-ladder-pos)
+    (setf (direction (make-ladder down-ladder-pos)) 1)
+    (setf (direction (make-ladder up-ladder-pos)) -1)
     (loop for pos being the hash-keys of (slot-value dungeon 'actors)
-	  do (let ((fxn (gethash pos (slot-value dungeon 'actors))))
-	       (when fxn
-		 (funcall fxn pos))))
+	  unless (or (equal pos up-ladder-pos) (equal pos down-ladder-pos))
+	    do (let ((fxn (gethash pos (slot-value dungeon 'actors))))
+		 (when fxn
+		   (funcall fxn pos))))
     (push layer *layers*)
     layer))
 
@@ -395,19 +407,6 @@
 			", destroying it"
 			"")))))
 
-(defgeneric interact (a b)
-  (:method (a b)) ; do nothing by default
-  (:method :after (a (b actor))
-    (if (consumable b)
-	(destroy b)))
-  (:method ((a player) (b enemy))
-    (attack a b))
-  (:method ((a player) (b pickup))
-    (when (add-to-inventory (equipment b))
-      (print-to-log "You have picked up a ~a~&" (name b))))
-  (:method ((a enemy) (b player))
-    (attack a b)))
-
 ;; Return an item, chosen by the player, from the given list
 ;; If the list items are not printable, pass a naming-function that gets a
 ;; printable name from the list item.
@@ -444,6 +443,35 @@
        (print-to-log "you have nothing in your inventory")
        (let ((item (get-item-from-inventory)))
 	 ,@body)))
+
+(defun change-layer (direction)
+  (unless (or (and (= *layer-index* 0) (= direction -1))
+	      (and (= (+ *layer-index* direction) (length *layers*))))
+    (incf *layer-index* direction)
+    (setf *current-layer* (nth *layer-index* *layers*))
+    (if (= direction -1)
+	(setf (pos *player*) (down-ladder-pos *current-layer*))
+	(setf (pos *player*) (up-ladder-pos *current-layer*)))
+    (update-los)
+    t))
+
+(defgeneric interact (a b)
+  (:method (a b)) ; do nothing by default
+  (:method :after (a (b actor))
+    (if (consumable b)
+	(destroy b)))
+  (:method ((a player) (b enemy))
+    (attack a b))
+  (:method ((a player) (b ladder))
+    (when (change-layer (direction b))
+      (if (= (direction b) -1)
+	  (print-to-log "you climb up the ladder to the previous dungeon level")
+	  (print-to-log "you climb down the ladder to the next dungeon level"))))
+  (:method ((a player) (b pickup))
+    (when (add-to-inventory (equipment b))
+      (print-to-log "You have picked up a ~a~&" (name b))))
+  (:method ((a enemy) (b player))
+    (attack a b)))
 
 (defgeneric visiblep (obj)
   (:method :around (obj)
