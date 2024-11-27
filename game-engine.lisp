@@ -74,6 +74,9 @@
     :initform 0
     :initarg :color
     :accessor color)
+   (health :initform 1
+	   :initarg :health
+	   :accessor health)
    (consumable
     :initform nil
     :initarg :consumable
@@ -103,7 +106,7 @@
    (str :initform 0 :initarg :str)
    (dex :initform 0 :initarg :dex)
    (equips :initform (make-hash-table) :accessor equips)
-   (health :initform 6 :initarg :health)))
+   (health :initform 6)))
 
 ;; generate setters and getters for combat-entity stats
 (mapc (lambda (name)
@@ -228,6 +231,7 @@
 	   (push new-enemy (dynamic-actors))
 	   new-enemy))))
 
+  ;; define class and constructor function for actor
   (defmacro defactor (name display-char new-slots
 		      &rest keys
 		      &key (inherit 'actor inheritp)
@@ -245,7 +249,7 @@
 		(push new-actor (static-actors))
 		new-actor))))
   
-  ;; define class and constructor function for equipment
+  ;; define class, constructor function, and pickup generator function for equipment
   (defmacro defequipment (name new-slots
 			  &rest keys
 			  &key (inherit 'equipment inheritp)
@@ -349,32 +353,42 @@
     (print-to-log "That cannot be used")))
 
 (defgeneric damage (target amount)
+  (:method ((target actor) amount)
+    (decf (health target) (max 1 amount))
+    amount)
+  (:method :after ((target actor) amount)
+    (when (<= (health target) 0)
+      (destroy target)))
   (:method ((target combat-entity) amount)
     (decf (health target) (max 1 (- amount (def target))))
-    (when (<= (health target) 0)
-      (destroy target))
     amount))
 
-(defun attack (a d)
-  (let ((accuracy (roll 20)))
-    (if (>= (+ accuracy (dex a)) (+ (- 6 (def d)) (dex d)))
-	(let ((damage-dealt (+ (roll (dmg a)) (str a)))
-	      (result "")
-	      (crit nil))
-	  (when (= accuracy 20)
-	    (setf crit t)
-	    (incf damage-dealt (roll (dmg a))))
-	  (unless (= accuracy 1)
-	    (setf damage-dealt (damage d damage-dealt))) 
-	  (when (<= (health d) 0)
-	    (setf result ", killing it"))
-	  (print-to-log "~a~a hit a ~a for ~d damage~a~&"
-			(if crit "CRITICAL! " "")
-			(name a)
-			(name d)
-			damage-dealt
-			result))
-	(print-to-log "~a missed~&" (name a)))))
+(defgeneric attack (a d)
+  (:method ((a combat-entity) (d combat-entity))
+    (let ((accuracy (roll 20)))
+      (if (>= (+ accuracy (dex a)) (+ (- 6 (def d)) (dex d)))
+	  (let ((damage-dealt (+ (roll (dmg a)) (str a)))
+		(crit nil))
+	    (when (= accuracy 20)
+	      (setf crit t)
+	      (incf damage-dealt (roll (dmg a))))
+	    (unless (= accuracy 1)
+	      (setf damage-dealt (damage d damage-dealt)))
+	    (print-to-log "~a~a hit a ~a for ~d damage~a~&"
+			  (if crit "CRITICAL! " "")
+			  (name a)
+			  (name d)
+			  damage-dealt
+			  (if (<= (health d) 0) ", killing it" "")))
+	  (print-to-log "~a missed~&" (name a)))))
+  (:method ((a combat-entity) (d actor))
+    (print-to-log "~a hit a ~a for ~d damage~a~&"
+		  (name a)
+		  (name d)
+		  (damage d (roll (dmg a)))
+		  (if (<= (health d) 0)
+		      ", destroying it"
+		      ""))))
 
 (defgeneric interact (a b)
   (:method (a b)

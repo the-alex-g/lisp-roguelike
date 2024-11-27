@@ -7,7 +7,7 @@
 (defenemy ogre #\O () :dmg 6 :health 6 :str 2 :dex -2 :color +orange+ :speed 1.75
   :description "a hulking ogre")
 
-(defactor trap #\. ((dmg 4) (save-dc 10) (real-char #\!) (real-color +red))
+(defactor trap #\. ((dmg 4) (save-dc 10) (real-char #\!) (real-color +red+))
   :interact-action-only nil :solid nil
   :description "a cunning trap")
 
@@ -50,6 +50,11 @@
 (defaction #\d (move *player* +right+))
 (defaction #\w (move *player* +up+))
 (defaction #\s (move *player* +down+))
+(defaction #\A (let ((direction (get-direction)))
+		 (when direction
+		   (let ((actor (find-actor-at (add-pos (pos *player*) direction))))
+		     (when actor
+		       (attack *player* actor)))))) 
 (defaction #\D (with-item-from-inventory
 		   (when item
 		     (make-pickup item (pos *player*))
@@ -58,13 +63,14 @@
 (defaction #\r (let ((weapon (gethash 'hand (equips *player*))))
 		 (when (slot-exists-p weapon 'range)
 		   (let ((direction (get-direction)))
-		     (loop for r from 1 to (1- (range weapon))
-			   do (let ((d (find-solid-actor-at
-					(add-pos (pos *player*)
-						 (mul-pos direction r)))))
-				(when d
-				  (attack *player* d)
-				  (return nil))))))))
+		     (when direction
+		       (loop for r from 1 to (1- (range weapon))
+			     do (let ((d (find-solid-actor-at
+					  (add-pos (pos *player*)
+						   (mul-pos direction r)))))
+				  (when d
+				    (attack *player* d)
+				    (return nil)))))))))
 (defaction #\i (let ((actor (find-actor-at *player*)))
 		 (when actor
 		   (interact *player* actor))))
