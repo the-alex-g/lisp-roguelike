@@ -276,6 +276,21 @@
 
 (defactor ladder #\# (direction) :destructible nil :solid nil :description "a ladder")
 
+(defun has-legal-destination (obj)
+  (and (>= (+ *layer-index* (direction obj)) 0)
+       (< (+ *layer-index* (direction obj)) (length *layers*))))
+
+(defmethod description ((obj ladder))
+  (when (has-legal-destination obj)
+    (if (= (direction obj) -1)
+	"a ladder leading back up"
+	"a ladder leading down into the darkness")))
+
+(defmethod get-ascii ((obj ladder))
+  (if (has-legal-destination obj)
+      (call-next-method)
+      #\.))
+
 (defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
 				    (dex 0) (health 0) (name ""))
   (make-instance 'equipment :def def :str str :dmg dmg :name name
