@@ -74,6 +74,9 @@
     :initform 0
     :initarg :color
     :accessor color)
+   (destructible :initform t
+		 :initarg :destructible
+		 :accessor destructible)
    (health :initform 1
 	   :initarg :health
 	   :accessor health)
@@ -357,7 +360,8 @@
     (decf (health target) (max 1 amount))
     amount)
   (:method :after ((target actor) amount)
-    (when (<= (health target) 0)
+    (when (and (<= (health target) 0)
+	       (destructible target))
       (destroy target)))
   (:method ((target combat-entity) amount)
     (decf (health target) (max 1 (- amount (def target))))
@@ -382,17 +386,17 @@
 			  (if (<= (health d) 0) ", killing it" "")))
 	  (print-to-log "~a missed~&" (name a)))))
   (:method ((a combat-entity) (d actor))
-    (print-to-log "~a hit a ~a for ~d damage~a~&"
-		  (name a)
-		  (name d)
-		  (damage d (roll (dmg a)))
-		  (if (<= (health d) 0)
-		      ", destroying it"
-		      ""))))
+    (when (destructible d)
+      (print-to-log "~a hit a ~a for ~d damage~a~&"
+		    (name a)
+		    (name d)
+		    (damage d (roll (dmg a)))
+		    (if (<= (health d) 0)
+			", destroying it"
+			"")))))
 
 (defgeneric interact (a b)
-  (:method (a b)
-    (print-to-log "~a interacted with a ~a~&" a b))
+  (:method (a b)) ; do nothing by default
   (:method :after (a (b actor))
     (if (consumable b)
 	(destroy b)))
@@ -400,7 +404,7 @@
     (attack a b))
   (:method ((a player) (b pickup))
     (when (add-to-inventory (equipment b))
-      (print-to-log "You have picked up a ~a~%" (name b))))
+      (print-to-log "You have picked up a ~a~&" (name b))))
   (:method ((a enemy) (b player))
     (attack a b)))
 
