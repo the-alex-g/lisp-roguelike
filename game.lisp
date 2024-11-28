@@ -1,24 +1,17 @@
 (load "./game-engine.lisp")
 (load "./bsp-dungeon.lisp")
 
-(defactor trap #\. ((dmg 4) (save-dc 10) (real-char #\!) (real-color +red+)
-			    (discoverable t) (discovered nil))
-  :interact-action-only nil :solid nil :destructible nil
+(defactor trap #\! ((dmg 4) (save-dc 10) (discoverable t))
+  :interact-action-only nil :solid nil :destructible nil :color +red+ :hiddenp t
   :description "a cunning trap")
 
-(defmethod uncover ((obj trap))
-  (setf (display-char obj) (real-char obj))
-  (setf (color obj) (real-color obj))
-  (setf (discovered obj) t))
-
 (defmethod description ((obj trap))
-  (if (discovered obj)
-      (slot-value obj 'description)
+  (if (hiddenp obj)
       (cond ((and (discoverable obj) (>= (roll 20) 11))
 	     (print-to-log "you discovered ~a" (slot-value obj 'description))
-	     (uncover obj)
-	     :trap-found)
-	     (t (setf (discoverable obj) nil) nil))))
+	     (setf (hiddenp obj) nil))
+	    (t (setf (discoverable obj) nil) nil))
+      (slot-value obj 'description)))
 
 ;; define equipment types
 (defequipment food () :equip-slot 'none :health 2 :consumable t
@@ -39,7 +32,7 @@
 
 (defmethod interact ((a player) (b trap))
   (when (= 0 (random 2))
-    (uncover b)
+    (setf (hiddenp b) nil)
     (if (>= (+ (roll 20) (dex a)) (save-dc b))
 	(print-to-log "you triggered ~a but dodged out of the way" (description b))
 	(print-to-log "you triggered ~a and took ~d damage"
@@ -79,15 +72,16 @@
 		 (when direction
 		   (if (slot-exists-p (gethash 'hand (equips *player*)) 'range)
 		       (ranged-attack direction)
-		       (let ((actor (find-actor-at (add-pos (pos *player*) direction))))
+		       (let ((actor (choose-actor-at (add-pos (pos *player*)
+							      direction))))
 			 (when actor
-			   (attack *player* actor))))))) 
+			   (attack *player* actor)))))))
 (defaction #\D (with-item-from-inventory
 		   (when item
 		     (make-pickup item (pos *player*))
 		     (remove-from-inventory item)
 		     (print-to-log "you dropped ~a" (name item)))))
-(defaction #\i (let ((actor (find-actor-at *player*)))
+(defaction #\i (let ((actor (choose-actor-at *player*)))
 		 (when actor
 		   (interact *player* actor))))
 (defaction #\e
@@ -117,10 +111,9 @@
 	      (let ((something-found-p nil))
 		(mapc (lambda (actor)
 			(let ((d (description actor)))
-			  (when d
+			  (unless (hiddenp actor)
 			    (setf something-found-p t)
-			    (unless (keywordp d)
-			      (print-to-log "You see ~a" d)))))
+			    (print-to-log "You see ~a" d))))
 		      actors)
 		(unless something-found-p
 		  (print-to-log "there's nothing there")))

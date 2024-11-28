@@ -75,6 +75,10 @@
     :initform 0
     :initarg :color
     :accessor color)
+   (hiddenp
+    :initform nil
+    :initarg :hiddenp
+    :accessor hiddenp)
    (destructible :initform t
 		 :initarg :destructible
 		 :accessor destructible)
@@ -295,10 +299,8 @@
 	"a ladder leading back up"
 	"a ladder leading down into the darkness")))
 
-(defmethod get-ascii ((obj ladder))
-  (if (has-legal-destination obj)
-      (call-next-method)
-      #\.))
+(defmethod hiddenp ((obj ladder))
+  (not (has-legal-destination obj)))
 
 (defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
 				    (dex 0) (health 0) (name ""))
@@ -447,10 +449,14 @@
 (defun get-item-from-list (lst &key
 				 (naming-function (lambda (x) x))
 				 (exit-option t))
-  (labels ((print-list (l i)
-	     (when (car l)
-	       (print-to-screen "~d) ~a~%" i (funcall naming-function (car l)))
-	       (print-list (cdr l) (1+ i))))
+  (labels ((print-list (l i new-list)
+	     (if (car l)
+		 (let ((n (funcall naming-function (car l))))
+		   (if n
+		       (progn (print-to-screen "~d) ~a~%" i n)
+			      (print-list (cdr l) (1+ i) (cons (car l) new-list)))
+		       (print-list (cdr l) i new-list)))
+		 (reverse new-list)))
 	   (pick-item ()
 	     (fresh-line)
 	     (print-to-screen "Choose an object: ")
@@ -464,7 +470,7 @@
 		     (t
 		      (print-to-screen "That was an invalid choice")
 		      (pick-item))))))
-    (print-list lst 0)
+    (setf lst (print-list lst 0 nil))
     (when exit-option
       (print-to-screen "~d) cancel" (length lst)))
     (pick-item)))
@@ -557,10 +563,22 @@
   (:method ((a actor) &rest actors-to-ignore)
     (apply #'find-all-actors-at (pos a) a actors-to-ignore)))
 
-(defmethod find-solid-actor-at (a &rest actors-to-ignore)
+(defun find-solid-actor-at (a &rest actors-to-ignore)
   (loop for actor in (apply #'find-all-actors-at a actors-to-ignore)
 	when (solid actor)
 	  return actor))
+
+(defun choose-actor-at (pos)
+  (let ((actor-list (find-all-actors-at pos)))
+    (if (<= (length actor-list) 1)
+	(if (and (car actor-list) (not (hiddenp (car actor-list))))
+	    (car actor-list)
+	    nil)
+	(get-item-from-list (find-all-actors-at pos)
+			    :naming-function (lambda (x)
+					       (if (hiddenp x)
+						   nil
+						   (name x)))))))
 
 (defun update-spaces-found ()
   (mapc (lambda (pos)
@@ -653,7 +671,8 @@
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
     (loop for actor in (actors)
-	  do (setf (gethash (pos actor) actor-chars) (get-ascii actor)))
+	  unless (hiddenp actor)
+	    do (setf (gethash (pos actor) actor-chars) (get-ascii actor)))
     (labels ((on-board (pos) (gethash pos (board)))
 	     (foundp (pos) (eq (on-board pos) 'found))
 	     (get-char (pos)
