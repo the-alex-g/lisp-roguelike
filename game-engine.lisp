@@ -453,7 +453,7 @@
 	     (if (car l)
 		 (let ((n (funcall naming-function (car l))))
 		   (if n
-		       (progn (print-to-screen "~d) ~a~%" i n)
+		       (progn (print-to-screen "~%~d) ~a" i n)
 			      (print-list (cdr l) (1+ i) (cons (car l) new-list)))
 		       (print-list (cdr l) i new-list)))
 		 (reverse new-list)))
@@ -468,11 +468,11 @@
 			   exit-option)
 		      nil)
 		     (t
-		      (print-to-screen "That was an invalid choice")
+		      (print-to-screen "~%That was an invalid choice")
 		      (pick-item))))))
     (setf lst (print-list lst 0 nil))
     (when exit-option
-      (print-to-screen "~d) cancel" (length lst)))
+      (print-to-screen "~%~d) cancel" (length lst)))
     (pick-item)))
 
 (defun get-item-from-inventory ()
@@ -525,7 +525,7 @@
 
 ;; returns a direction value pair chosen by the user.
 (defun get-direction (&key include-zero (cancel t))
-  (print-to-screen "Pick a direction (w, a, s, d~a~a): "
+  (print-to-screen "~%Pick a direction (w, a, s, d~a~a): "
 		(if include-zero ", (h)ere" "")
 		(if cancel ", (c)ancel" ""))
   (let ((input (custom-read-char)))
@@ -542,7 +542,7 @@
 	  ((and (equal input #\c) cancel)
 	   nil)
 	  (t
-	   (print-to-screen "That was not a direction")
+	   (print-to-screen "~%That was not a direction")
 	   (get-direction)))))
 
 (defgeneric find-actor-at (a &rest actors-to-ignore)
