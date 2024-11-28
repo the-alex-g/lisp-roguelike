@@ -15,6 +15,7 @@
 (defparameter +down+ '(0 . 1))
 (defparameter +zero+ '(0 . 0))
 (defparameter *actions* (make-hash-table :test 'equal))
+(defparameter *action-descriptions* (make-hash-table))
 (defparameter *inventory* '())
 (defparameter *light-zone* '())
 (defparameter *show-found-spaces* nil)
@@ -28,10 +29,11 @@
       (trivial-raw-io:read-char)
       (read-char)))
 
-(defmacro defaction (key &body body)
-  `(setf (gethash ,key *actions*) (lambda ()
-				    ,@body
-				    (incf *player-actions*) t)))
+(defmacro defaction (key description &body body)
+  `(progn (setf (gethash ,key *action-descriptions*) ,description)
+	  (setf (gethash ,key *actions*) (lambda ()
+					   ,@body
+					   (incf *player-actions*) t))))
 
 (defclass equipment ()
   ((def :initform 0 :accessor def :initarg :def)

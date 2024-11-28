@@ -64,27 +64,30 @@
 	       (return nil)))))
 
 ;; define actions
-(defaction #\a (move *player* +left+))
-(defaction #\d (move *player* +right+))
-(defaction #\w (move *player* +up+))
-(defaction #\s (move *player* +down+))
-(defaction #\A (let ((direction (get-direction)))
-		 (when direction
-		   (if (slot-exists-p (gethash 'hand (equips *player*)) 'range)
-		       (ranged-attack direction)
-		       (let ((actor (choose-actor-at (add-pos (pos *player*)
-							      direction))))
-			 (when actor
-			   (attack *player* actor)))))))
-(defaction #\D (with-item-from-inventory
-		   (when item
-		     (make-pickup item (pos *player*))
-		     (remove-from-inventory item)
-		     (print-to-log "you dropped ~a" (name item)))))
-(defaction #\i (let ((actor (choose-actor-at *player*)))
-		 (when actor
-		   (interact *player* actor))))
-(defaction #\e
+(defaction #\a "move west" (move *player* +left+))
+(defaction #\d "move east" (move *player* +right+))
+(defaction #\w "move north" (move *player* +up+))
+(defaction #\s "move south" (move *player* +down+))
+(defaction #\A "attack without moving"
+    (let ((direction (get-direction :include-zero t)))
+      (when direction
+	(if (slot-exists-p (gethash 'hand (equips *player*)) 'range)
+	    (ranged-attack direction)
+	    (let ((actor (choose-actor-at (add-pos (pos *player*)
+						   direction))))
+	      (when actor
+		(attack *player* actor)))))))
+(defaction #\D "drop an inventory item"
+    (with-item-from-inventory
+	(when item
+	  (make-pickup item (pos *player*))
+	  (remove-from-inventory item)
+	  (print-to-log "you dropped ~a" (name item)))))
+(defaction #\i "interact with an object on your space"
+  (let ((actor (choose-actor-at *player*)))
+    (when actor
+      (interact *player* actor))))
+(defaction #\e "equip an inventory item"
   (with-item-from-inventory
       (let ((output "")
 	    (old-item (when item
@@ -98,11 +101,12 @@
 						     (name old-item))))
 	    (add-to-inventory old-item)))
 	(print-to-log output))))
-(defaction #\u (with-item-from-inventory
-		   (when item
-		     (use item *player*))))
-(defaction #\v (print-inventory))
-(defaction #\l
+(defaction #\u "use an inventory item"
+  (with-item-from-inventory
+      (when item
+	(use item *player*))))
+(defaction #\v "print inventory" (print-inventory))
+(defaction #\l "look"
     (let ((position (get-direction :include-zero t)))
       (when position
 	(let ((actors (find-all-actors-at (add-pos (pos *player*) position)
@@ -118,6 +122,10 @@
 		(unless something-found-p
 		  (print-to-log "there's nothing there")))
 	      (print-to-log "there's nothing there"))))))
+(defaction #\h "print help menu"
+  (loop for k being the hash-keys of *action-descriptions*
+	do (print-to-log "~c: ~a~%" k (gethash k *action-descriptions*)))
+  (print-to-log "q: quit~%"))
 
 ;; start game
 (start)
