@@ -1,12 +1,6 @@
 (load "./game-engine.lisp")
 (load "./bsp-dungeon.lisp")
 
-;; define monster types
-(defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1 :color +green+
-  :description "a goblin with a sharp dagger")
-(defenemy ogre #\O () :dmg 6 :health 6 :str 2 :dex -2 :color +orange+ :speed 1.75
-  :description "a hulking ogre")
-
 (defactor trap #\. ((dmg 4) (save-dc 10) (real-char #\!) (real-color +red+)
 			    (discoverable t) (discovered nil))
   :interact-action-only nil :solid nil :destructible nil
@@ -36,6 +30,12 @@
 (defmethod use ((item food) (target actor))
   (print-to-log "You ate ~a and regained ~d health~%" (name item) (health item))
   (incf (health target) (health item)))
+
+;; define monster types
+(defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1 :color +green+
+  :description "a goblin with a sharp dagger")
+(defenemy ogre #\O () :dmg 6 :health 6 :str 2 :dex -2 :color +orange+ :speed 1.75
+  :description "a hulking ogre")
 
 (defmethod interact ((a player) (b trap))
   (when (= 0 (random 2))

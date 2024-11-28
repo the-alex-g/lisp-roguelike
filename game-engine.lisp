@@ -18,6 +18,7 @@
 (defparameter *inventory* '())
 (defparameter *light-zone* '())
 (defparameter *show-found-spaces* nil)
+(defparameter *treasure* (make-hash-table))
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 
@@ -163,6 +164,14 @@
     :initform 1.2
     :initarg :spd
     :accessor spd)
+   (loot
+    :initform '()
+    :initarg :loot
+    :accessor loot)
+   (loot-type
+    :initform 'single-drop
+    :initarg :loot-type
+    :accessor loot-type)
    (enabled
     :initform nil
     :accessor enabled)))
@@ -340,7 +349,17 @@
   (:method ((obj actor))
     (setf (static-actors) (remove obj (static-actors) :test 'equal)))
   (:method ((obj enemy))
-    (setf (dynamic-actors) (remove obj (dynamic-actors) :test 'equal)))
+    (setf (dynamic-actors) (remove obj (dynamic-actors) :test 'equal))
+    (if (eq (loot-type obj) 'multi-drop)
+	(loop for lt in (loot obj)
+	      when (< (random 100) (cadr lt))
+		do (funcall (car lt) (pos obj)))
+	(let ((val (random 100)))
+	  (loop for lt in (loot obj)
+		do (if (< val (cadr lt))
+		       (progn (funcall (car lt) (pos obj))
+			      (return nil))
+		       (decf val (cadr lt)))))))
   (:method ((obj equipment))
     (remove-from-inventory obj)))
 
