@@ -22,6 +22,8 @@
 (defparameter +dark-purple+ 95)
 (defparameter +dark-teal+ 36)
 
-(defun apply-color (char color)
-  (format nil "~c[~dm~c~c[0m" #\esc color char #\esc))
+(defun apply-color (to color)
+  (format nil "~c[~dm~a~c[0m" #\esc color to #\esc))
 
+(defun apply-background (to color)
+  (format nil "~c[~dm~a~c[0m" #\esc (+ color 10) to #\esc))

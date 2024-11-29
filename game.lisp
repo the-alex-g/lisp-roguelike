@@ -14,9 +14,9 @@
       (slot-value obj 'description)))
 
 ;; define equipment types
-(defequipment food () :equip-slot 'none :health 2 :consumable t
+(defequipment food () :health 2 :consumable t
   :description "food")
-(defequipment ranged-weapon (range) :equip-slot 'hand :dex -2)
+(defequipment ranged-weapon (range) :dex -2)
 (defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
 
 ;;; custom use function for food
@@ -27,6 +27,8 @@
 ;; define monster types
 (defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1 :color +green+
   :description "a goblin with a sharp dagger")
+(defenemy rat #\r () :dmg 2 :health 2 :dex 2 :color +dark-red+
+  :description "a giant rat")
 (defenemy ogre #\O () :dmg 6 :health 6 :str 2 :dex -2 :color +orange+ :speed 1.75
   :description "a hulking ogre")
 
@@ -40,9 +42,11 @@
 
 ;; generate a sample board
 (make-layer (generate-dungeon '(50 . 20) 3
-			      (list #'make-ogre #'make-food-pickup #'make-trap)))
+			      (list (list #'make-ogre #'make-goblin
+					  #'make-goblin #'make-rat)
+				    #'make-food-pickup #'make-trap)))
 (make-layer (generate-dungeon '(50 . 20) 3
-			      (list #'make-goblin
+			      (list (list #'make-goblin #'make-goblin #'make-rat)
 				    #'make-food-pickup
 				    #'make-trap)))
 

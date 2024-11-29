@@ -37,14 +37,14 @@
 
 (defclass equipment ()
   ((def :initform 0 :accessor def :initarg :def)
-   (dmg :initform 0 :accessor dmg :initarg :dmg)
+   (dmg :initform 1 :accessor dmg :initarg :dmg)
    (str :initform 0 :accessor str :initarg :str)
    (dex :initform 0 :accessor dex :initarg :dex)
    (health :initform 0 :accessor health :initarg :health)
    (name :initform "" :accessor name :initarg :name)
    (description :accessor description :initarg :description)
    (consumable :initform nil :accessor consumable :initarg :consumable)
-   (equip-slot :initform 'any :accessor equip-slot :initarg :equip-slot)))
+   (equip-slot :initform 'hand :accessor equip-slot :initarg :equip-slot)))
 
 (defmethod description ((obj equipment))
   (if (slot-boundp obj 'description)
