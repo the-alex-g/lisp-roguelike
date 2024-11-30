@@ -121,7 +121,8 @@
 			(let ((d (description actor)))
 			  (unless (hiddenp actor)
 			    (setf something-found-p t)
-			    (print-to-log "You see ~a" d))))
+			    (when d
+			      (print-to-log "You see ~a" d)))))
 		      actors)
 		(unless something-found-p
 		  (print-to-log "there's nothing there")))
