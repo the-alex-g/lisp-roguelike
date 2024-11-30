@@ -145,6 +145,20 @@
 		(unless something-found-p
 		  (print-to-log "there's nothing there")))
 	      (print-to-log "there's nothing there"))))))
+(defaction #\U "unequip an item"
+  (let ((item (get-item-from-list
+	       (loop for x being the hash-values of (equips *player*)
+		     collect x)
+	       :naming-function (lambda (x)
+				  (log-to-string "~a: ~a"
+						 (equip-slot x)
+						 (name x))))))
+    (when item
+      (remhash (equip-slot item) (equips *player*))
+      (add-to-inventory item)
+      (print-to-log "you have unequipped ~a, freeing your ~a slot~%"
+		    (name item)
+		    (equip-slot item)))))
 (defaction #\h "print help menu"
   (loop for k being the hash-keys of *action-descriptions*
 	do (print-to-log "~c: ~a~%" k (gethash k *action-descriptions*)))
