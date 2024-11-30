@@ -37,7 +37,9 @@
 
 (defclass equipment ()
   ((def :initform 0 :accessor def :initarg :def)
-   (dmg :initform 1 :accessor dmg :initarg :dmg)
+   (dmg :initform 0 :accessor dmg :initarg :dmg)
+   (atk-dmg :initform 1 :accessor atk-dmg :initarg :atk-dmg)
+   (weaponp :initform nil :accessor weaponp :initarg :weaponp)
    (str :initform 0 :accessor str :initarg :str)
    (dex :initform 0 :accessor dex :initarg :dex)
    (health :initform 0 :accessor health :initarg :health)
@@ -123,8 +125,17 @@
 	(eval `(progn
 		 (defmethod ,name ((obj combat-entity))
 		   (+ (slot-value obj (quote ,name)) 
-		      (loop for eq being the hash-values of (equips obj)
-			    sum (slot-value eq (quote ,name)))))
+		      (loop for eq-slot being the hash-keys of (equips obj)
+			    sum (let ((qpmnt (gethash eq-slot (equips obj))))
+				  (if (weaponp qpmnt)
+				      (if (eq eq-slot 'hand)
+					  (slot-value qpmnt (quote ,name))
+					  0)
+				      (if (eq eq-slot 'hand)
+					  ,(if (eq name 'dmg)
+					       `(slot-value qpmnt 'atk-dmg)
+					       0)
+					  (slot-value qpmnt (quote ,name))))))))
 		 (defmethod (setf ,name) (new-val (obj combat-entity))
 		   (setf (slot-value obj (quote ,name)) new-val)))))	
       '(def str health dmg dex)) ; this is the list of stats
@@ -571,7 +582,10 @@
 	  return actor))
 
 (defun choose-actor-at (pos)
-  (let ((actor-list (find-all-actors-at pos)))
+  (let ((actor-list (remove nil (loop for actor in (find-all-actors-at pos)
+				      collect (if (and (not (hiddenp actor))
+						       (description actor))
+						  actor)))))
     (if (<= (length actor-list) 1)
 	(if (and (car actor-list) (not (hiddenp (car actor-list))))
 	    (car actor-list)
@@ -709,9 +723,23 @@
 			     "")))))))
 
 (defun print-inventory ()
-  (mapc (lambda (item)
-	  (print-to-log "~a" (name item)))
-	*inventory*))
+  (print-to-log "~t~a ~15t~a~%" "INVENTORY" "EQUIPPED")
+  (let ((inventory-list (mapcar (lambda (item)
+				  (log-to-string "~a" (name item)))
+				*inventory*))
+	(equipped-list (loop for eq-slot being the hash-keys of (equips *player*)
+			     collect (let ((item (gethash eq-slot (equips *player*))))
+				       (when item
+					 (log-to-string "~a: ~a"
+							eq-slot (name item)))))))
+    (mapc (lambda (a b)
+	    (print-to-log "~t~a ~15t~a~%" a b))
+	  (loop for x below 10
+		collect (let ((val (nth x inventory-list)))
+			  (if val val "")))
+	  (loop for x below 10
+		collect (let ((val (nth x equipped-list)))
+			  (if val val ""))))))
 
 (defun input (cmd)
   (let ((action (gethash cmd *actions*)))

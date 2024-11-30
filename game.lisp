@@ -16,8 +16,11 @@
 ;; define equipment types
 (defequipment food () :health 2 :consumable t
   :description "food")
-(defequipment ranged-weapon (range) :dex -2)
+(defequipment ranged-weapon (range) :dex -2 :weaponp t)
 (defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
+(defequipment sword nil :dmg 6 :weaponp t :description "a sword")
+(defequipment big-sword nil :dmg 8 :weaponp t :description "a big sword")
+(defequipment leather-armor nil :def 1 :description "leather armor" :equip-slot 'body)
 
 ;;; custom use function for food
 (defmethod use ((item food) (target actor))
@@ -51,10 +54,11 @@
 				    #'make-trap)))
 
 ;; give player a weapon
-(equip (make-equipment 'hand :dmg 6 :name 'sword) *player*)
+(equip (make-sword) *player*)
 
 ;; put some stuff in the inventory
-(push (make-equipment 'hand :dmg 8 :name 'big-sword) *inventory*)
+(push (make-big-sword) *inventory*)
+(push (make-leather-armor) *inventory*)
 (push (make-food) *inventory*)
 (push (make-bow) *inventory*)
 
