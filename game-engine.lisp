@@ -67,6 +67,7 @@
     :initform ""
     :initarg :description
     :accessor description)
+   (dynamicp :initform nil :initarg :dynamicp :accessor dynamicp)
    (solid
     :initform t
     :initarg :solid
@@ -181,14 +182,11 @@
     :initform 1.2
     :initarg :spd
     :accessor spd)
+   (dynamicp :initform t)
    (loot
     :initform '()
     :initarg :loot
     :accessor loot)
-   (loot-type
-    :initform 'single-drop
-    :initarg :loot-type
-    :accessor loot-type)
    (enabled
     :initform nil
     :accessor enabled)))
@@ -276,8 +274,10 @@
 	    (defun ,(constructor name) (pos)
 	      (let ((new-actor (make-instance (quote ,name) :pos pos)))
 		,(unless (member :interact-action-only keys)
-		  '(setf (interact-action-only new-actor) (not (solid new-actor))))
-		(push new-actor (static-actors))
+		   '(setf (interact-action-only new-actor) (not (solid new-actor))))
+		(if (dynamicp new-actor)
+		    (push new-actor (dynamic-actors))
+		    (push new-actor (static-actors)))
 		new-actor))))
   
   ;; define class, constructor function, and pickup generator function for equipment
@@ -300,7 +300,10 @@
 	   (pos)
 	 (make-pickup (,(constructor name)) pos)))))
 
-(defactor ladder #\# (direction) :destructible nil :solid nil :description "a ladder")
+(defactor ladder #\# (direction) :destructible nil :solid nil)
+(defactor corpse #\c (corpse-type (loot nil) (decay-time (+ 20 (random 20))))
+  :solid nil :dynamicp t :consumable t)
+(defactor bones #\x (bone-type) :solid nil)
 
 (defun has-legal-destination (obj)
   (and (>= (+ *layer-index* (direction obj)) 0)
@@ -311,6 +314,18 @@
     (if (= (direction obj) -1)
 	"a ladder leading back up"
 	"a ladder leading down into the darkness")))
+
+(defmethod description ((obj corpse))
+  (log-to-string "a ~a corpse" (corpse-type obj)))
+
+(defmethod name ((obj corpse))
+  (log-to-string "~a corpse" (corpse-type obj)))
+
+(defmethod description ((obj bones))
+  (log-to-string "~a bones" (bone-type obj)))
+
+(defmethod name ((obj bones))
+  (log-to-string "~a bones" (bone-type obj)))
 
 (defmethod hiddenp ((obj ladder))
   (not (has-legal-destination obj)))
@@ -362,19 +377,28 @@
   (:method (obj)
     (print-to-log "~a destroyed~&" obj))
   (:method ((obj actor))
-    (setf (static-actors) (remove obj (static-actors) :test 'equal)))
+    (if (dynamicp obj)
+	(setf (dynamic-actors) (remove obj (dynamic-actors) :test 'equal))
+	(setf (static-actors) (remove obj (static-actors) :test 'equal))))
   (:method ((obj enemy))
     (setf (dynamic-actors) (remove obj (dynamic-actors) :test 'equal))
-    (if (eq (loot-type obj) 'multi-drop)
-	(loop for lt in (loot obj)
-	      when (< (random 100) (cadr lt))
-		do (funcall (car lt) (pos obj)))
-	(let ((val (random 100)))
-	  (loop for lt in (loot obj)
-		do (if (< val (cadr lt))
-		       (progn (funcall (car lt) (pos obj))
+    (let ((corpse (make-corpse (pos obj))))
+      (setf (corpse-type corpse) (name obj))
+      (loop for loot-set in (loot obj)
+	    with i = (random 100)
+	    do (if (listp (car loot-set))
+		   (loop for loot-pair in (car loot-set)
+			 with index = (random 100)
+			 do (if (< index (cadr loot-pair))
+				(progn (push (funcall (car loot-pair)) (loot corpse))
+				       (return nil))
+				(decf index (cadr loot-pair))))
+		   (if (< i (cadr loot-set))
+		       (progn (push (funcall (car loot-set)) (loot corpse))
 			      (return nil))
-		       (decf val (cadr lt)))))))
+		       (decf i(cadr loot-set))))))
+      (loop for equipment being the hash-values of (equips obj)
+	    do (push equipment (loot corpse))))
   (:method ((obj equipment))
     (remove-from-inventory obj)))
 
@@ -523,6 +547,10 @@
   (:method ((a player) (b pickup))
     (when (add-to-inventory (equipment b))
       (print-to-log "You have picked up a ~a~&" (name b))))
+  (:method ((a player) (b corpse))
+    (loop for item in (loot b)
+	  when (add-to-inventory item)
+	    do (print-to-log "you have picked up a ~a~&" (name item))))
   (:method ((a enemy) (b player))
     (attack a b)))
 
@@ -681,8 +709,20 @@
 (defun step-towards (to from)
   (sub-pos (car (find-path (pos from) (pos to))) (pos from)))
 
-(defmethod update ((obj enemy))
-  (move obj (step-towards *player* obj)))
+(defgeneric update (obj)
+  (:method :around ((obj enemy))
+    (when (visiblep obj)
+      (setf (enabled obj) t))
+    (when (and (enabled obj)
+	       (< (mod *player-actions* (spd obj)) 1))
+      (call-next-method)))
+  (:method ((obj enemy))
+    (move obj (step-towards *player* obj)))
+  (:method ((obj corpse))
+    (decf (decay-time obj))
+    (when (<= (decay-time obj) 0)
+      (destroy obj)
+      (setf (bone-type (make-bones (pos obj))) (corpse-type obj)))))
 
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal)))
@@ -750,13 +790,7 @@
 (defun update-all-actors ()
   (mapc (lambda (actor)
 	  ;; enable the actor if it's in sight
-	  (when (visiblep actor)
-	    (setf (enabled actor) t))
-	  ;; update the actor if it's enabled and *player-actions* lines
-	  ;; up to speed
-	  (when (and (enabled actor)
-		     (< (mod *player-actions* (spd actor)) 1))
-	    (update actor)))
+	  (update actor))
 	(dynamic-actors)))
 
 ;; clears the terminal if possible

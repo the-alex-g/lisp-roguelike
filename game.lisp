@@ -14,8 +14,11 @@
       (slot-value obj 'description)))
 
 ;; define equipment types
-(defequipment food () :health 2 :consumable t
+(defequipment food ((poisonp nil) (real-name "food")) :health (roll 3) :consumable t
   :description "food")
+(defequipment rat-meat () :health (roll 2) :inherit food :description "rat meat")
+(defequipment poison-rat-meat () :poisonp t
+  :inherit rat-meat :real-name 'poison-rat-meat)
 (defequipment ranged-weapon (range) :dex -2 :weaponp t)
 (defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
 (defequipment sword nil :dmg 6 :weaponp t :description "a sword")
@@ -24,15 +27,26 @@
 
 ;;; custom use function for food
 (defmethod use ((item food) (target actor))
-  (print-to-log "You ate ~a and regained ~d health~%" (name item) (health item))
-  (incf (health target) (health item)))
+  (if (poisonp item)
+      (progn
+	(print-to-log "You ate ~a and lost ~d health~%" (real-name item) (health item))
+	(decf (health target) (health item)))
+      (progn
+	(print-to-log "You ate ~a and regained ~d health~%" (name item) (health item))
+	(incf (health target) (health item)))))
+
+(defmethod name ((obj poison-rat-meat))
+  'rat-meat)
 
 ;; define monster types
-(defenemy goblin #\g () :dmg 4 :health 4 :str -1 :dex 1 :color +green+
+(defenemy goblin #\g () :dmg 4 :health (1+ (roll 3)) :str -1 :dex 1 :color +green+
   :description "a goblin with a sharp dagger")
-(defenemy rat #\r () :dmg 2 :health 2 :dex 2 :color +dark-red+
+(defenemy rat #\r () :dmg 2 :health (roll 2) :dex 2 :color +dark-red+
+  :loot (list (list #'make-rat-meat 50)
+	      (list #'make-poison-rat-meat 50))
   :description "a giant rat")
-(defenemy ogre #\O () :dmg 6 :health 6 :str 2 :dex -2 :color +orange+ :speed 1.75
+(defenemy ogre #\O () :dmg 6 :health (+ 4 (roll 2))
+  :str 2 :dex -2 :color +orange+ :speed 1.75
   :description "a hulking ogre")
 
 (defmethod interact ((a player) (b trap))
