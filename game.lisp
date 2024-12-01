@@ -14,10 +14,13 @@
       (slot-value obj 'description)))
 
 ;; define equipment types
-(defequipment food ((poisonp nil) (real-name "food")) :health (roll 3) :consumable t
+(defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (real-name "food"))
+  :health (if (= (random 5) 0) 1 0) :consumable t
   :description "food")
-(defequipment rat-meat () :health (roll 2) :inherit food :description "rat meat")
+(defequipment rat-meat () :hunger (+ 10 (random 6))
+  :inherit food :description "rat meat")
 (defequipment poison-rat-meat () :poisonp t
+  :health (roll 3) :hunger (+ 9 (random 4))
   :inherit rat-meat :real-name 'poison-rat-meat)
 (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
   :throw-distance 3 :description "a bomb" :breakable t)
@@ -37,11 +40,18 @@
 (defmethod use ((item food) (target actor))
   (if (poisonp item)
       (progn
-	(print-to-log "You ate ~a and lost ~d health~%" (real-name item) (health item))
+	(print-to-log "You ate ~a, lost ~a health, and recovered ~d hunger~%"
+		      (real-name item) (health item) (hunger item))
 	(decf (health target) (health item)))
       (progn
-	(print-to-log "You ate ~a and regained ~d health~%" (name item) (health item))
-	(incf (health target) (health item)))))
+	(print-to-log "You ate ~a~a and recovered ~d hunger~%"
+		      (name item)
+		      (if (> (health item) 0)
+			  (log-to-string ", regained ~d health, " (health item))
+			  "")
+		      (hunger item))
+	(incf (health target) (health item))))
+  (incf (hunger target) (hunger item)))
 
 (defmethod break-at (pos (item bomb))
   (print-to-log "the bomb exploded for ~d damage~%" (explode-damage item))

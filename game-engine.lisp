@@ -140,13 +140,39 @@
 					       0)
 					  (slot-value qpmnt (quote ,name))))))))
 		 (defmethod (setf ,name) (new-val (obj combat-entity))
-		   (setf (slot-value obj (quote ,name)) new-val)))))	
+		   (setf (slot-value obj (quote ,name)) new-val)))))
       '(def str health dmg dex)) ; this is the list of stats
 
-(defclass player (combat-entity) ())
+(defclass player (combat-entity)
+  ((heal-clock :initform 10
+	       :accessor heal-clock)
+   (starvingp :initform nil
+	      :accessor starvingp)
+   (hunger :initform 80
+	   :accessor hunger)))
+
+(defmethod (setf heal-clock) (value (obj player))
+  (if (= value 0)
+      (progn (setf (slot-value obj 'heal-clock) 10)
+	     (unless (starvingp obj)
+	       (incf (health obj))))
+      (setf (slot-value obj 'heal-clock) value)))
+
+(defmethod (setf hunger) (value (obj player))
+  (if (= value 0)
+      (progn (setf (starvingp obj) t)
+	     (damage obj 1 :unblockable t)
+	     (setf (slot-value obj 'hunger) 8))
+      (progn (when (> value (hunger obj))
+	       (setf (starvingp obj) nil))
+	     (setf (slot-value obj 'hunger) (min 80 value)))))
+
+(defmethod (setf health) (value (obj player))
+  (setf (slot-value obj 'health) (min value 10)))
 
 (defparameter *player* (make-instance 'player :name 'player
 					      :color +red+
+					      :health 10
 					      :display-char #\@))
 
 (defclass layer ()
@@ -303,7 +329,8 @@
 	 (make-pickup (,(constructor name)) pos)))))
 
 (defactor ladder #\# (direction) :destructible nil :solid nil)
-(defactor corpse #\c (corpse-type (loot nil) (decay-time (+ 20 (random 20))))
+;;; corpse, decay time from 60 to 100, with average of 80
+(defactor corpse #\c (corpse-type (loot nil) (decay-time (+ 60 (random 21) (random 21))))
   :solid nil :dynamicp t :consumable t)
 (defactor bones #\x (bone-type) :solid nil)
 
@@ -416,24 +443,15 @@
 	(when (next-method-p)
 	  (call-next-method)))))
 
-(defgeneric display (obj &key as-lines fields headers)
-  (:method (obj &key as-lines fields headers)
-    (declare (ignore fields headers))
-    (if as-lines
-	(list (log-to-string "~a" obj))
-	(print-to-log "~a~%" obj)))
-  (:method ((obj actor) &key as-lines (fields '(description)) (headers t))
-    (let ((lines (mapcar (lambda (field)
-			   (if headers
-			       (log-to-string
-				"~a: ~a" field
-				(funcall field obj))
-			       (log-to-string
-				"~a" (funcall field obj))))
-			 fields)))
-      (if as-lines
-	  lines
-	  (log-to-string "~{~a~%~}" lines)))))
+(defun get-player-lines ()
+  (list
+   (apply-color (log-to-string "~a" (name *player*)) (color *player*))
+   (log-to-string "str: ~2a dex: ~2a" (str *player*) (dex *player*))
+   (log-to-string "def: ~2a dmg: ~2a" (def *player*) (dmg *player*))
+   (log-to-string "health: ~a" (health *player*))
+   (log-to-string "hunger: ~{~c~}" (loop for x below (ash (hunger *player*) -3)
+					 collect #\/))
+   (if (starvingp *player*) "you are starving!" "")))
 
 (defgeneric use (item target)
   (:method :after ((item equipment) target)
@@ -446,17 +464,20 @@
   (:method ((obj actor))
     (<= (health obj) 0)))
 
-(defgeneric damage (target amount)
-  (:method ((target actor) amount)
-    (decf (health target) (max 1 amount))
+(defgeneric damage (target amount &key unblockable)
+  (:method :around (target amount &key unblockable)
+    (call-next-method target (max 1 amount) :unblockable unblockable))
+  (:method ((target actor) amount &key unblockable)
+    (decf (health target) amount)
     amount)
-  (:method :after ((target actor) amount)
+  (:method :after ((target actor) amount &key unblockable)
     (when (and (deadp target)
 	       (destructible target))
       (destroy target)))
-  (:method ((target combat-entity) amount)
-    (decf (health target) (max 1 (- amount (def target))))
-    amount))
+  (:method ((target combat-entity) amount &key unblockable)
+    (unless unblockable
+      (setf amount (max 1 (- amount (def target)))))
+    (call-next-method)))
 
 (defgeneric attack (a d)
   (:method ((a combat-entity) (d combat-entity))
@@ -755,6 +776,9 @@
       (call-next-method)))
   (:method ((obj enemy))
     (move obj (step-towards *player* obj)))
+  (:method ((obj player))
+    (decf (hunger *player*))
+    (decf (heal-clock *player*)))    
   (:method ((obj corpse))
     (decf (decay-time obj))
     (when (<= (decay-time obj) 0)
@@ -789,8 +813,7 @@
 			  #\-) ; horizontal wall
 			 (t #\space)))))
       ;; print the board
-      (let ((player-info (display *player* :as-lines t
-					   :fields '(health str dex def dmg))))
+      (let ((player-info (get-player-lines)))
 	(loop for y from -1 to (+ (cdr (board-size)) 1)
 	      do (format t "~{~a~} ~a~%"
 			 (loop for x from -1 to (+ (car (board-size)) 1)
@@ -823,10 +846,10 @@
     (when action
       (funcall action))))
 
-;;; iterate through *dynamic-actors* and update them if applicable
+;;; iterate through the list of dynamic actors and update them
 (defun update-all-actors ()
+  (update *player*)
   (mapc (lambda (actor)
-	  ;; enable the actor if it's in sight
 	  (update actor))
 	(dynamic-actors)))
 
