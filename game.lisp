@@ -19,6 +19,8 @@
 (defequipment rat-meat () :health (roll 2) :inherit food :description "rat meat")
 (defequipment poison-rat-meat () :poisonp t
   :inherit rat-meat :real-name 'poison-rat-meat)
+(defequipment bomb ((explode-damage (roll 6))) :throw-distance 3 :description "a bomb"
+  :breakable t)
 (defequipment ranged-weapon (range) :dex -2 :weaponp t)
 (defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
 (defequipment sword nil :dmg 6 :weaponp t :description "a sword")
@@ -34,6 +36,15 @@
       (progn
 	(print-to-log "You ate ~a and regained ~d health~%" (name item) (health item))
 	(incf (health target) (health item)))))
+
+(defmethod break-at (pos (item bomb))
+  (print-to-log "the bomb exploded for ~d damage~%" (explode-damage item))
+  (for-each-adjacent-actor pos
+			   (save 12 dex actor
+				 (damage actor (explode-damage item))
+				 (damage actor (ash (explode-damage item) -1)))
+			   (when (<= 0 (health actor))
+			     (print-to-log "killing a ~a~%" (name actor)))))
 
 (defmethod name ((obj poison-rat-meat))
   'rat-meat)
@@ -68,12 +79,11 @@
 				    #'make-trap)))
 
 ;; give player a weapon
-(equip (make-sword) *player*)
+(equip (make-big-sword) *player*)
+(equip (make-leather-armor) *player*)
 
 ;; put some stuff in the inventory
-(push (make-big-sword) *inventory*)
-(push (make-leather-armor) *inventory*)
-(push (make-food) *inventory*)
+(push (make-bomb) *inventory*)
 (push (make-bow) *inventory*)
 
 (defun ranged-attack (direction)
@@ -171,10 +181,10 @@
 					    (board))
 				return (add-pos (pos *player*) (mul-pos direction x)))))
 	(remove-from-inventory item)
+	(print-to-log "you threw ~a~%" (description item))
 	(if (breakable item)
 	    (break-at final-pos item)
 	    (make-pickup item final-pos))))))
-	
 (defaction #\h "print help menu"
   (loop for k being the hash-keys of *action-descriptions*
 	do (print-to-log "~c: ~a~%" k (gethash k *action-descriptions*)))

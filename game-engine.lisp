@@ -398,9 +398,9 @@
 		   (if (< i (cadr loot-set))
 		       (progn (push (funcall (car loot-set)) (loot corpse))
 			      (return nil))
-		       (decf i(cadr loot-set))))))
+		       (decf i(cadr loot-set)))))
       (loop for equipment being the hash-values of (equips obj)
-	    do (push equipment (loot corpse))))
+	    do (push equipment (loot corpse)))))
   (:method ((obj equipment))
     (remove-from-inventory obj)))
 
@@ -482,6 +482,17 @@
 			", destroying it"
 			"")))))
 
+(defgeneric check (dc stat creature)
+  (:method (dc stat (creature combat-entity))
+    (>= (+ (roll 20) (funcall stat creature)) dc))
+  (:method (dc stat (creature actor))
+    nil))
+
+(defmacro save (dc stat creature failure &optional (success nil))
+  `(if (check ,dc (quote ,stat) ,creature)
+       ,success
+       ,failure))
+    
 ;; Return an item, chosen by the player, from the given list
 ;; If the list items are not printable, pass a naming-function that gets a
 ;; printable name from the list item.
@@ -639,6 +650,12 @@
 					       (if (hiddenp x)
 						   nil
 						   (name x)))))))
+
+(defmacro for-each-adjacent-actor (pos &body body)
+  `(loop for p in (mapcar (lambda (x) (add-pos pos x))
+			  (list +right+ +left+ +down+ +up+ +zero+))
+	 do (loop for actor in (find-all-actors-at p)
+		  do (progn ,@body))))
 
 (defun update-spaces-found ()
   (mapc (lambda (pos)
