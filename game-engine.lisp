@@ -45,6 +45,8 @@
    (health :initform 0 :accessor health :initarg :health)
    (name :initform "" :accessor name :initarg :name)
    (description :accessor description :initarg :description)
+   (breakable :initform nil :accessor breakable :initarg :breakable)
+   (throw-distance :initform 2 :accessor throw-distance :initarg :throw-distance)
    (consumable :initform nil :accessor consumable :initarg :consumable)
    (equip-slot :initform 'hand :accessor equip-slot :initarg :equip-slot)))
 
@@ -586,6 +588,18 @@
 	   (print-to-screen "~%That was not a direction")
 	   (get-direction)))))
 
+(defun get-number-input (bound prompt)
+  (print-to-screen "~%~a (0~a): "
+		   prompt
+		   (if (= bound 0)
+		       ""
+		       (log-to-string "-~d" bound)))
+  (let ((input (digit-char-p (custom-read-char))))
+    (if (and input (<= 0 input bound))
+	input
+	(progn (print-to-screen "~%invalid input")
+	       (get-number-input bound prompt)))))
+
 (defgeneric find-actor-at (a &rest actors-to-ignore)
   (:method ((a list) &rest actors-to-ignore)
     (loop for actor in (actors)
@@ -603,6 +617,8 @@
 	      collect actor))
   (:method ((a actor) &rest actors-to-ignore)
     (apply #'find-all-actors-at (pos a) a actors-to-ignore)))
+
+(defgeneric break-at (pos item))
 
 (defun find-solid-actor-at (a &rest actors-to-ignore)
   (loop for actor in (apply #'find-all-actors-at a actors-to-ignore)

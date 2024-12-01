@@ -159,6 +159,22 @@
       (print-to-log "you have unequipped ~a, freeing your ~a slot~%"
 		    (name item)
 		    (equip-slot item)))))
+(defaction #\t "throw an item"
+  (with-item-from-inventory
+    (when item
+      (let* ((direction (get-direction :cancel nil))
+	     (distance (get-number-input (throw-distance item)
+					 "enter the distance you want to throw"))
+	     (final-pos (loop for x downfrom distance to 0
+			      when (gethash (add-pos (pos *player*)
+						     (mul-pos direction x))
+					    (board))
+				return (add-pos (pos *player*) (mul-pos direction x)))))
+	(remove-from-inventory item)
+	(if (breakable item)
+	    (break-at final-pos item)
+	    (make-pickup item final-pos))))))
+	
 (defaction #\h "print help menu"
   (loop for k being the hash-keys of *action-descriptions*
 	do (print-to-log "~c: ~a~%" k (gethash k *action-descriptions*)))
