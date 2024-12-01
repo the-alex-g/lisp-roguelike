@@ -21,7 +21,8 @@
 	       (list (apply #'log-to-string control-string args)))))
 
 (defun print-to-screen (control-string &rest args)
-  (princ (apply #'log-to-string control-string args)))
+  (princ (apply #'log-to-string control-string args))
+  (force-output))
 
 (defun square (number)
   (* number number))

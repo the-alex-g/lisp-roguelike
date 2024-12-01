@@ -168,7 +168,7 @@
 	     (setf (slot-value obj 'hunger) (min 80 value)))))
 
 (defmethod (setf health) (value (obj player))
-  (setf (slot-value obj 'health) (min value 10)))
+  (setf (slot-value obj 'health) (max 0 (min value 10))))
 
 (defparameter *player* (make-instance 'player :name 'player
 					      :color +red+
@@ -445,7 +445,8 @@
 
 (defun get-player-lines ()
   (list
-   (apply-color (log-to-string "~a" (name *player*)) (color *player*))
+   (apply-color (log-to-string "~a (~c)" (name *player*) (display-char *player*))
+		(color *player*))
    (log-to-string "str: ~2a dex: ~2a" (str *player*) (dex *player*))
    (log-to-string "def: ~2a dmg: ~2a" (def *player*) (dmg *player*))
    (log-to-string "health: ~a" (health *player*))
@@ -523,7 +524,8 @@
 ;; printable name from the list item.
 (defun get-item-from-list (lst &key
 				 (naming-function (lambda (x) x))
-				 (exit-option t))
+				 (exit-option t)
+				 (what "object"))
   (labels ((print-list (l i new-list)
 	     (if (car l)
 		 (let ((n (funcall naming-function (car l))))
@@ -534,8 +536,10 @@
 		 (reverse new-list)))
 	   (pick-item ()
 	     (fresh-line)
-	     (print-to-screen "Choose an object: ")
-	     (let ((choice (digit-char-p (custom-read-char))))
+	     (print-to-screen "Choose an ~a: " what)
+	     (let ((choice (if (<= (length lst) 10)
+			       (digit-char-p (custom-read-char))
+			       (parse-integer (read-line)))))
 	       (cond ((and choice (< choice (length lst)))
 		      (nth choice lst))
 		     ((and choice
@@ -871,9 +875,33 @@
     (clear-terminal)
     (print-board)
     (print-log)
-    (game-loop (custom-read-char))))
+    (if (deadp *player*)
+	(print-to-screen "~%~a has died.~%~%" (name *player*))
+	(game-loop (custom-read-char)))))
+
+(defun create-new-player ()
+  (let ((p-name (progn (print-to-screen "enter the name of your character: ")
+		       (read-line)))
+	(p-color (eval (get-item-from-list
+			'(+red+ +blue+ +green+ +orange+ +purple+
+			  +teal+ +grey+ +dark-red+ +pale-green+
+			  +light-orange+ +sky-blue+ +dark-purple+
+			  +dark-teal+)
+			:naming-function (lambda (c)
+					   (apply-color
+					     (string-trim "+" (log-to-string "~a" c))
+					     (eval c)))
+			:what "color"
+			:exit-option nil)))
+	(p-char (progn (print-to-screen "~%enter a character: ")
+		       (custom-read-char))))
+    (setf *player* (make-instance 'player
+				  :health 10 :color p-color :display-char p-char
+				  :name p-name
+				  :pos (pos *player*)))))
 
 (defun start ()
   (setf *current-layer* (car *layers*))
   (update-los)
+  (create-new-player)
   (game-loop))
