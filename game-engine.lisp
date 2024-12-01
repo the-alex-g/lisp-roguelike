@@ -442,12 +442,16 @@
   (:method (item target)
     (print-to-log "That cannot be used")))
 
+(defgeneric deadp (obj)
+  (:method ((obj actor))
+    (<= (health obj) 0)))
+
 (defgeneric damage (target amount)
   (:method ((target actor) amount)
     (decf (health target) (max 1 amount))
     amount)
   (:method :after ((target actor) amount)
-    (when (and (<= (health target) 0)
+    (when (and (deadp target)
 	       (destructible target))
       (destroy target)))
   (:method ((target combat-entity) amount)
@@ -470,7 +474,7 @@
 			  (name a)
 			  (name d)
 			  damage-dealt
-			  (if (<= (health d) 0) ", killing it" "")))
+			  (if (deadp d) ", killing it" "")))
 	  (print-to-log "~a missed~&" (name a)))))
   (:method ((a combat-entity) (d actor))
     (when (destructible d)
@@ -478,7 +482,7 @@
 		    (name a)
 		    (name d)
 		    (damage d (roll (dmg a)))
-		    (if (<= (health d) 0)
+		    (if (deadp d)
 			", destroying it"
 			"")))))
 
@@ -492,7 +496,7 @@
   `(if (check ,dc (quote ,stat) ,creature)
        ,success
        ,failure))
-    
+
 ;; Return an item, chosen by the player, from the given list
 ;; If the list items are not printable, pass a naming-function that gets a
 ;; printable name from the list item.

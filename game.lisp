@@ -19,13 +19,19 @@
 (defequipment rat-meat () :health (roll 2) :inherit food :description "rat meat")
 (defequipment poison-rat-meat () :poisonp t
   :inherit rat-meat :real-name 'poison-rat-meat)
-(defequipment bomb ((explode-damage (roll 6))) :throw-distance 3 :description "a bomb"
-  :breakable t)
+(defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
+  :throw-distance 3 :description "a bomb" :breakable t)
 (defequipment ranged-weapon (range) :dex -2 :weaponp t)
 (defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
 (defequipment sword nil :dmg 6 :weaponp t :description "a sword")
 (defequipment big-sword nil :dmg 8 :weaponp t :description "a big sword")
 (defequipment leather-armor nil :def 1 :description "leather armor" :equip-slot 'body)
+
+(defgeneric death-verb (obj)
+  (:method ((obj actor))
+    "destroying")
+  (:method ((obj combat-entity))
+    "killing"))
 
 ;;; custom use function for food
 (defmethod use ((item food) (target actor))
@@ -43,8 +49,11 @@
 			   (save 12 dex actor
 				 (damage actor (explode-damage item))
 				 (damage actor (ash (explode-damage item) -1)))
-			   (when (<= 0 (health actor))
-			     (print-to-log "killing a ~a~%" (name actor)))))
+			   (when (and (deadp actor)
+				      (destructible actor))
+			     (print-to-log "~a a ~a~%"
+					   (death-verb actor)
+					   (name actor)))))
 
 (defmethod name ((obj poison-rat-meat))
   'rat-meat)
@@ -63,7 +72,7 @@
 (defmethod interact ((a player) (b trap))
   (when (= 0 (random 2))
     (setf (hiddenp b) nil)
-    (if (>= (+ (roll 20) (dex a)) (save-dc b))
+    (save (save-dc b) dex a
 	(print-to-log "you triggered ~a but dodged out of the way" (description b))
 	(print-to-log "you triggered ~a and took ~d damage"
 		      (description b) (damage a (roll (dmg b)))))))
