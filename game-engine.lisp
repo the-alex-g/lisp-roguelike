@@ -120,7 +120,7 @@
    (dmg :initform 0 :initarg :dmg)
    (str :initform 0 :initarg :str)
    (dex :initform 0 :initarg :dex)
-   (equips :initform (make-hash-table) :accessor equips)
+   (equips :initform (make-hash-table) :accessor equips :initarg :equips)
    (health :initform 6)))
 
 ;; generate setters and getters for combat-entity stats
@@ -450,8 +450,10 @@
    (log-to-string "str: ~2a dex: ~2a" (str *player*) (dex *player*))
    (log-to-string "def: ~2a dmg: ~2a" (def *player*) (dmg *player*))
    (log-to-string "health: ~a" (health *player*))
-   (log-to-string "hunger: ~{~c~}" (loop for x below (ash (hunger *player*) -3)
-					 collect #\/))
+   (log-to-string "hunger: ~{~c~}" (loop for x below 10
+					 collect (if (<= x (ash (hunger *player*) -3))
+						     #\/
+						     #\-)))
    (if (starvingp *player*) "you are starving!" "")))
 
 (defgeneric use (item target)
@@ -681,10 +683,11 @@
 						   (name x)))))))
 
 (defmacro for-each-adjacent-actor (pos &body body)
-  `(loop for p in (mapcar (lambda (x) (add-pos pos x))
-			  (list +right+ +left+ +down+ +up+ +zero+))
-	 do (loop for actor in (find-all-actors-at p)
-		  do (progn ,@body))))
+  (let ((p (gensym)))
+    `(loop for ,p in (mapcar (lambda (x) (add-pos ,pos x))
+			     (list +right+ +left+ +down+ +up+ +zero+))
+	   do (loop for actor in (find-all-actors-at ,p)
+		    do (progn ,@body)))))
 
 (defun update-spaces-found ()
   (mapc (lambda (pos)
@@ -716,11 +719,6 @@
       (iterate (list (pos *player*))))
     (setf *light-zone* reached))
   (update-spaces-found))
-
-(defun has-los (from to board)
-  (loop for x from (min (car from) (car to)) to (max (car from) (car to))
-    always (loop for y from (min (cdr from) (cdr to)) to (max (cdr from) (cdr to))
-      always (member (cons x y) board :test #'equal))))
 
 (defgeneric move (obj distance)
   (:method ((obj actor) (distance list))
@@ -902,6 +900,7 @@
 		       (custom-read-char))))
     (setf *player* (make-instance 'player
 				  :health 10 :color p-color :display-char p-char
+				  :equips (equips *player*)
 				  :name p-name
 				  :pos (pos *player*)))))
 
