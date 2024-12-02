@@ -20,6 +20,7 @@
 (defparameter *light-zone* '())
 (defparameter *show-found-spaces* nil)
 (defparameter *treasure* (make-hash-table))
+(defparameter *level-up-pending* nil)
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 
@@ -149,7 +150,14 @@
    (starvingp :initform nil
 	      :accessor starvingp)
    (hunger :initform 80
-	   :accessor hunger)))
+	   :accessor hunger)
+   (xp :initform 0 :accessor xp)
+   (max-health :initform 10 :accessor max-health)
+   (xp-bound :initform 10 :accessor xp-bound)))
+
+(defmethod (setf xp) (value (obj player))
+  (setf (slot-value obj 'xp) value)
+  (setf *level-up-pending* (>= value (xp-bound obj))))
 
 (defmethod (setf heal-clock) (value (obj player))
   (if (= value 0)
@@ -168,7 +176,7 @@
 	     (setf (slot-value obj 'hunger) (min 80 value)))))
 
 (defmethod (setf health) (value (obj player))
-  (setf (slot-value obj 'health) (max 0 (min value 10))))
+  (setf (slot-value obj 'health) (max 0 (min value (max-health obj)))))
 
 (defparameter *player* (make-instance 'player :name 'player
 					      :color +red+
@@ -211,6 +219,7 @@
     :initarg :spd
     :accessor spd)
    (dynamicp :initform t)
+   (xp :initform 1 :initarg :xp :accessor xp)
    (loot
     :initform '()
     :initarg :loot
@@ -411,6 +420,7 @@
 	(setf (static-actors) (remove obj (static-actors) :test 'equal))))
   (:method ((obj enemy))
     (setf (dynamic-actors) (remove obj (dynamic-actors) :test 'equal))
+    (incf (xp *player*) (xp obj))
     (let ((corpse (make-corpse (pos obj))))
       (setf (corpse-type corpse) (name obj))
       (loop for loot-set in (loot obj)
@@ -447,9 +457,10 @@
   (list
    (apply-color (log-to-string "~a (~c)" (name *player*) (display-char *player*))
 		(color *player*))
-   (log-to-string "str: ~2a dex: ~2a" (str *player*) (dex *player*))
-   (log-to-string "def: ~2a dmg: ~2a" (def *player*) (dmg *player*))
-   (log-to-string "health: ~a" (health *player*))
+   (log-to-string "str: ~2d dex: ~2d" (str *player*) (dex *player*))
+   (log-to-string "def: ~2d dmg: ~2d" (def *player*) (dmg *player*))
+   (log-to-string "health: ~d/~d" (health *player*) (max-health *player*))
+   (log-to-string "xp: ~d/~d" (xp *player*) (xp-bound *player*))
    (log-to-string "hunger: ~{~c~}" (loop for x below 10
 					 collect (if (<= x (ash (hunger *player*) -3))
 						     #\/
@@ -870,6 +881,19 @@
   (when clear
     (setf *log* '())))
 
+(defun level-up ()
+  (print-to-screen "~%LEVEL UP!")
+  (decf (xp *player*) (xp-bound *player*))
+  (incf (xp-bound *player*) (xp-bound *player*))
+  (let ((health-increase (max 5 (roll 10))))
+    (incf (max-health *player*) health-increase)
+    (incf (health *player*) health-increase))
+  (eval `(incf (,(get-item-from-list '(dex str)
+				     :what "stat" :exit-option nil)
+		*player*)))
+  (when *level-up-pending*
+    (level-up)))
+
 (defun game-loop (&optional cmd)
   (unless (equal cmd #\q)
     ;; only update if input was a valid command
@@ -878,6 +902,8 @@
     (clear-terminal)
     (print-board)
     (print-log)
+    (when *level-up-pending*
+      (level-up))
     (if (deadp *player*)
 	(print-to-screen "~%~a has died.~%~%" (name *player*))
 	(game-loop (custom-read-char)))))

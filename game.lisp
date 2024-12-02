@@ -70,6 +70,7 @@
 
 ;; define monster types
 (defenemy goblin #\g () :dmg 4 :health (1+ (roll 3)) :str -1 :dex 1 :color +green+
+  :xp 3
   :description "a goblin with a sharp dagger")
 (defenemy rat #\r () :dmg 2 :health (roll 2) :dex 2 :color +dark-red+
   :loot (list (list #'make-rat-meat 50)
@@ -77,6 +78,7 @@
   :description "a giant rat")
 (defenemy ogre #\O () :dmg 6 :health (+ 4 (roll 2))
   :str 2 :dex -2 :color +orange+ :speed 1.75
+  :xp 8
   :description "a hulking ogre")
 
 (defmethod interact ((a player) (b trap))
