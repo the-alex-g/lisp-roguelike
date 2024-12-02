@@ -717,6 +717,11 @@
     (setf *light-zone* reached))
   (update-spaces-found))
 
+(defun has-los (from to board)
+  (loop for x from (min (car from) (car to)) to (max (car from) (car to))
+    always (loop for y from (min (cdr from) (cdr to)) to (max (cdr from) (cdr to))
+      always (member (cons x y) board :test #'equal))))
+
 (defgeneric move (obj distance)
   (:method ((obj actor) (distance list))
     (let* ((newpos (add-pos (pos obj) distance))
