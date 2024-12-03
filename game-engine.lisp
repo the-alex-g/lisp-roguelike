@@ -8,7 +8,7 @@
 (defparameter *current-layer* nil)
 (defparameter *layer-index* 0)
 (defparameter *player-actions* 0)
-(defparameter *sight-distance* 3)
+(defparameter *sight-distance* 4)
 (defparameter +left+ '(-1 . 0))
 (defparameter +right+ '(1 . 0))
 (defparameter +up+ '(0 . -1))
@@ -17,6 +17,7 @@
 (defparameter *actions* (make-hash-table :test 'equal))
 (defparameter *action-descriptions* (make-hash-table))
 (defparameter *inventory* '())
+(defparameter *inventory-size* 6)
 (defparameter *light-zone* '())
 (defparameter *show-found-spaces* nil)
 (defparameter *treasure* (make-hash-table))
@@ -428,11 +429,31 @@
     (push layer *layers*)
     layer))
 
+(defun short-inventory ()
+  (loop for item in *inventory*
+	with used-names = nil
+	unless (member (name item) used-names :test #'equal)
+	  collect (progn (push (name item) used-names)
+			 item)))
+
+(defun inventory-length ()
+  (length (short-inventory)))
+
 (defun remove-from-inventory (item)
-  (setf *inventory* (remove item *inventory* :test #'equal)))
+  (setf *inventory* (remove item *inventory* :test (lambda (a b)
+						     (equal (name a) (name b)))
+					     :count 1)))
+
+(defun in-inventory-p (item)
+  (loop for i in *inventory*
+	  thereis (equal (name item) (name i))))
+
+(defun num-in-inventory (item)
+  (loop for i in *inventory*
+	count (equal (name i) (name item))))
 
 (defun add-to-inventory (item)
-  (if (< (length *inventory*) 10)
+  (if (or (< (inventory-length) *inventory-size*) (in-inventory-p item))
       (push item *inventory*)
       (progn (print-to-log "your inventory is full")
 	     (make-pickup item (pos *player*))
@@ -603,7 +624,16 @@
     (pick-item)))
 
 (defun get-item-from-inventory ()
-  (get-item-from-list *inventory* :naming-function #'name))
+  (get-item-from-list
+   (short-inventory)
+   :naming-function (lambda (i)
+		      (log-to-string "~a~a"
+				     (if (> (num-in-inventory i) 1)
+					 (log-to-string
+					  "~dx "
+					  (num-in-inventory i))
+					 "")
+				     (name i)))))
 
 (defmacro with-item-from-inventory (&body body)
   `(if (= (length *inventory*) 0)
@@ -877,9 +907,15 @@
 
 (defun print-inventory ()
   (print-to-log "~t~a ~30t~a~%" "INVENTORY" "EQUIPPED")
-  (let ((inventory-list (mapcar (lambda (item)
-				  (log-to-string "~a" (name item)))
-				*inventory*))
+  (let* ((inventory-list (mapcar (lambda (item)
+				  (log-to-string "~a~a"
+						 (if (> (num-in-inventory item) 1)
+						     (log-to-string
+						      "~dx "
+						      (num-in-inventory item))
+						     "")
+						 (name item)))
+				(short-inventory)))
 	(equipped-list (loop for eq-slot being the hash-keys of (equips *player*)
 			     collect (let ((item (gethash eq-slot (equips *player*))))
 				       (when item
@@ -887,10 +923,10 @@
 							eq-slot (name item)))))))
     (mapc (lambda (a b)
 	    (print-to-log "~t~a ~30t~a~%" a b))
-	  (loop for x below 10
+	  (loop for x below *inventory-size*
 		collect (let ((val (nth x inventory-list)))
 			  (if val val "")))
-	  (loop for x below 10
+	  (loop for x below *inventory-size*
 		collect (let ((val (nth x equipped-list)))
 			  (if val val ""))))))
 

@@ -75,7 +75,7 @@
 
 (defmethod use ((item healing-herb) (target actor))
   (incf (health target) (health item))
-  (print-to-log "You ate ~a regained ~a health" (name item) (health item)))
+  (print-to-log "You ate ~a and regained ~a health" (name item) (health item)))
 
 (defmethod use ((item poison-herb) (target actor))
   (decf (health target) (health item))
