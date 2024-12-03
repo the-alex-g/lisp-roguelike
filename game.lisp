@@ -20,7 +20,15 @@
 
 (defmethod update ((obj fire))
   (decf (burn-time obj))
+  (loop for actor in (find-all-actors-at obj)
+	when (slot-exists-p actor 'equipment)
+	  when (>= (burn-time (equipment actor)) 0)
+	    do (progn (incf (burn-time obj) (burn-time (equipment actor)))
+		      (destroy actor)
+		      (print-to-log "the fire has consumed ~a" (name actor))))
   (when (<= (burn-time obj) 0)
+    (when (visiblep obj)
+      (print-to-log "the fire has gone out"))
     (destroy obj)))
 
 (defmacro defherb (real-name &rest slots)
@@ -35,7 +43,7 @@
        :inherit herb :identifiedp nil)))
 
 ;; define equipment types
-(defequipment food ((hunger (+ 20 (random 11))) (poisonp nil))
+(defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp nil))
   :health (if (= (random 5) 0) 1 0) :consumable t
   :description "food")
 (defequipment rat-meat () :hunger (+ 10 (random 6)) :secretp t
@@ -47,7 +55,7 @@
   (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
     :identifiedp nil :fake-name (log-to-string "~a potion" bomb-color)
     :throw-distance 3 :breakable t))
-(defequipment faggot () :burn-time 10 :dmg 2 :weaponp t)
+(defequipment faggot () :burn-time (+ 10 (random 11)) :dmg 2 :weaponp t)
 (defherb healing-herb :health (roll 4))
 (defherb poison-herb :health (roll 4))
 (defequipment ranged-weapon (range) :dex -2 :weaponp t)
@@ -124,7 +132,9 @@
 		      (description b) (damage a (roll (dmg b)))))))
 
 (defmethod interact ((a combat-entity) (b fire))
-  (print-to-log "you walked into fire and took ~a damage" (damage a (roll (dmg b)))))
+  (print-to-log "~a walked into fire and took ~a damage~a" (name a)
+		(damage a (roll (dmg b)))
+		(if (deadp a) ", killing it" "")))
 
 ;; generate a sample board
 (make-layer (generate-dungeon '(50 . 20) 3
@@ -150,6 +160,29 @@
 (push (make-faggot) *inventory*)
 (push (make-faggot) *inventory*)
 (push (make-bow) *inventory*)
+
+(defgeneric cook (item)
+  (:method (item)
+    (print-to-log "you can't cook that"))
+  (:method :around ((item food))
+    (if (cookedp item)
+	(print-to-log "you have already cooked that")
+	(progn
+	  (remove-from-inventory item)
+	  (incf (hunger item) 10)
+	  (setf (cookedp item) t)
+	  (print-to-log "you have cooked ~a" (name item))
+	  (call-next-method))))
+  (:method :after ((item food))
+    (add-to-inventory item))
+  (:method ((item food))
+    (setf (name item) (log-to-string "cooked ~a" (name item))))
+  (:method ((item poison-rat-meat))
+    (when (<= (health item) 2)
+      (setf (health item) 0)
+      (setf (name item) (log-to-string "cooked ~a" (name item)))
+      (setf (poisonp item) nil))
+    (setf (fake-name item) (log-to-string "cooked ~a" (name item)))))
 
 (defun ranged-attack (direction)
   (loop for r from 1 to (1- (range (gethash 'hand (equips *player*))))
@@ -269,7 +302,14 @@
 	      (print-to-log "you have started a fire with ~a" (name item)))
 	    (remove-from-inventory item))
 	  (print-to-log "that doesn't burn")))))
-	  
+(defaction #\c "cook an item"
+  (if (loop for p in (list +left+ +right+ +zero+ +up+ +down+)
+	      thereis (loop for actor in (find-all-actors-at (add-pos p (pos *player*)))
+			      thereis (eq (name actor) 'fire)))
+      (with-item-from-inventory
+	(when item
+	  (cook item)))
+      (print-to-log "there is no fire nearby")))
 
 ;; start game
 (start)
