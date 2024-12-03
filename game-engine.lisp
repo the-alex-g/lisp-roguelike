@@ -47,6 +47,8 @@
    (name :initform "" :accessor name :initarg :name)
    (description :accessor description :initarg :description)
    (breakable :initform nil :accessor breakable :initarg :breakable)
+   (display-char :initform #\* :accessor display-char :initarg :display-char)
+   (color :initform 'white :accessor color :initarg :color)
    (throw-distance :initform 2 :accessor throw-distance :initarg :throw-distance)
    (consumable :initform nil :accessor consumable :initarg :consumable)
    (secretp :initform nil :accessor secretp :initarg :secretp)
@@ -90,7 +92,7 @@
     :initarg :interact-action-only
     :accessor interact-action-only)
    (color
-    :initform 0
+    :initform 'white
     :initarg :color
     :accessor color)
    (hiddenp
@@ -116,7 +118,6 @@
 
 (defclass pickup (actor)
   ((consumable :initform t)
-   (display-char :initform #\*)
    (solid :initform nil)
    (equipment :initarg :equipment :accessor equipment)))
 
@@ -125,6 +126,12 @@
 
 (defmethod description ((obj pickup))
   (description (equipment obj)))
+
+(defmethod display-char ((obj pickup))
+  (display-char (equipment obj)))
+
+(defmethod color ((obj pickup))
+  (color (equipment obj)))
 
 (defclass combat-entity (actor)
   ((def :initform 0 :initarg :def)
@@ -189,9 +196,7 @@
   (setf (slot-value obj 'health) (max 0 (min value (max-health obj)))))
 
 (defparameter *player* (make-instance 'player :name 'player
-					      :color +red+
-					      :health 10
-					      :display-char #\@))
+					      :health 10))
 
 (defclass layer ()
   ((board :initarg :board)
@@ -849,7 +854,7 @@
 			 (if c c #\.))
 		       ;; otherwise, return an empty space
 		       (if (and *show-found-spaces* *in-terminal* (foundp pos))
-			   (apply-color #\. +grey+)
+			   (apply-color #\. 'grey)
 			   #\space))
 		   ;; if the cell is not on the board, check all
 		   ;; adjacent cells and add walls as necessary.
@@ -915,12 +920,12 @@
   (print-to-screen "~%LEVEL UP!")
   (decf (xp *player*) (xp-bound *player*))
   (incf (xp-bound *player*) (xp-bound *player*))
-  (let ((health-increase (max 5 (roll 10))))
+  (let ((health-increase (max 5 (roll 10)))
+	(upgrade-stat (get-item-from-list '(dex str)
+					  :what "stat" :exit-option nil)))
     (incf (max-health *player*) health-increase)
-    (incf (health *player*) health-increase))
-  (eval `(incf (,(get-item-from-list '(dex str)
-				     :what "stat" :exit-option nil)
-		*player*)))
+    (incf (health *player*) health-increase)
+    (eval `(incf (,upgrade-stat *player*))))
   (when *level-up-pending*
     (level-up)))
 
@@ -941,13 +946,13 @@
 (defun create-new-player ()
   (let ((p-name (progn (print-to-screen "enter the name of your character: ")
 		       (read-line)))
-	(p-color (eval (get-item-from-list *color-name-list*
-			:naming-function (lambda (c)
-					   (apply-color
-					     (color-name c)
-					     (eval c)))
-			:what "color"
-			:exit-option nil)))
+	(p-color (get-item-from-list *color-list*
+				     :naming-function (lambda (x)
+							(apply-color
+							 (log-to-string "~a" x)
+							 x))
+				     :what "color"
+				     :exit-option nil))
 	(p-char (progn (print-to-screen "~%enter a character: ")
 		       (read-char))))
     (setf *player* (make-instance 'player

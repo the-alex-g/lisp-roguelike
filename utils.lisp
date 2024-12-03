@@ -43,3 +43,6 @@
 ;; generate a random number between 1 and d
 (defun roll (d)
   (1+ (random (max 1 d))))
+
+(defun randnth (lst)
+  (nth (random (length lst)) lst))

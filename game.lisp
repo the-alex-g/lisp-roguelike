@@ -2,7 +2,7 @@
 (load "./bsp-dungeon.lisp")
 
 (defactor trap #\! ((dmg 4) (save-dc 10) (discoverable t))
-  :interact-action-only nil :solid nil :destructible nil :color +red+ :hiddenp t
+  :interact-action-only nil :solid nil :destructible nil :color 'red :hiddenp t
   :description "a cunning trap")
 
 (defmethod description ((obj trap))
@@ -13,6 +13,19 @@
 	    (t (setf (discoverable obj) nil) nil))
       (slot-value obj 'description)))
 
+(defequipment herb ((hunger (roll 5))) :consumable t)
+
+(defmacro defherb (real-name &rest slots)
+  (let* ((herb-config (randnth '((herb #\v) (lichen #\_) (fungus #\f)
+				 (wort #\w) (cress #\%))))
+	 (herb-type (car herb-config))
+	 (herb-char (cadr herb-config))
+	 (herb-color (random-color)))
+    `(defequipment ,real-name nil ,@slots
+       :color (quote ,herb-color) :display-char ,herb-char
+       :fake-name ,(log-to-string "~a ~a" herb-color herb-type)
+       :inherit herb :identifiedp nil)))
+
 ;; define equipment types
 (defequipment food ((hunger (+ 20 (random 11))) (poisonp nil))
   :health (if (= (random 5) 0) 1 0) :consumable t
@@ -20,12 +33,14 @@
 (defequipment rat-meat () :hunger (+ 10 (random 6)) :secretp t
   :inherit food :description "rat meat")
 (defequipment poison-rat-meat () :poisonp t
-  :health (roll 3) :hunger (+ 9 (random 4))
+  :health (roll 3) :hunger (+ 6 (random 4))
   :inherit rat-meat :fake-name "rat meat")
-(let ((bomb-color (random-color-name)))
+(let ((bomb-color (random-color)))
   (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
     :identifiedp nil :fake-name (log-to-string "~a potion" bomb-color)
     :throw-distance 3 :breakable t))
+(defherb healing-herb :health (roll 4))
+(defherb poison-herb :health (roll 4))
 (defequipment ranged-weapon (range) :dex -2 :weaponp t)
 (defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
 (defequipment sword nil :dmg 6 :weaponp t :description "a sword")
@@ -55,6 +70,17 @@
 	(incf (health target) (health item))))
   (incf (hunger target) (hunger item)))
 
+(defmethod use :before ((item herb) (target player))
+  (incf (hunger target) (hunger item)))
+
+(defmethod use ((item healing-herb) (target actor))
+  (incf (health target) (health item))
+  (print-to-log "You ate ~a regained ~a health" (name item) (health item)))
+
+(defmethod use ((item poison-herb) (target actor))
+  (decf (health target) (health item))
+  (print-to-log "You ate ~a and lost ~a health" (name item) (health item)))
+
 (defmethod break-at (pos (item bomb))
   (print-to-log "it explodes for ~d damage~%" (explode-damage item))
   (for-each-adjacent-actor pos
@@ -68,15 +94,15 @@
 					   (name actor)))))
 
 ;; define monster types
-(defenemy goblin #\g () :dmg 4 :health (1+ (roll 3)) :str -1 :dex 1 :color +green+
+(defenemy goblin #\g () :dmg 4 :health (1+ (roll 3)) :str -1 :dex 1 :color 'green
   :xp 3
   :description "a goblin with a sharp dagger")
-(defenemy rat #\r () :dmg 2 :health (roll 2) :dex 2 :color +dark-red+
+(defenemy rat #\r () :dmg 2 :health (roll 2) :dex 2 :color 'dark-red
   :loot (list (list #'make-rat-meat 50)
 	      (list #'make-poison-rat-meat 50))
   :description "a giant rat")
 (defenemy ogre #\O () :dmg 6 :health (+ 4 (roll 2))
-  :str 2 :dex -2 :color +orange+ :speed 1.75
+  :str 2 :dex -2 :color 'orange :speed 1.75
   :xp 8
   :description "a hulking ogre")
 
@@ -92,10 +118,15 @@
 (make-layer (generate-dungeon '(50 . 20) 3
 			      (list (list #'make-ogre #'make-goblin
 					  #'make-goblin #'make-rat)
-				    #'make-food-pickup #'make-trap)))
+				    (list #'make-food-pickup
+					  #'make-poison-herb-pickup
+					  #'make-healing-herb-pickup)
+				    #'make-trap)))
 (make-layer (generate-dungeon '(50 . 20) 3
 			      (list (list #'make-goblin #'make-goblin #'make-rat)
-				    #'make-food-pickup
+				    (list #'make-food-pickup
+					  #'make-poison-herb-pickup
+					  #'make-healing-herb-pickup)
 				    #'make-trap)))
 
 ;; give player a weapon
