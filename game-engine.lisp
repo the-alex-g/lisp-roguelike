@@ -532,7 +532,8 @@
 
 (defgeneric deadp (obj)
   (:method ((obj actor))
-    (<= (health obj) 0)))
+    (and (destructible obj)
+	 (<= (health obj) 0))))
 
 (defgeneric damage (target amount &key unblockable)
   (:method :around (target amount &key unblockable)
@@ -542,8 +543,7 @@
     (decf (health target) amount)
     amount)
   (:method :after ((target actor) amount &key unblockable)
-    (when (and (deadp target)
-	       (destructible target))
+    (when (deadp target)
       (destroy target)))
   (:method ((target combat-entity) amount &key unblockable)
     (unless unblockable
