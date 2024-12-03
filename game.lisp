@@ -4,6 +4,9 @@
 (defactor trap #\! ((dmg 4) (save-dc 10) (discoverable t))
   :interact-action-only nil :solid nil :destructible nil :color 'red :hiddenp t
   :description "a cunning trap")
+(defactor fire #\^ (burn-time (dmg 6)) :interact-action-only nil
+  :solid nil :destructible nil
+  :color 'red :description "a fire" :dynamicp t)
 
 (defmethod description ((obj trap))
   (if (hiddenp obj)
@@ -13,7 +16,12 @@
 	    (t (setf (discoverable obj) nil) nil))
       (slot-value obj 'description)))
 
-(defequipment herb ((hunger (roll 5))) :consumable t)
+(defequipment herb ((hunger (roll 5))) :consumable t :burn-time 1)
+
+(defmethod update ((obj fire))
+  (decf (burn-time obj))
+  (when (<= (burn-time obj) 0)
+    (destroy obj)))
 
 (defmacro defherb (real-name &rest slots)
   (let* ((herb-config (randnth '((herb #\v) (lichen #\_) (fungus #\f)
@@ -39,6 +47,7 @@
   (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
     :identifiedp nil :fake-name (log-to-string "~a potion" bomb-color)
     :throw-distance 3 :breakable t))
+(defequipment faggot () :burn-time 10 :dmg 2 :weaponp t)
 (defherb healing-herb :health (roll 4))
 (defherb poison-herb :health (roll 4))
 (defequipment ranged-weapon (range) :dex -2 :weaponp t)
@@ -114,6 +123,9 @@
 	(print-to-log "you triggered ~a and took ~d damage"
 		      (description b) (damage a (roll (dmg b)))))))
 
+(defmethod interact ((a combat-entity) (b fire))
+  (print-to-log "you walked into fire and took ~a damage" (damage a (roll (dmg b)))))
+
 ;; generate a sample board
 (make-layer (generate-dungeon '(50 . 20) 3
 			      (list (list #'make-ogre #'make-goblin
@@ -134,8 +146,9 @@
 (equip (make-leather-armor) *player*)
 
 ;; put some stuff in the inventory
-(push (make-bomb) *inventory*)
-(push (make-bomb) *inventory*)
+(push (make-faggot) *inventory*)
+(push (make-faggot) *inventory*)
+(push (make-faggot) *inventory*)
 (push (make-bow) *inventory*)
 
 (defun ranged-attack (direction)
@@ -241,6 +254,22 @@
   (loop for k being the hash-keys of *action-descriptions*
 	do (print-to-log "~c: ~a~%" k (gethash k *action-descriptions*)))
   (print-to-log "q: quit~%"))
+(defaction #\b "burn an item"
+  (with-item-from-inventory
+    (when item
+      (if (> (burn-time item) 0)
+	  (let ((fire-pos (add-pos (get-direction) (pos *player*))))
+	    (unless (loop for actor in (find-all-actors-at fire-pos)
+			  when (eq (name actor) 'fire)
+			    do (progn (incf (burn-time actor) (burn-time item))
+				      (print-to-log "you have fed the fire with ~a"
+						    (name item))
+				      (return t)))
+	      (setf (burn-time (make-fire fire-pos)) (burn-time item))
+	      (print-to-log "you have started a fire with ~a" (name item)))
+	    (remove-from-inventory item))
+	  (print-to-log "that doesn't burn")))))
+	  
 
 ;; start game
 (start)

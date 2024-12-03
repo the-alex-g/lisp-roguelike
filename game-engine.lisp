@@ -51,6 +51,7 @@
    (display-char :initform #\* :accessor display-char :initarg :display-char)
    (color :initform 'white :accessor color :initarg :color)
    (throw-distance :initform 2 :accessor throw-distance :initarg :throw-distance)
+   (burn-time :initform 0 :accessor burn-time :initarg :burn-time)
    (consumable :initform nil :accessor consumable :initarg :consumable)
    (secretp :initform nil :accessor secretp :initarg :secretp)
    (identifiedp :initform t :accessor identifiedp :allocation :class)
