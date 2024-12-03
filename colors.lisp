@@ -1,3 +1,5 @@
+(load "./utils.lisp")
+
 (defparameter +none+ 0)
 (defparameter +bold+ 1)
 (defparameter +italic+ 3)
@@ -21,9 +23,21 @@
 (defparameter +sky-blue+ 94)
 (defparameter +dark-purple+ 95)
 (defparameter +dark-teal+ 36)
+(defparameter *color-name-list* '(+red+ +green+ +blue+ +purple+ +teal+ +grey+
+				  +dark-red+ +pale-green+ +light-orange+ +orange+
+				  +sky-blue+ +dark-purple+ +dark-teal+))
 
 (defun apply-color (to color)
   (format nil "~c[~dm~a~c[0m" #\esc color to #\esc))
 
 (defun apply-background (to color)
   (format nil "~c[~dm~a~c[0m" #\esc (+ color 10) to #\esc))
+
+(defun random-color ()
+  (eval (nth (random 13) *color-name-list*)))
+
+(defun color-name (color-var)
+  (string-trim "+" (log-to-string "~a" color-var)))
+
+(defun random-color-name ()
+  (color-name (nth (random 13) *color-name-list*)))

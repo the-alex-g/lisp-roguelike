@@ -433,6 +433,10 @@
 	     (make-pickup item (pos *player*))
 	     nil)))
 
+(defgeneric identify (obj)
+  (:method ((obj equipment))
+    (setf (identifiedp obj) t)))
+
 (defgeneric destroy (obj)
   (:method (obj)
     (print-to-log "~a destroyed~&" obj))
@@ -867,7 +871,7 @@
 			     "")))))))
 
 (defun print-inventory ()
-  (print-to-log "~t~a ~15t~a~%" "INVENTORY" "EQUIPPED")
+  (print-to-log "~t~a ~30t~a~%" "INVENTORY" "EQUIPPED")
   (let ((inventory-list (mapcar (lambda (item)
 				  (log-to-string "~a" (name item)))
 				*inventory*))
@@ -877,7 +881,7 @@
 					 (log-to-string "~a: ~a"
 							eq-slot (name item)))))))
     (mapc (lambda (a b)
-	    (print-to-log "~t~a ~15t~a~%" a b))
+	    (print-to-log "~t~a ~30t~a~%" a b))
 	  (loop for x below 10
 		collect (let ((val (nth x inventory-list)))
 			  (if val val "")))
@@ -937,19 +941,15 @@
 (defun create-new-player ()
   (let ((p-name (progn (print-to-screen "enter the name of your character: ")
 		       (read-line)))
-	(p-color (eval (get-item-from-list
-			'(+red+ +blue+ +green+ +orange+ +purple+
-			  +teal+ +grey+ +dark-red+ +pale-green+
-			  +light-orange+ +sky-blue+ +dark-purple+
-			  +dark-teal+)
+	(p-color (eval (get-item-from-list *color-name-list*
 			:naming-function (lambda (c)
 					   (apply-color
-					     (string-trim "+" (log-to-string "~a" c))
+					     (color-name c)
 					     (eval c)))
 			:what "color"
 			:exit-option nil)))
 	(p-char (progn (print-to-screen "~%enter a character: ")
-		       (custom-read-char))))
+		       (read-char))))
     (setf *player* (make-instance 'player
 				  :health 10 :color p-color :display-char p-char
 				  :equips (equips *player*)

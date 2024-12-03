@@ -22,9 +22,10 @@
 (defequipment poison-rat-meat () :poisonp t
   :health (roll 3) :hunger (+ 9 (random 4))
   :inherit rat-meat :fake-name "rat meat")
-(defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
-  :identifiedp nil :fake-name "mysterious potion"
-  :throw-distance 3 :breakable t)
+(let ((bomb-color (random-color-name)))
+  (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
+    :identifiedp nil :fake-name (log-to-string "~a potion" bomb-color)
+    :throw-distance 3 :breakable t))
 (defequipment ranged-weapon (range) :dex -2 :weaponp t)
 (defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
 (defequipment sword nil :dmg 6 :weaponp t :description "a sword")
@@ -56,7 +57,6 @@
 
 (defmethod break-at (pos (item bomb))
   (print-to-log "it explodes for ~d damage~%" (explode-damage item))
-  (setf (identifiedp item) t)
   (for-each-adjacent-actor pos
 			   (save 12 dex actor
 				 (damage actor (explode-damage item))
