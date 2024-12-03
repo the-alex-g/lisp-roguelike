@@ -14,16 +14,17 @@
       (slot-value obj 'description)))
 
 ;; define equipment types
-(defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (real-name "food"))
+(defequipment food ((hunger (+ 20 (random 11))) (poisonp nil))
   :health (if (= (random 5) 0) 1 0) :consumable t
   :description "food")
-(defequipment rat-meat () :hunger (+ 10 (random 6))
+(defequipment rat-meat () :hunger (+ 10 (random 6)) :secretp t
   :inherit food :description "rat meat")
 (defequipment poison-rat-meat () :poisonp t
   :health (roll 3) :hunger (+ 9 (random 4))
-  :inherit rat-meat :real-name 'poison-rat-meat)
+  :inherit rat-meat :fake-name "rat meat")
 (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
-  :throw-distance 3 :description "a bomb" :breakable t)
+  :identifiedp nil :fake-name "mysterious potion"
+  :throw-distance 3 :breakable t)
 (defequipment ranged-weapon (range) :dex -2 :weaponp t)
 (defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
 (defequipment sword nil :dmg 6 :weaponp t :description "a sword")
@@ -41,7 +42,7 @@
   (if (poisonp item)
       (progn
 	(print-to-log "You ate ~a, lost ~a health, and recovered ~d hunger~%"
-		      (real-name item) (health item) (hunger item))
+		      (name item) (health item) (hunger item))
 	(decf (health target) (health item)))
       (progn
 	(print-to-log "You ate ~a~a and recovered ~d hunger~%"
@@ -54,7 +55,8 @@
   (incf (hunger target) (hunger item)))
 
 (defmethod break-at (pos (item bomb))
-  (print-to-log "the bomb exploded for ~d damage~%" (explode-damage item))
+  (print-to-log "it explodes for ~d damage~%" (explode-damage item))
+  (setf (identifiedp item) t)
   (for-each-adjacent-actor pos
 			   (save 12 dex actor
 				 (damage actor (explode-damage item))
@@ -64,9 +66,6 @@
 			     (print-to-log "~a a ~a~%"
 					   (death-verb actor)
 					   (name actor)))))
-
-(defmethod name ((obj poison-rat-meat))
-  'rat-meat)
 
 ;; define monster types
 (defenemy goblin #\g () :dmg 4 :health (1+ (roll 3)) :str -1 :dex 1 :color +green+
@@ -104,6 +103,7 @@
 (equip (make-leather-armor) *player*)
 
 ;; put some stuff in the inventory
+(push (make-bomb) *inventory*)
 (push (make-bomb) *inventory*)
 (push (make-bow) *inventory*)
 

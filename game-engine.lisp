@@ -49,7 +49,17 @@
    (breakable :initform nil :accessor breakable :initarg :breakable)
    (throw-distance :initform 2 :accessor throw-distance :initarg :throw-distance)
    (consumable :initform nil :accessor consumable :initarg :consumable)
+   (secretp :initform nil :accessor secretp :initarg :secretp)
+   (identifiedp :initform t :accessor identifiedp :allocation :class)
+   (fake-name :accessor fake-name :initarg :fake-name)
    (equip-slot :initform 'hand :accessor equip-slot :initarg :equip-slot)))
+
+(defmethod name ((obj equipment))
+  (if (and (or (secretp obj)
+	       (not (identifiedp obj)))
+	   (slot-boundp obj 'fake-name))
+      (fake-name obj)
+      (slot-value obj 'name)))
 
 (defmethod description ((obj equipment))
   (if (slot-boundp obj 'description)
@@ -268,8 +278,7 @@
 		 (if slotnamep
 		     (reinit-slots (cdr args)
 				   (cons (list (read-from-string slotname)
-					       :initform
-					       (car args))
+					       :initform (car args))
 					 slotlist))
 		     (reinit-slots (cdr args)
 				   slotlist
@@ -321,19 +330,32 @@
   (defmacro defequipment (name new-slots
 			  &rest keys
 			  &key (inherit 'equipment inheritp)
+			    (identifiedp t identifiedp-p)
 			  &allow-other-keys)
     (when inheritp
       (setf keys (remove inherit (remove :inherit keys))))
+    (when identifiedp-p
+      (setf keys (loop for k in keys
+		       with skip = nil
+		       unless (or skip (eq k :identifiedp))
+			 collect k
+		       when skip
+			 do (setf skip nil)
+		       when (eq k :identifiedp)
+			 do (setf skip t))))
     `(progn
        ;; define equipment class
        (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
 					,@(reinit-slots keys nil)
+					(identifiedp :initform ,identifiedp
+						      :allocation :class)
 					(name :initform (quote ,name))))
        ;; define constructor function
        (defun ,(constructor name) (&rest keys &key &allow-other-keys)
 	 (apply #'make-instance (quote ,name) keys))
        ;; define pickup constructor function
-       (defun ,(read-from-string (concatenate 'string "make-" (symbol-name name) "-pickup"))
+       (defun ,(read-from-string (concatenate 'string "make-"
+					      (symbol-name name) "-pickup"))
 	   (pos)
 	 (make-pickup (,(constructor name)) pos)))))
 
@@ -468,6 +490,9 @@
    (if (starvingp *player*) "you are starving!" "")))
 
 (defgeneric use (item target)
+  (:method :before ((item equipment) target)
+    (when (secretp item)
+      (setf (secretp item) nil)))
   (:method :after ((item equipment) target)
     (when (consumable item)
       (destroy item)))
@@ -482,6 +507,7 @@
   (:method :around (target amount &key unblockable)
     (call-next-method target (max 1 amount) :unblockable unblockable))
   (:method ((target actor) amount &key unblockable)
+    (declare (ignore unblockable))
     (decf (health target) amount)
     amount)
   (:method :after ((target actor) amount &key unblockable)
@@ -491,7 +517,7 @@
   (:method ((target combat-entity) amount &key unblockable)
     (unless unblockable
       (setf amount (max 1 (- amount (def target)))))
-    (call-next-method)))
+    (call-next-method target amount)))
 
 (defgeneric attack (a d)
   (:method ((a combat-entity) (d combat-entity))
@@ -575,6 +601,32 @@
        (print-to-log "you have nothing in your inventory")
        (let ((item (get-item-from-inventory)))
 	 ,@body)))
+
+;; use flood-fill algorithm to determine where the player can see
+(defun update-los ()
+  (let ((reached (list (pos *player*))))
+    (labels ((neighbors (pos)
+	       (loop for direction in (list +left+ +right+ +up+ +down+)
+		     collect (let ((newpos (add-pos pos direction)))
+			       (if (gethash newpos (board))
+				   newpos
+				   nil))))
+	     (iterate (frontier)
+	       (let ((current (car frontier)))
+		 (when (and current
+			    (< (distance (pos *player*) current)
+				*sight-distance*))
+		   (loop for neighbor in (neighbors current)
+			 when neighbor
+			   do (unless (member neighbor reached :test 'equal)
+				(push neighbor reached)
+				(setf frontier
+				      (append frontier
+					      (list neighbor)))))
+		   (iterate (cdr frontier))))))
+      (iterate (list (pos *player*))))
+    (setf *light-zone* reached))
+  (update-spaces-found))
 
 (defun change-layer (direction)
   (unless (or (and (= *layer-index* 0) (= direction -1))
@@ -704,32 +756,6 @@
   (mapc (lambda (pos)
 	  (setf (gethash pos (board)) 'found))
 	*light-zone*))
-
-;; use flood-fill algorithm to determine where the player can see
-(defun update-los ()
-  (let ((reached (list (pos *player*))))
-    (labels ((neighbors (pos)
-	       (loop for direction in (list +left+ +right+ +up+ +down+)
-		     collect (let ((newpos (add-pos pos direction)))
-			       (if (gethash newpos (board))
-				   newpos
-				   nil))))
-	     (iterate (frontier)
-	       (let ((current (car frontier)))
-		 (when (and current
-			    (< (distance (pos *player*) current)
-				*sight-distance*))
-		   (loop for neighbor in (neighbors current)
-			 when neighbor
-			   do (unless (member neighbor reached :test 'equal)
-				(push neighbor reached)
-				(setf frontier
-				      (append frontier
-					      (list neighbor)))))
-		   (iterate (cdr frontier))))))
-      (iterate (list (pos *player*))))
-    (setf *light-zone* reached))
-  (update-spaces-found))
 
 (defgeneric move (obj distance)
   (:method ((obj actor) (distance list))
