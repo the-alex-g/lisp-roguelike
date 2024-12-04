@@ -8,7 +8,7 @@
 (defparameter *current-layer* nil)
 (defparameter *layer-index* 0)
 (defparameter *player-actions* 0)
-(defparameter *sight-distance* 4)
+(defparameter *sight-distance* 10)
 (defparameter +left+ '(-1 . 0))
 (defparameter +right+ '(1 . 0))
 (defparameter +up+ '(0 . -1))
@@ -438,7 +438,7 @@
     (flet ((board-member (&rest points)
 	     (member (apply #'add-pos points) dungeon-board :test #'equal)))
       (loop for pos in dungeon-board
-	    when (and t;(= 0 (random 8))
+	    when (and (= 0 (random 8))
 		      ;; check for chokepoints
 		      (loop for set in (list (list +down+ +left+ +right+)
 					     (list +up+ +left+ +right+)
