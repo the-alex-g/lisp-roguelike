@@ -27,8 +27,11 @@
 (defun square (number)
   (* number number))
 
-(defun add-pos (p1 p2)
-  (cons (+ (car p1) (car p2)) (+ (cdr p1) (cdr p2))))
+(defun add-pos (&rest points)
+  (loop for p in points
+	sum (car p) into x
+	sum (cdr p) into y
+	finally (return (cons x y))))
 
 (defun sub-pos (a b)
   (cons (- (car a) (car b)) (- (cdr a) (cdr b))))

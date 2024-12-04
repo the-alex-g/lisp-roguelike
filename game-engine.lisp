@@ -93,10 +93,15 @@
     :initform nil
     :initarg :interact-action-only
     :accessor interact-action-only)
+   (persistent-visiblity-p
+    :initform nil
+    :initarg :persistent-visiblity-p
+    :accessor persistent-visiblity-p)
    (color
     :initform 'white
     :initarg :color
     :accessor color)
+   (wallp :initform nil :initarg :wallp :accessor wallp)
    (hiddenp
     :initform nil
     :initarg :hiddenp
@@ -371,6 +376,8 @@
 (defactor corpse #\c (corpse-type (loot nil) (decay-time (+ 60 (random 21) (random 21))))
   :solid nil :dynamicp t :consumable t)
 (defactor bones #\x (bone-type) :solid nil)
+(defactor secret-door #\S () :solid nil :health 10 :wallp t :persistent-visiblity-p t
+  :interact-action-only nil)
 
 (defun has-legal-destination (obj)
   (and (>= (+ *layer-index* (direction obj)) 0)
@@ -427,6 +434,27 @@
 	    do (let ((fxn (gethash pos (slot-value dungeon 'actors))))
 		 (when fxn
 		   (funcall fxn pos))))
+    ;; Create secret doors
+    (flet ((board-member (&rest points)
+	     (member (apply #'add-pos points) dungeon-board :test #'equal)))
+      (loop for pos in dungeon-board
+	    when (and t;(= 0 (random 8))
+		      ;; check for chokepoints
+		      (loop for set in (list (list +down+ +left+ +right+)
+					     (list +up+ +left+ +right+)
+					     (list +right+ +up+ +down+)
+					     (list +left+ +up+ +down+))
+			      thereis (and (board-member pos (car set))
+					   (board-member pos (car set) (cadr set))
+					   (board-member pos (car set) (caddr set))
+					   (not (board-member pos (cadr set)))
+					   (not (board-member pos (caddr set))))))
+	      ;; make a secret door with the correct orientation
+	      do (setf (display-char (make-secret-door pos))
+		       (if (or (board-member pos +left+)
+			       (board-member pos +right+))
+			   #\|
+			   #\-))))
     (push layer *layers*)
     layer))
 
@@ -659,11 +687,15 @@
 
 ;; use flood-fill algorithm to determine where the player can see
 (defun update-los ()
-  (let ((reached (list (pos *player*))))
+  (let ((reached (list (pos *player*)))
+	(blocks (loop for actor in (actors)
+		      when (wallp actor)
+			collect (pos actor))))
     (labels ((neighbors (pos)
 	       (loop for direction in (list +left+ +right+ +up+ +down+)
 		     collect (let ((newpos (add-pos pos direction)))
-			       (if (gethash newpos (board))
+			       (if (and (gethash newpos (board))
+					(not (member newpos blocks :test 'equal)))
 				   newpos
 				   nil))))
 	     (iterate (frontier)
@@ -709,6 +741,10 @@
   (:method ((a player) (b pickup))
     (when (add-to-inventory (equipment b))
       (print-to-log "You have picked up a ~a~&" (name b))))
+  (:method ((a player) (b secret-door))
+    (unless (eq (color b) 'grey)
+      (setf (color b) 'grey)
+      (print-to-log "you have discovered a secret door")))
   (:method ((a player) (b corpse))
     (loop for item in (loot b)
 	  when (add-to-inventory item)
@@ -724,7 +760,11 @@
   (:method ((obj list))
     (member obj *light-zone* :test 'equal))
   (:method ((obj actor))
-    (visiblep (pos obj))))
+    (cond ((hiddenp obj) nil) ; if it's hidden, it's not visible
+	  ((persistent-visiblity-p obj) ; visible if any adjacent space has been seen
+	   (loop for d in (list +left+ +right+ +up+ +down+)
+		   thereis (eq (gethash (add-pos (pos obj) d) (board)) 'found)))
+	  (t (visiblep (pos obj)))))) ; visible by position
 
 ;; returns a direction value pair chosen by the user.
 (defun get-direction (&key include-zero (cancel t))
@@ -885,26 +925,39 @@
       (setf (bone-type (make-bones (pos obj))) (corpse-type obj)))))
 
 (defun print-board ()
-  (let ((actor-chars (make-hash-table :test 'equal)))
+  (let ((actor-chars (make-hash-table :test 'equal))
+	(wall-positions ()))
     (loop for actor in (actors)
-	  unless (hiddenp actor)
-	    do (setf (gethash (pos actor) actor-chars) (get-ascii actor)))
+	  when (visiblep actor)
+	    do (setf (gethash (pos actor) actor-chars) (get-ascii actor))
+	  when (and (wallp actor)
+		    (loop for direction in (list +left+ +right+ +up+ +down+)
+			    thereis (eq (gethash (add-pos (pos actor) direction) (board))
+					'found)))
+	    do (push (pos actor) wall-positions))
     (labels ((on-board (pos) (gethash pos (board)))
+	     (is-wall (pos) (member pos wall-positions :test #'equal))
 	     (foundp (pos) (eq (on-board pos) 'found))
 	     (get-char (pos)
 	       (if (on-board pos) ; is the cell on the board?
-		   ;; if so, check if it is in sight OR *sight-distance* is -1
-		   (if (visiblep pos)
-		       ;; if it is, populate it
-		       (let ((c (gethash pos actor-chars)))
-			 (if c c #\.))
-		       ;; otherwise, return an empty space
-		       (if (and *show-found-spaces* *in-terminal* (foundp pos))
-			   (apply-color #\. 'grey)
-			   #\space))
+		   (let ((c (gethash pos actor-chars)))
+		     (cond (c c) ; if there's an actor char, use it
+			   ((visiblep pos) ; if it's visible, show period
+			    #\.)
+			   ; if *show-found-spaces*, show all found spaces in grey
+			   ((and *show-found-spaces* *in-terminal* (foundp pos))
+			    (apply-color #\. 'grey))
+			   (t ; otherwise, show a space
+			    #\space)))
 		   ;; if the cell is not on the board, check all
 		   ;; adjacent cells and add walls as necessary.
-		   (cond ((or (foundp (add-pos pos +left+))
+		   (cond ((or (is-wall (add-pos pos +up+))
+			      (is-wall (add-pos pos +down+)))
+			  #\|) ; vertically adjacent secret door
+			 ((or (is-wall (add-pos pos +left+))
+			      (is-wall (add-pos pos +right+)))
+			  #\-) ; horizontally adjacent secret door
+			 ((or (foundp (add-pos pos +left+))
 			      (foundp (add-pos pos +right+)))
 			  #\|) ; vertical wall
 			 ((or (foundp (add-pos pos +up+))
