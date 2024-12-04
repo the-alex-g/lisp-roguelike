@@ -211,11 +211,10 @@
 	      (when actor
 		(attack *player* actor)))))))
 (defaction #\D "drop an inventory item"
-    (with-item-from-inventory
-	(when item
-	  (make-pickup item (pos *player*))
-	  (remove-from-inventory item)
-	  (print-to-log "you dropped ~a" (name item)))))
+  (with-item-from-inventory
+    (make-pickup item (pos *player*))
+    (remove-from-inventory item)
+    (print-to-log "you dropped ~a" (name item))))
 (defaction #\i "interact with an object on your space"
   (let ((actor (choose-actor-at *player*)))
     (when actor
@@ -223,9 +222,8 @@
 (defaction #\e "equip an inventory item"
   (with-item-from-inventory
       (let ((output "")
-	    (old-item (when item
-			(equip item *player*))))
-	(when (and item (not (eq old-item 'failed)))
+	    (old-item (equip item *player*)))
+	(when (not (eq old-item 'failed))
 	  (setf output (log-to-string "You have equipped ~a" (name item)))
 	  (remove-from-inventory item)
 	  (when old-item
@@ -235,9 +233,7 @@
 	    (add-to-inventory old-item)))
 	(print-to-log output))))
 (defaction #\u "use an inventory item"
-  (with-item-from-inventory
-      (when item
-	(use item *player*))))
+  (with-item-from-inventory (use item *player*)))
 (defaction #\v "print inventory" (print-inventory))
 (defaction #\l "look"
     (let ((position (get-direction :include-zero t)))
@@ -272,7 +268,6 @@
 		    (equip-slot item)))))
 (defaction #\t "throw an item"
   (with-item-from-inventory
-    (when item
       (let* ((direction (get-direction :cancel nil))
 	     (distance (get-number-input (throw-distance item)
 					 "enter the distance you want to throw"))
@@ -285,14 +280,13 @@
 	(print-to-log "you threw ~a~%" (description item))
 	(if (breakable item)
 	    (break-at final-pos item)
-	    (make-pickup item final-pos))))))
+	    (make-pickup item final-pos)))))
 (defaction #\h "print help menu"
   (loop for k being the hash-keys of *action-descriptions*
 	do (print-to-log "~c: ~a~%" k (gethash k *action-descriptions*)))
   (print-to-log "q: quit~%"))
 (defaction #\b "burn an item"
   (with-item-from-inventory
-    (when item
       (if (> (burn-time item) 0)
 	  (let ((fire-pos (add-pos (get-direction) (pos *player*))))
 	    (unless (loop for actor in (find-all-actors-at fire-pos)
@@ -304,14 +298,12 @@
 	      (setf (burn-time (make-fire fire-pos)) (burn-time item))
 	      (print-to-log "you have started a fire with ~a" (name item)))
 	    (remove-from-inventory item))
-	  (print-to-log "that doesn't burn")))))
+	  (print-to-log "that doesn't burn"))))
 (defaction #\c "cook an item"
   (if (loop for p in (list +left+ +right+ +zero+ +up+ +down+)
 	      thereis (loop for actor in (find-all-actors-at (add-pos p (pos *player*)))
 			      thereis (eq (name actor) 'fire)))
-      (with-item-from-inventory
-	(when item
-	  (cook item)))
+      (with-item-from-inventory (cook item))
       (print-to-log "there is no fire nearby")))
 
 ;; start game

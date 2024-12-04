@@ -683,7 +683,8 @@
   `(if (= (length *inventory*) 0)
        (print-to-log "you have nothing in your inventory")
        (let ((item (get-item-from-inventory)))
-	 ,@body)))
+	 (when item
+	   ,@body))))
 
 ; the original function
 ;(defun has-los (to from board)
