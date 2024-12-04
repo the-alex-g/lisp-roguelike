@@ -430,6 +430,10 @@
     (push layer *layers*)
     layer))
 
+(defun names-equal-p (a b)
+  (equal (log-to-string "~a" (name a))
+	 (log-to-string "~a" (name b))))
+
 (defun short-inventory ()
   (loop for item in *inventory*
 	with used-names = nil
@@ -441,17 +445,18 @@
   (length (short-inventory)))
 
 (defun remove-from-inventory (item)
-  (setf *inventory* (remove item *inventory* :test (lambda (a b)
-						     (equal (name a) (name b)))
-					     :count 1)))
+  (setf *inventory*
+	(remove item *inventory* :test (lambda (a b)
+					 (names-equal-p a b))
+				 :count 1)))
 
 (defun in-inventory-p (item)
   (loop for i in *inventory*
-	  thereis (equal (name item) (name i))))
+	  thereis (names-equal-p item i)))
 
 (defun num-in-inventory (item)
   (loop for i in *inventory*
-	count (equal (name i) (name item))))
+	count (names-equal-p i item)))
 
 (defun add-to-inventory (item)
   (if (or (< (inventory-length) *inventory-size*) (in-inventory-p item))
@@ -493,6 +498,15 @@
 	    do (push equipment (loot corpse)))))
   (:method ((obj equipment))
     (remove-from-inventory obj)))
+
+(defun eval-weighted-list (lst)
+  (loop for pair in lst
+	with index = (random 100)
+	when (< index (car pair))
+	  return (if (listp (cadr pair))
+		     (eval-weighted-list (cdr pair))
+		     (cadr pair))
+	do (decf index (car pair))))
 
 (defgeneric equip (item obj)
   (:method ((item equipment) (obj combat-entity))
@@ -543,12 +557,13 @@
     (decf (health target) amount)
     amount)
   (:method :after ((target actor) amount &key unblockable)
+    (declare (ignore unblockable))
     (when (deadp target)
       (destroy target)))
   (:method ((target combat-entity) amount &key unblockable)
     (unless unblockable
       (setf amount (max 1 (- amount (def target)))))
-    (call-next-method target amount)))
+    (call-next-method target amount :unblockable unblockable)))
 
 (defgeneric attack (a d)
   (:method ((a combat-entity) (d combat-entity))
