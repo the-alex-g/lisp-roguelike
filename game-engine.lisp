@@ -574,6 +574,12 @@
   (:method (item target)
     (print-to-log "That cannot be eaten")))
 
+(defgeneric apply-to (item target)
+  (:method :around (item (target pickup))
+    (apply-to item (equipment target)))
+  (:method (item target)
+    (print-to-log "You can't apply that")))
+
 (defgeneric deadp (obj)
   (:method ((obj actor))
     (and (destructible obj)
@@ -830,7 +836,17 @@
   (:method ((a actor) &rest actors-to-ignore)
     (apply #'find-all-actors-at (pos a) a actors-to-ignore)))
 
-(defgeneric break-at (pos item))
+(defgeneric throw-at (item target)
+  (:method :before ((item equipment) target)
+    (declare (ignore target))
+    (remove-from-inventory item)
+    (print-to-log "you threw ~a~%" (description item)))
+  (:method :after ((item equipment) (target list))
+    (unless (breakable item)
+      (make-pickup item target)))
+  (:method :after ((item equipment) (target actor))
+    (unless (breakable item)
+      (make-pickup item (pos target)))))
 
 (defun find-solid-actor-at (a &rest actors-to-ignore)
   (loop for actor in (apply #'find-all-actors-at a actors-to-ignore)

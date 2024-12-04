@@ -95,15 +95,19 @@
 
 (defmethod eat ((item healing-herb) (target actor))
   (incf (health target) (health item))
-  (print-to-log "You ate ~a and regained ~a health" (name item) (health item)))
+  (print-to-log "~a ate ~a and regained ~a health"
+		(name target) (name item) (health item)))
 
 (defmethod eat ((item poison-herb) (target actor))
   (decf (health target) (health item))
-  (print-to-log "You ate ~a and lost ~a health" (name item) (health item)))
+  (print-to-log "~a ate ~a and lost ~a health" (name target) (name item) (health item)))
 
-(defmethod break-at (pos (item bomb))
+(defmethod throw-at :around ((item bomb) (target actor))
+  (call-next-method item (pos target)))
+
+(defmethod throw-at ((item bomb) target)
   (print-to-log "it explodes for ~d damage~%" (explode-damage item))
-  (for-each-adjacent-actor pos
+  (for-each-adjacent-actor target
 			   (save 12 dex actor
 				 (damage actor (explode-damage item))
 				 (damage actor (ash (explode-damage item) -1)))
@@ -112,6 +116,9 @@
 			     (print-to-log "~a a ~a~%"
 					   (death-verb actor)
 					   (name actor)))))
+
+(defmethod apply-to ((item herb) (target actor))
+  (eat item target))
 
 ;; define monster types
 (defenemy goblin #\g () :dmg 4 :health (1+ (roll 3)) :str -1 :dex 1 :color 'green
@@ -154,7 +161,7 @@
 					  #'make-healing-herb-pickup)
 				    #'make-trap)))
 
-;; give player a weapon
+;; equip player
 (equip (make-big-sword) *player*)
 (equip (make-leather-armor) *player*)
 
@@ -162,6 +169,7 @@
 (push (make-faggot) *inventory*)
 (push (make-faggot) *inventory*)
 (push (make-faggot) *inventory*)
+(push (make-bomb) *inventory*)
 (push (make-bow) *inventory*)
 
 (defgeneric cook (item)
@@ -275,12 +283,9 @@
 			      when (gethash (add-pos (pos *player*)
 						     (mul-pos direction x))
 					    (board))
-				return (add-pos (pos *player*) (mul-pos direction x)))))
-	(remove-from-inventory item)
-	(print-to-log "you threw ~a~%" (description item))
-	(if (breakable item)
-	    (break-at final-pos item)
-	    (make-pickup item final-pos)))))
+				return (add-pos (pos *player*) (mul-pos direction x))))
+	     (target (choose-actor-at final-pos)))
+	(throw-at item (if target target final-pos)))))
 (defaction #\h "print help menu"
   (loop for k being the hash-keys of *action-descriptions*
 	do (print-to-log "~c: ~a~%" k (gethash k *action-descriptions*)))
@@ -305,6 +310,24 @@
 			      thereis (eq (name actor) 'fire)))
       (with-item-from-inventory (cook item))
       (print-to-log "there is no fire nearby")))
+(defaction #\A "apply an item"
+  (let* ((applied-item (with-item-from-inventory item))
+	 (choice (get-item-from-list '(nearby-object equipped-item inventory-item)
+				     :what "what to apply to"))
+	 (item (cond ((eq choice 'inventory-item)
+		      (with-item-from-inventory item))
+		     ((eq choice 'equipped-item)
+		      (get-item-from-list
+		       (loop for item being the hash-values of (equips *player*)
+			     collect item)
+		       :what (log-to-string "item to apply ~a to" (name choice)) 
+		       :naming-function #'name))
+		     ((eq choice 'nearby-object)
+		      (choose-actor-at (add-pos (pos *player*)
+						(get-direction
+						 :cancel nil :include-zero t)))))))
+    (when (and applied-item item)
+      (apply-to applied-item item))))
 
 ;; start game
 (start)
