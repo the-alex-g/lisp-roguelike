@@ -73,8 +73,8 @@
   (:method ((obj combat-entity))
     "killing"))
 
-;;; custom use function for food
-(defmethod use ((item food) (target actor))
+;;; custom eat function for food
+(defmethod eat ((item food) (target actor))
   (if (poisonp item)
       (progn
 	(print-to-log "You ate ~a, lost ~a health, and recovered ~d hunger~%"
@@ -90,14 +90,14 @@
 	(incf (health target) (health item))))
   (incf (hunger target) (hunger item)))
 
-(defmethod use :before ((item herb) (target player))
+(defmethod eat :before ((item herb) (target player))
   (incf (hunger target) (hunger item)))
 
-(defmethod use ((item healing-herb) (target actor))
+(defmethod eat ((item healing-herb) (target actor))
   (incf (health target) (health item))
   (print-to-log "You ate ~a and regained ~a health" (name item) (health item)))
 
-(defmethod use ((item poison-herb) (target actor))
+(defmethod eat ((item poison-herb) (target actor))
   (decf (health target) (health item))
   (print-to-log "You ate ~a and lost ~a health" (name item) (health item)))
 
@@ -212,7 +212,7 @@
 		(attack *player* actor)))))))
 (defaction #\D "drop an inventory item"
   (with-item-from-inventory
-    (make-pickup item (pos *player*))
+      (make-pickup item (pos *player*))
     (remove-from-inventory item)
     (print-to-log "you dropped ~a" (name item))))
 (defaction #\i "interact with an object on your space"
@@ -232,8 +232,8 @@
 						     (name old-item))))
 	    (add-to-inventory old-item)))
 	(print-to-log output))))
-(defaction #\u "use an inventory item"
-  (with-item-from-inventory (use item *player*)))
+(defaction #\m "eat an inventory item"
+  (with-item-from-inventory (eat item *player*)))
 (defaction #\v "print inventory" (print-inventory))
 (defaction #\l "look"
     (let ((position (get-direction :include-zero t)))
@@ -252,7 +252,7 @@
 		(unless something-found-p
 		  (print-to-log "there's nothing there")))
 	      (print-to-log "there's nothing there"))))))
-(defaction #\U "unequip an item"
+(defaction #\u "unequip an item"
   (let ((item (get-item-from-list
 	       (loop for x being the hash-values of (equips *player*)
 		     collect x)
