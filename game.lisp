@@ -61,10 +61,10 @@
 (defequipment faggot () :burn-time (+ 10 (random 11)) :dmg 2 :weaponp t)
 (defherb healing-herb :health (roll 4))
 (defherb poison-herb :health (roll 4))
-(defequipment ranged-weapon (range) :dex -2 :weaponp t)
+(defequipment ranged-weapon (range) :dex -2 :inherit weapon)
 (defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
-(defequipment sword nil :dmg 6 :weaponp t :description "a sword")
-(defequipment big-sword nil :dmg 8 :weaponp t :description "a big sword")
+(defequipment sword nil :dmg 6 :description "a sword" :inherit weapon)
+(defequipment big-sword nil :dmg 8 :description "a big sword" :inherit weapon)
 (defequipment leather-armor nil :def 1 :description "leather armor" :equip-slot 'body)
 
 (defgeneric death-verb (obj)
@@ -99,7 +99,7 @@
 		(name target) (name item) (health item)))
 
 (defmethod eat ((item poison-herb) (target actor))
-  (decf (health target) (health item))
+  (damage target (health item))
   (print-to-log "~a ate ~a and lost ~a health" (name target) (name item) (health item)))
 
 (defmethod throw-at :around ((item bomb) (target actor))
@@ -119,6 +119,25 @@
 
 (defmethod apply-to ((item herb) (target actor))
   (eat item target))
+
+(defmethod apply-to ((item poison-herb) (to weapon))
+  (print-to-log "you have applied ~a to ~a" (name item) (name to))
+  (push (make-status
+	 0
+	 :on-applied (let ((already-dead (deadp target)))
+		       (damage target (health item))
+		       (if (identifiedp item)
+			   (print-to-log "the ~a on the ~a deals ~d damage~a"
+					 (name item)
+					 (name to)
+					 (health item)
+					 (if (and (deadp target) (not already-dead))
+					     (log-to-string ", killing the ~a"
+							    (name target))
+					     ""))
+			   (if (and (deadp target) (not already-dead))
+			       (print-to-log "the ~a dies" (name target))))))
+	 (onetime-effects to)))
 
 ;; define monster types
 (defenemy goblin #\g () :dmg 4 :health (1+ (roll 3)) :str -1 :dex 1 :color 'green
@@ -170,6 +189,8 @@
 (push (make-faggot) *inventory*)
 (push (make-faggot) *inventory*)
 (push (make-bomb) *inventory*)
+(push (make-rat-meat) *inventory*)
+(push (make-poison-rat-meat) *inventory*)
 (push (make-bow) *inventory*)
 
 (defgeneric cook (item)
@@ -310,7 +331,7 @@
 			      thereis (eq (name actor) 'fire)))
       (with-item-from-inventory (cook item))
       (print-to-log "there is no fire nearby")))
-(defaction #\A "apply an item"
+(defaction #\r "apply an item"
   (let* ((applied-item (with-item-from-inventory item))
 	 (choice (get-item-from-list '(nearby-object equipped-item inventory-item)
 				     :what "what to apply to"))
@@ -320,7 +341,7 @@
 		      (get-item-from-list
 		       (loop for item being the hash-values of (equips *player*)
 			     collect item)
-		       :what (log-to-string "item to apply ~a to" (name choice)) 
+		       :what (log-to-string "item to apply ~a to" (name applied-item)) 
 		       :naming-function #'name))
 		     ((eq choice 'nearby-object)
 		      (choose-actor-at (add-pos (pos *player*)

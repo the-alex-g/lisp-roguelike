@@ -22,6 +22,7 @@
 (defparameter *show-found-spaces* nil)
 (defparameter *treasure* (make-hash-table))
 (defparameter *level-up-pending* nil)
+(defparameter *statuses* '())
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 
@@ -371,6 +372,25 @@
 	   (pos)
 	 (make-pickup (,(constructor name)) pos)))))
 
+
+(defclass status ()
+  ((duration :accessor duration :initarg :duration)
+   (on-applied)
+   (on-update)
+   (target :initform nil :accessor target)))
+
+(defmacro make-status (duration &key
+				  (on-update nil on-update-p)
+				  (on-applied nil on-applied-p))
+  `(let* ((status (make-instance 'status :duration ,duration)))
+     (when ,on-update-p
+       (setf (slot-value status 'on-update) (lambda (target)
+					      (when target ,on-update))))
+     (when ,on-applied-p
+       (setf (slot-value status 'on-applied) (lambda (target)
+					       (when target ,on-applied))))
+     status))
+
 (defactor ladder #\# (direction) :destructible nil :solid nil)
 ;;; corpse, decay time from 60 to 100, with average of 80
 (defactor corpse #\c (corpse-type (loot nil) (decay-time (+ 60 (random 21) (random 21))))
@@ -378,6 +398,7 @@
 (defactor bones #\x (bone-type) :solid nil)
 (defactor secret-door #\S () :solid nil :health 10 :wallp t :persistent-visiblity-p t
   :interact-action-only nil)
+(defequipment weapon (damage-types statuses onetime-effects) :weaponp t)
 
 (defun has-legal-destination (obj)
   (and (>= (+ *layer-index* (direction obj)) 0)
@@ -465,8 +486,10 @@
 (defun short-inventory ()
   (loop for item in *inventory*
 	with used-names = nil
-	unless (member (name item) used-names :test #'equal)
-	  collect (progn (push (name item) used-names)
+	with string-name = ""
+	do (setf string-name (log-to-string "~a" (name item)))
+	unless (member string-name used-names :test #'equal)
+	  collect (progn (push string-name used-names)
 			 item)))
 
 (defun inventory-length ()
@@ -525,7 +548,19 @@
       (loop for equipment being the hash-values of (equips obj)
 	    do (push equipment (loot corpse)))))
   (:method ((obj equipment))
-    (remove-from-inventory obj)))
+    (remove-from-inventory obj))
+  (:method ((obj status))
+    (setf *statuses* (remove obj *statuses* :test #'equal))))
+
+(defgeneric on-applied (obj)
+  (:method ((obj status))
+    (when (slot-boundp obj 'on-applied)
+      (funcall (slot-value obj 'on-applied) (target obj)))))
+
+(defgeneric on-update (obj)
+  (:method ((obj status))
+    (when (slot-boundp obj 'on-update)
+      (funcall (slot-value obj 'on-update) (target obj)))))
 
 (defun eval-weighted-list (lst)
   (loop for pair in lst
@@ -568,8 +603,8 @@
       (setf (secretp item) nil)))
   (:method :around ((item equipment) target)
     (if (consumable item)
-	(progn (call-next-method)
-	       (destroy item))
+	(progn (destroy item) ; destroy first to ensure it is removed correctly
+	       (call-next-method))
 	(print-to-log "That cannot be eaten")))
   (:method (item target)
     (print-to-log "That cannot be eaten")))
@@ -578,7 +613,12 @@
   (:method :around (item (target pickup))
     (apply-to item (equipment target)))
   (:method (item target)
-    (print-to-log "You can't apply that")))
+    (print-to-log "You can't apply that"))
+  (:method ((item status) (target actor))
+    (setf (target item) target)
+    (on-applied item)
+    (when (slot-boundp item 'on-update)
+      (push item *statuses*))))
 
 (defgeneric deadp (obj)
   (:method ((obj actor))
@@ -604,20 +644,24 @@
 (defgeneric attack (a d)
   (:method ((a combat-entity) (d combat-entity))
     (let ((accuracy (roll 20)))
-      (if (>= (+ accuracy (dex a)) (+ (- 6 (def d)) (dex d)))
+      (if (and (>= (+ accuracy (dex a)) (+ (- 6 (def d)) (dex d)))
+	       (> accuracy 1))
 	  (let ((damage-dealt (+ (roll (dmg a)) (str a)))
+		(weapon (gethash 'hand (equips a)))
 		(crit nil))
 	    (when (= accuracy 20)
 	      (setf crit t)
 	      (incf damage-dealt (roll (dmg a))))
-	    (unless (= accuracy 1)
-	      (setf damage-dealt (damage d damage-dealt)))
 	    (print-to-log "~a~a hit a ~a for ~d damage~a~&"
 			  (if crit "CRITICAL! " "")
 			  (name a)
 			  (name d)
-			  damage-dealt
-			  (if (deadp d) ", killing it" "")))
+			  (damage d damage-dealt)
+			  (if (deadp d) ", killing it" ""))
+	    (when (and weapon (weaponp weapon))
+	      (loop for status in (append (statuses weapon) (onetime-effects weapon))
+		    do (apply-to status d))
+	      (setf (onetime-effects weapon) nil)))
 	  (print-to-log "~a missed~&" (name a)))))
   (:method ((a combat-entity) (d actor))
     (when (destructible d)
@@ -693,19 +737,6 @@
        (let ((item (get-item-from-inventory)))
 	 (when item
 	   ,@body))))
-
-; the original function
-;(defun has-los (to from board)
-;  (let ((dx (- (car to) (car from)))
-;        (dy (- (cdr to) (cdr from))))
-;    (flet ((get-pos-on-line (m)
-;            (cons (round (+ (car from) (* m dx)))
-;                  (round (+ (cdr from) (* m dy))))))
-;      (and (>= 4 (+ (abs dx) (abs dy)))
-;           (loop for x below (abs dx)
-;                 always (member (get-pos-on-line (/ x (abs dx))) board :test #'equal))
-;           (loop for y below (abs dy)
-;                 always (member (get-pos-on-line (/ y (abs dy))) board :test #'equal))))))
 
 (defun has-los (to from walls)
   (let ((dx (- (car to) (car from)))
@@ -950,7 +981,12 @@
     (decf (decay-time obj))
     (when (<= (decay-time obj) 0)
       (destroy obj)
-      (setf (bone-type (make-bones (pos obj))) (corpse-type obj)))))
+      (setf (bone-type (make-bones (pos obj))) (corpse-type obj))))
+  (:method ((obj status))
+    (decf (duration obj))
+    (on-update obj)
+    (when (<= (duration obj) 0)
+      (destroy obj))))
 
 (defun print-board ()
   (let ((actor-chars (make-hash-table :test 'equal))
@@ -1037,7 +1073,7 @@
   (update *player*)
   (mapc (lambda (actor)
 	  (update actor))
-	(dynamic-actors)))
+	(append (dynamic-actors) *statuses*)))
 
 ;; clears the terminal if possible
 (defun clear-terminal ()
