@@ -1114,21 +1114,29 @@
 
 (defun create-new-player ()
   (let ((p-name (progn (print-to-screen "enter the name of your character: ")
-		       (read-line)))
-	(p-color (get-item-from-list *color-list*
-				     :naming-function (lambda (x)
-							(apply-color
-							 (log-to-string "~a" x)
-							 x))
-				     :what "color"
-				     :exit-option nil))
-	(p-char (progn (print-to-screen "~%enter a character: ")
-		       (read-char))))
-    (setf *player* (make-instance 'player
-				  :health 10 :color p-color :display-char p-char
-				  :equips (equips *player*)
-				  :name p-name
-				  :pos (pos *player*)))))
+		       (read-line))))
+    (if (equal p-name "F")
+	(setf *player* (make-instance 'player
+				      :health 10 :color 'red :display-char #\F
+				      :equips (equips *player*)
+				      :name "Foobar"
+				      :pos (pos *player*)))
+	(let ((p-color (get-item-from-list *color-list*
+					   :naming-function
+					   (lambda (x)
+					     (apply-color
+					      (log-to-string "~a" x)
+					      x))
+					   :what "color"
+					   :exit-option nil))
+	      (p-char (progn (print-to-screen "~%enter a character: ")
+			     (read-char))))
+	  (setf *player* (make-instance 'player
+					:health 10 :color p-color
+					:display-char p-char
+					:equips (equips *player*)
+					:name p-name
+					:pos (pos *player*)))))))
 
 (defun start ()
   (setf *current-layer* (car *layers*))
