@@ -1,5 +1,5 @@
-(load "./utils.lisp")
 (load "./colors.lisp")
+(load "./class-definitions.lisp")
 
 (load "~/quicklisp/setup.lisp")
 (ql:quickload :trivial-raw-io)
@@ -38,27 +38,6 @@
 					   ,@body
 					   (incf *player-actions*) t))))
 
-(defclass equipment ()
-  ((def :initform 0 :accessor def :initarg :def)
-   (dmg :initform 0 :accessor dmg :initarg :dmg)
-   (atk-dmg :initform 1 :accessor atk-dmg :initarg :atk-dmg)
-   (weaponp :initform nil :accessor weaponp :initarg :weaponp)
-   (str :initform 0 :accessor str :initarg :str)
-   (dex :initform 0 :accessor dex :initarg :dex)
-   (health :initform 0 :accessor health :initarg :health)
-   (name :initform "" :accessor name :initarg :name)
-   (description :accessor description :initarg :description)
-   (breakable :initform nil :accessor breakable :initarg :breakable)
-   (display-char :initform #\* :accessor display-char :initarg :display-char)
-   (color :initform 'white :accessor color :initarg :color)
-   (throw-distance :initform 2 :accessor throw-distance :initarg :throw-distance)
-   (burn-time :initform 0 :accessor burn-time :initarg :burn-time)
-   (consumable :initform nil :accessor consumable :initarg :consumable)
-   (secretp :initform nil :accessor secretp :initarg :secretp)
-   (identifiedp :initform t :accessor identifiedp :allocation :class)
-   (fake-name :accessor fake-name :initarg :fake-name)
-   (equip-slot :initform 'hand :accessor equip-slot :initarg :equip-slot)))
-
 (defmethod name ((obj equipment))
   (if (and (or (secretp obj)
 	       (not (identifiedp obj)))
@@ -71,63 +50,11 @@
       (slot-value obj 'description)
       (log-to-string "a ~a" (name obj))))
 
-(defclass actor ()
-  ((pos
-    :initarg :pos
-    :accessor pos)
-   (display-char
-    :initarg :display-char
-    :accessor display-char)
-   (name
-    :initarg :name
-    :accessor name)
-   (description
-    :initform ""
-    :initarg :description
-    :accessor description)
-   (dynamicp :initform nil :initarg :dynamicp :accessor dynamicp)
-   (solid
-    :initform t
-    :initarg :solid
-    :accessor solid)
-   (interact-action-only
-    :initform nil
-    :initarg :interact-action-only
-    :accessor interact-action-only)
-   (persistent-visiblity-p
-    :initform nil
-    :initarg :persistent-visiblity-p
-    :accessor persistent-visiblity-p)
-   (color
-    :initform 'white
-    :initarg :color
-    :accessor color)
-   (wallp :initform nil :initarg :wallp :accessor wallp)
-   (hiddenp
-    :initform nil
-    :initarg :hiddenp
-    :accessor hiddenp)
-   (destructible :initform t
-		 :initarg :destructible
-		 :accessor destructible)
-   (health :initform 1
-	   :initarg :health
-	   :accessor health)
-   (consumable
-    :initform nil
-    :initarg :consumable
-    :accessor consumable)))
-
 (defgeneric get-ascii (obj)
   (:method ((obj actor))
     (if *in-terminal*
 	(apply-color (display-char obj) (color obj))
 	(display-char obj))))
-
-(defclass pickup (actor)
-  ((consumable :initform t)
-   (solid :initform nil)
-   (equipment :initarg :equipment :accessor equipment)))
 
 (defmethod name ((obj pickup))
   (name (equipment obj)))
@@ -140,14 +67,6 @@
 
 (defmethod color ((obj pickup))
   (color (equipment obj)))
-
-(defclass combat-entity (actor)
-  ((def :initform 0 :initarg :def)
-   (dmg :initform 0 :initarg :dmg)
-   (str :initform 0 :initarg :str)
-   (dex :initform 0 :initarg :dex)
-   (equips :initform (make-hash-table) :accessor equips :initarg :equips)
-   (health :initform 6)))
 
 ;; generate setters and getters for combat-entity stats
 (mapc (lambda (name)
@@ -169,17 +88,6 @@
 		   (setf (slot-value obj (quote ,name)) new-val)))))
       '(def str health dmg dex)) ; this is the list of stats
 
-(defclass player (combat-entity)
-  ((heal-clock :initform 10
-	       :accessor heal-clock)
-   (starvingp :initform nil
-	      :accessor starvingp)
-   (hunger :initform 80
-	   :accessor hunger)
-   (xp :initform 0 :accessor xp)
-   (max-health :initform 10 :accessor max-health)
-   (xp-bound :initform 10 :accessor xp-bound)))
-
 (defmethod (setf xp) (value (obj player))
   (setf (slot-value obj 'xp) value)
   (setf *level-up-pending* (>= value (xp-bound obj))))
@@ -191,28 +99,11 @@
 	       (incf (health obj))))
       (setf (slot-value obj 'heal-clock) value)))
 
-(defmethod (setf hunger) (value (obj player))
-  (if (= value 0)
-      (progn (setf (starvingp obj) t)
-	     (damage obj 1 :unblockable t)
-	     (setf (slot-value obj 'hunger) 8))
-      (progn (when (> value (hunger obj))
-	       (setf (starvingp obj) nil))
-	     (setf (slot-value obj 'hunger) (min 80 value)))))
-
 (defmethod (setf health) (value (obj player))
   (setf (slot-value obj 'health) (max 0 (min value (max-health obj)))))
 
 (defparameter *player* (make-instance 'player :name 'player
 					      :health 10))
-
-(defclass layer ()
-  ((board :initarg :board)
-   (dynamic-actors :initform '())
-   (actors :initform '())
-   (up-ladder-pos :initarg :up-ladder-pos :accessor up-ladder-pos)
-   (down-ladder-pos :initarg :down-ladder-pos :accessor down-ladder-pos)
-   (board-size :initarg :board-size)))
 
 (defun dynamic-actors ()
   (slot-value *current-layer* 'dynamic-actors))
@@ -235,37 +126,25 @@
 (defun board-size ()
   (slot-value *current-layer* 'board-size))
 
-(defclass enemy (combat-entity)
-  ((spd ;; speed of 1 is the same as the player
-        ;; speed of 2 is half as fast as the player
-    :initform 1.2
-    :initarg :spd
-    :accessor spd)
-   (dynamicp :initform t)
-   (xp :initform 1 :initarg :xp :accessor xp)
-   (loot
-    :initform '()
-    :initarg :loot
-    :accessor loot)
-   (enabled
-    :initform nil
-    :accessor enabled)))
+(defmacro define-damage-modifier-getter (name slot-name)
+  (let ((listing-body `(if (listp (slot-value obj (quote ,slot-name)))
+			   (slot-value obj (quote ,slot-name))
+			   (list (slot-value obj (quote ,slot-name))))))
+  `(defgeneric ,name (obj)
+     (:method ((obj equipment))
+       ,listing-body)
+     (:method ((obj actor))
+       ,listing-body)
+     (:method ((obj combat-entity))
+       (append ,listing-body
+	       (append (loop for item being the hash-values of (equips obj)
+			     unless (and (eq (equip-slot item) 'hand)
+					 (not (weaponp item)))
+			       collect (,name item))))))))
 
-(defun make-actor (name display-char pos &key (solid t) (consumable nil) (color 0)
-					   (description "")
-					   (interact-action-only nil interact-action-p))
-  (let ((new-actor (make-instance 'actor :pos pos
-					 :display-char display-char
-					 :name name
-					 :solid solid
-					 :interact-action-only (if interact-action-p
-								   interact-action-only
-								   (not solid))
-					 :color color
-					 :description description
-					 :consumable consumable)))
-    (push new-actor (static-actors))
-    new-actor))
+(define-damage-modifier-getter resistances resist)
+(define-damage-modifier-getter vulnerabilities vulnerable)
+(define-damage-modifier-getter immunities immune)
 
 (defun make-pickup (equipment pos)
   (let ((pickup (make-instance 'pickup :equipment equipment :pos pos
@@ -371,13 +250,6 @@
 					      (symbol-name name) "-pickup"))
 	   (pos)
 	 (make-pickup (,(constructor name)) pos)))))
-
-
-(defclass status ()
-  ((duration :accessor duration :initarg :duration)
-   (on-applied)
-   (on-update)
-   (target :initform nil :accessor target)))
 
 (defmacro make-status (duration &key
 				  (on-update nil on-update-p)
@@ -625,21 +497,49 @@
     (and (destructible obj)
 	 (<= (health obj) 0))))
 
-(defgeneric damage (target amount &key unblockable)
-  (:method :around (target amount &key unblockable)
-    (call-next-method target (max 1 amount) :unblockable unblockable))
-  (:method ((target actor) amount &key unblockable)
-    (declare (ignore unblockable))
+(defgeneric resolve-damage-modifiers (amount types actor)
+  (:method (amount (types list) (actor actor))
+    (flet ((resolve-damage-modifier (lst amt)
+	     (loop for x in lst
+		   when (member x types)
+		     return amt)))
+      (or (resolve-damage-modifier (vulnerabilities actor) (* 2 amount))
+	  (resolve-damage-modifier (resistances actor) (max 1 (ash amount -1)))
+	  (resolve-damage-modifier (immunities actor) 0)
+	  amount)))
+  (:method (amount types (actor actor))
+    (resolve-damage-modifiers amount (list types) actor)))
+
+(defgeneric damage (target amount &key unblockable damage-types)
+  (:method :around ((target actor) amount &key unblockable damage-types)
+    (call-next-method target
+		      (resolve-damage-modifiers (max 1 amount)
+						damage-types
+						target)
+		      :unblockable unblockable
+		      :damage-types damage-types))
+  (:method ((target actor) amount &key unblockable damage-types)
+    (declare (ignore unblockable damage-types))
     (decf (health target) amount)
     amount)
-  (:method :after ((target actor) amount &key unblockable)
-    (declare (ignore unblockable))
+  (:method :after ((target actor) amount &key unblockable damage-types)
+    (declare (ignore unblockable damage-types))
     (when (deadp target)
       (destroy target)))
-  (:method ((target combat-entity) amount &key unblockable)
+  (:method ((target combat-entity) amount &key unblockable damage-types)
+    (declare (ignore damage-types))
     (unless unblockable
       (setf amount (max 1 (- amount (def target)))))
     (call-next-method target amount :unblockable unblockable)))
+
+(defmethod (setf hunger) (value (obj player))
+  (if (= value 0)
+      (progn (setf (starvingp obj) t)
+	     (damage obj 1 :unblockable t)
+	     (setf (slot-value obj 'hunger) 8))
+      (progn (when (> value (hunger obj))
+	       (setf (starvingp obj) nil))
+	     (setf (slot-value obj 'hunger) (min 80 value)))))
 
 (defgeneric attack (a d)
   (:method ((a combat-entity) (d combat-entity))
@@ -656,7 +556,10 @@
 			  (if crit "CRITICAL! " "")
 			  (name a)
 			  (name d)
-			  (damage d damage-dealt)
+			  (damage d damage-dealt
+				  :damage-types (if weapon
+						    (damage-types weapon)
+						    nil))
 			  (if (deadp d) ", killing it" ""))
 	    (when (and weapon (weaponp weapon))
 	      (loop for status in (append (statuses weapon) (onetime-effects weapon))
@@ -744,16 +647,21 @@
     (labels ((get-pos-on-line (m)
               (cons (round (+ (car from) (* m dx)))
                     (round (+ (cdr from) (* m dy)))))
-			 (on-board-p (m)
-			   (let ((pos (get-pos-on-line m)))
-			     (and (gethash pos (board))
-				 	  (not (member pos walls :test #'equal))))))
+	     (on-board-p (m)
+	       (let ((pos (get-pos-on-line m)))
+		 (and (gethash pos (board))
+		      (not (member pos walls :test #'equal))))))
       (and (or (< *sight-distance* 0)
-	  	   	   (>= *sight-distance* (+ (abs dx) (abs dy))))
+	       (>= *sight-distance* (+ (abs dx) (abs dy))))
            (loop for x below (abs dx)
                  always (on-board-p (/ x (abs dx))))
            (loop for y below (abs dy)
                  always (on-board-p (/ y (abs dy))))))))
+
+(defun update-spaces-found ()
+  (mapc (lambda (pos)
+	  (setf (gethash pos (board)) 'found))
+	*light-zone*))
 
 (defun update-los ()
   (let ((walls (loop for actor in (actors)
@@ -905,11 +813,6 @@
 			     (list +right+ +left+ +down+ +up+ +zero+))
 	   do (loop for actor in (find-all-actors-at ,p)
 		    do (progn ,@body)))))
-
-(defun update-spaces-found ()
-  (mapc (lambda (pos)
-	  (setf (gethash pos (board)) 'found))
-	*light-zone*))
 
 (defgeneric move (obj distance)
   (:method ((obj actor) (distance list))
