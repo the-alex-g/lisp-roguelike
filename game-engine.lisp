@@ -80,13 +80,11 @@
 					  (slot-value qpmnt (quote ,name))
 					  0)
 				      (if (eq eq-slot 'hand)
-					  ,(if (eq name 'dmg)
-					       `(slot-value qpmnt 'atk-dmg)
-					       0)
+					  0
 					  (slot-value qpmnt (quote ,name))))))))
 		 (defmethod (setf ,name) (new-val (obj combat-entity))
 		   (setf (slot-value obj (quote ,name)) new-val)))))
-      '(def str health dmg dex)) ; this is the list of stats
+      '(def str health dex)) ; this is the list of stats
 
 (defmethod (setf xp) (value (obj player))
   (setf (slot-value obj 'xp) value)
@@ -122,7 +120,7 @@
 
 (defun board ()
   (slot-value *current-layer* 'board))
-
+			;
 (defun board-size ()
   (slot-value *current-layer* 'board-size))
 
@@ -297,15 +295,10 @@
 (defmethod hiddenp ((obj ladder))
   (not (has-legal-destination obj)))
 
-(defun make-equipment (equip-slot &key (def 0) (str 0) (dmg 0)
-				    (dex 0) (health 0) (name ""))
-  (make-instance 'equipment :def def :str str :dmg dmg :name name
-			    :dex dex :health health :equip-slot equip-slot))
-
 (defun make-layer (dungeon)
   (let* ((dungeon-board (slot-value dungeon 'board))
-	 (up-ladder-pos (nth (random (1- (length dungeon-board))) (cdr dungeon-board)))
 	 (down-ladder-pos (car dungeon-board))
+	 (up-ladder-pos (randnth (cdr dungeon-board)))
 	 (layer (make-instance
 		 'layer
 		 :up-ladder-pos up-ladder-pos
@@ -460,7 +453,8 @@
    (apply-color (log-to-string "~a (~c)" (name *player*) (display-char *player*))
 		(color *player*))
    (log-to-string "str: ~2d dex: ~2d" (str *player*) (dex *player*))
-   (log-to-string "def: ~2d dmg: ~2d" (def *player*) (dmg *player*))
+   (log-to-string "def: ~2d atk: ~{~a ~}" (def *player*)
+		  (car (get-attacks *player* :for-display t)))
    (log-to-string "health: ~d/~d" (health *player*) (max-health *player*))
    (log-to-string "xp: ~d/~d" (xp *player*) (xp-bound *player*))
    (log-to-string "hunger: ~{~c~}" (loop for x below 10
@@ -485,7 +479,7 @@
   (:method :around (item (target pickup))
     (apply-to item (equipment target)))
   (:method (item target)
-    (print-to-log "You can't apply that"))
+    (print-to-log "You can't apply ~a that to ~a" item target))
   (:method ((item status) (target actor))
     (setf (target item) target)
     (on-applied item)
@@ -541,40 +535,92 @@
 	       (setf (starvingp obj) nil))
 	     (setf (slot-value obj 'hunger) (min 80 value)))))
 
+(defun eval-attack (attack-list)
+  (labels ((calculate-damage (dmg-list)
+	     (cond ((= (length dmg-list) 1)
+		    (car dmg-list))
+		    ((= (length dmg-list) 2)
+		     (loop repeat (car dmg-list)
+			   sum (roll (cadr dmg-list))))
+		    ((= (length dmg-list) 3)
+		     (+ (loop repeat (car dmg-list)
+			      sum (roll (cadr dmg-list)))
+			(caddr dmg-list)))))
+	   (eat-attack (a b)
+	     (if (numberp (car a))
+		 (eat-attack (cdr a) (cons (car a) b))
+		 (cons (calculate-damage (reverse b)) a)))
+	   (find-statuses (list a b statusp)
+	     (cond ((eq (car list) :status)
+		    (find-statuses (cdr list) a b t))
+		   ((car list)
+		    (if statusp
+			(find-statuses (cdr list) a (cons (car list) b) t)
+			(find-statuses (cdr list) (cons (car list) a) b nil)))
+		   (t (list a b)))))
+    (let* ((temp (eat-attack attack-list nil))
+	   (dmg (car temp))
+	   (foo (find-statuses (cdr temp) nil nil nil))
+	   (dmg-types (car foo))
+	   (statuses (cdr foo)))
+      `((dmg ,dmg) (dmg-types ,@dmg-types) (statuses ,@statuses)))))
+
+(defgeneric get-attacks (obj &key for-display)
+  (:method ((obj player) &key for-display)
+    (let* ((weapon (gethash 'hand (equips obj)))
+	   (attack (if weapon
+		       (list (if for-display
+				 (atk weapon)
+				 (append (atk weapon)
+					 (list :status)
+					 (onetime-effects weapon)
+					 (statuses weapon))))
+		       '((1 bludgeoning)))))
+      (unless for-display
+	(setf (onetime-effects weapon) nil))
+      attack))
+  (:method ((obj enemy) &key for-display)
+    (declare (ignore for-display))
+    (let ((weapon (gethash 'hand (equips obj))))
+      (if weapon
+	  (list (atk weapon))
+	  (if (listp (car (atk obj)))
+	      (atk obj)
+	      (list (atk obj)))))))
+
 (defgeneric attack (a d)
   (:method ((a combat-entity) (d combat-entity))
     (let ((accuracy (roll 20)))
       (if (and (>= (+ accuracy (dex a)) (+ (- 6 (def d)) (dex d)))
 	       (> accuracy 1))
-	  (let ((damage-dealt (+ (roll (dmg a)) (str a)))
-		(weapon (gethash 'hand (equips a)))
-		(crit nil))
-	    (when (= accuracy 20)
-	      (setf crit t)
-	      (incf damage-dealt (roll (dmg a))))
-	    (print-to-log "~a~a hit a ~a for ~d damage~a~&"
-			  (if crit "CRITICAL! " "")
-			  (name a)
-			  (name d)
-			  (damage d damage-dealt
-				  :damage-types (if weapon
-						    (damage-types weapon)
-						    nil))
-			  (if (deadp d) ", killing it" ""))
-	    (when (and weapon (weaponp weapon))
-	      (loop for status in (append (statuses weapon) (onetime-effects weapon))
-		    do (apply-to status d))
-	      (setf (onetime-effects weapon) nil)))
+	  (mapc (lambda (atk)
+		  (print-to-log "~a hit ~a for ~d damage~a"
+				(name a)
+				(name d)
+				(damage d
+					(+ (cadr (assoc 'dmg atk)) (str a))
+					:damage-types (cadr
+						       (assoc 'dmg-types atk)))
+				(if (deadp d)
+				    ", killing it"
+				    ""))
+		  (mapc (lambda (status)
+			  (when status
+			    (apply-to status d)))
+			(cadr (assoc 'statuses atk))))
+		(mapcar #'eval-attack (get-attacks a)))
 	  (print-to-log "~a missed~&" (name a)))))
   (:method ((a combat-entity) (d actor))
     (when (destructible d)
-      (print-to-log "~a hit a ~a for ~d damage~a~&"
-		    (name a)
-		    (name d)
-		    (damage d (roll (dmg a)))
-		    (if (deadp d)
-			", destroying it"
-			"")))))
+      (let ((attack (eval-attack (car (get-attacks a)))))
+	(print-to-log "~a hit a ~a for ~d damage~a~&"
+		      (name a)
+		      (name d)
+		      (damage d (+ (cadr (assoc 'dmg attack)) (str a))
+			      :damage-types (cadr (assoc 'dmg-types attack)))
+		      (if (deadp d)
+			  ", destroying it"
+			  ""))))))
 
 (defgeneric check (dc stat creature)
   (:method (dc stat (creature combat-entity))

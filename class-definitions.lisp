@@ -1,7 +1,6 @@
 (defclass equipment ()
   ((def :initform 0 :accessor def :initarg :def)
-   (dmg :initform 0 :accessor dmg :initarg :dmg)
-   (atk-dmg :initform 1 :accessor atk-dmg :initarg :atk-dmg)
+   (atk :initform '(1 bludgeoning) :accessor atk :initarg :atk)
    (weaponp :initform nil :accessor weaponp :initarg :weaponp)
    (str :initform 0 :accessor str :initarg :str)
    (dex :initform 0 :accessor dex :initarg :dex)
@@ -105,6 +104,7 @@
     :initform 1.2
     :initarg :spd
     :accessor spd)
+   (atk :initform '(1 bludgeoning) :initarg :atk :accessor atk)
    (dynamicp :initform t)
    (xp :initform 1 :initarg :xp :accessor xp)
    (loot

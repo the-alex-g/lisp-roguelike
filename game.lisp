@@ -1,7 +1,7 @@
 (load "./game-engine.lisp")
 (load "./bsp-dungeon.lisp")
 
-(defactor trap #\! ((dmg 4) (save-dc 10) (discoverable t))
+(defactor trap #\! ((atk '(1 4 piercing)) (save-dc 10) (discoverable t))
   :interact-action-only nil :solid nil :destructible nil :color 'red :hiddenp t
   :description "a cunning trap")
 (defactor fire #\^ (burn-time (dmg 6)) :interact-action-only nil
@@ -62,10 +62,14 @@
 (defherb healing-herb :health (roll 4))
 (defherb poison-herb :health (roll 4))
 (defequipment ranged-weapon (range) :dex -2 :inherit weapon)
-(defequipment bow () :dmg 4 :range 4 :description "a bow" :inherit ranged-weapon)
-(defequipment sword nil :dmg 6 :description "a sword" :inherit weapon)
-(defequipment big-sword nil :dmg 8 :description "a big sword" :inherit weapon)
-(defequipment leather-armor nil :def 1 :description "leather armor" :equip-slot 'body)
+(defequipment bow () :atk '(1 4 piercing) :range 4
+  :description "a bow" :inherit ranged-weapon)
+(defequipment sword nil :atk '(1 6 slashing)
+  :description "a sword" :inherit weapon)
+(defequipment big-sword nil :atk '(1 8 slashing)
+  :description "a big sword" :inherit weapon)
+(defequipment leather-armor nil :def 1
+  :description "leather armor" :equip-slot 'body)
 
 (defgeneric death-verb (obj)
   (:method ((obj actor))
@@ -140,25 +144,27 @@
 	 (onetime-effects to)))
 
 ;; define monster types
-(defenemy goblin #\g () :dmg 4 :health (1+ (roll 3)) :str -1 :dex 1 :color 'green
-  :xp 3
-  :description "a goblin with a sharp dagger")
-(defenemy rat #\r () :dmg 2 :health (roll 2) :dex 2 :color 'dark-red
+(defenemy goblin #\g () :atk '(1 4 piercing) :health (1+ (roll 3))
+  :str -1 :dex 1 :color 'green
+  :xp 3 :description "a goblin with a sharp dagger")
+(defenemy rat #\r () :atk '(1 2 piercing) :health (roll 2)
+  :dex 2 :color 'dark-red
   :loot (list (list #'make-rat-meat 50)
 	      (list #'make-poison-rat-meat 50))
   :description "a giant rat")
-(defenemy ogre #\O () :dmg 6 :health (+ 4 (roll 2))
+(defenemy ogre #\O () :dmg '(1 6 bludgeoning) :health (+ 4 (roll 2))
   :str 2 :dex -2 :color 'orange :speed 1.75
-  :xp 8
-  :description "a hulking ogre")
+  :xp 8 :description "a hulking ogre")
 
 (defmethod interact ((a player) (b trap))
   (when (= 0 (random 2))
     (setf (hiddenp b) nil)
     (save (save-dc b) dex a
-	(print-to-log "you triggered ~a but dodged out of the way" (description b))
-	(print-to-log "you triggered ~a and took ~d damage"
-		      (description b) (damage a (roll (dmg b)))))))
+	  (print-to-log "you triggered ~a but dodged out of the way" (description b))
+	  (let ((attack (eval-attack (atk b))))
+	    (print-to-log "you triggered ~a and took ~d damage"
+			  (description b) (damage a (cadr (assoc 'dmg attack))
+						  :damage-types (cadr (assoc 'dmg-types attack))))))))
 
 (defmethod interact ((a combat-entity) (b fire))
   (print-to-log "~a walked into fire and took ~a damage~a" (name a)
@@ -349,6 +355,16 @@
 						 :cancel nil :include-zero t)))))))
     (when (and applied-item item)
       (apply-to applied-item item))))
+(defaction #\# "open a REPL"
+  (labels ((my-repl ()
+	     (fresh-line)
+	     (princ ">>> ")
+	     (force-output)
+	     (let ((input (read-from-string (read-line))))
+	       (unless (eq input 'q)
+		 (print (eval input))
+		 (my-repl)))))
+    (my-repl)))
 
 ;; start game
 (start)
