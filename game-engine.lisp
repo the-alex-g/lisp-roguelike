@@ -9,11 +9,14 @@
 (defparameter *layer-index* 0)
 (defparameter *player-actions* 0)
 (defparameter *sight-distance* 10)
-(defparameter +left+ '(-1 . 0))
-(defparameter +right+ '(1 . 0))
-(defparameter +up+ '(0 . -1))
-(defparameter +down+ '(0 . 1))
-(defparameter +zero+ '(0 . 0))
+(defconstant +left+ '(-1 . 0))
+(defconstant +right+ '(1 . 0))
+(defconstant +up+ '(0 . -1))
+(defconstant +down+ '(0 . 1))
+(defconstant +zero+ '(0 . 0))
+(defconstant +directions+ '((-1 . 0) (1 . 0) (0 . -1) (0 . 1)))
+(defconstant +directions-with-zero+
+  '((-1 . 0) (1 . 0) (0 . -1) (0 . 1) (0 . 0)))
 (defparameter *actions* (make-hash-table :test 'equal))
 (defparameter *action-descriptions* (make-hash-table))
 (defparameter *inventory* '())
@@ -599,7 +602,7 @@
 				(name d)
 				(damage d
 					(+ (cadr (assoc 'dmg atk)) (str a))
-					:damage-types (cadr
+					:damage-types (cdr
 						       (assoc 'dmg-types atk)))
 				(if (deadp d)
 				    ", killing it"
@@ -607,7 +610,7 @@
 		  (mapc (lambda (status)
 			  (when status
 			    (apply-to status d)))
-			(cadr (assoc 'statuses atk))))
+			(cdr (assoc 'statuses atk))))
 		(mapcar #'eval-attack (get-attacks a)))
 	  (print-to-log "~a missed~&" (name a)))))
   (:method ((a combat-entity) (d actor))
@@ -617,7 +620,7 @@
 		      (name a)
 		      (name d)
 		      (damage d (+ (cadr (assoc 'dmg attack)) (str a))
-			      :damage-types (cadr (assoc 'dmg-types attack)))
+			      :damage-types (cdr (assoc 'dmg-types attack)))
 		      (if (deadp d)
 			  ", destroying it"
 			  ""))))))
