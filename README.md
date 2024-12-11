@@ -24,13 +24,14 @@ A class for items and equipment that the player can find in the dungeon. Equipme
 
 **equip-slot** tells the game what slot to equip the item in. The value should be a symbol. Defaults to `'hand`.
 
-**weaponp** determines whether or not to apply stat bonuses when the item is equipped in the hand slot. Defaults to `nil`.
+**weaponp** determines whether or not to apply stat bonuses when the item is equipped in the hand slot. Defaults to nil.
 
-**atk-dmg** the amount of damage dealt when the equipment is wielded in the hand slot. Defaults to 1.
+**atk** the amount and type of damage done when the equipment is wielded in the hand slot. Attacks are lists where up to the first three values are numbers, then any number of damage types, then the `:status` key and any number of status objects.
+Examples: `(1 4 slashing)` is 1d4 slashing damage, `(1 bludgeoning)` is one bludgeoning damage, and `(2 4 1 piercing :status #<STATUS {10028D6B63}>)` is 2d4+1 piercing damage with a status effect. Defaults to `(1 bludgeoning)`.
 
 The next couple of slots increase the equipper's stats of the same name. They default to 0.
 
-**def**, **dmg**, **str**, **dex**, **health**, **resist**, **immune**, **vulnerable**
+**def**, **str**, **dex**, **health**, **resist**, **immune**, **vulnerable**
 
 **name** the name of the equipment. Defaults to an empty string.
 
@@ -98,8 +99,6 @@ Should not be instantiated directly.
 
 **def** reduces incoming damage and increases chance to be hit.
 
-**dmg** attack damage is a random number between 1 and `dmg`.
-
 **str** adds to damage dealt.
 
 **dex** increases hit chance and reduces chance to be hit.
@@ -128,6 +127,8 @@ Inherits `combat-entity`.
 Should not be instantiated directly; instead use the `defenemy` macro.
 
 **spd** how often the enemy activates compared to the player. A speed of 1 is exactly as fast as the player, and a speed of 2 is half as fast as the player. Defaults to 1.2.
+
+**atk** an attack list as described in the equipment section. Can be a list of attack lists for multiple attacks per activation.
 
 **xp** how much XP the enemy is worth when killed. Defaults to 1.
 
@@ -189,7 +190,7 @@ The values passed to new-slots become new slots of the class. All other keys cha
 
 A matching constructor function for the class is created. This function is of the form `make-name (pos)`, which creates an instance of the new class at the position `pos`.
 
-Example: `(defenemy goblin #\g () :dmg 4 :health (1+ (roll 3)) :str -1 :dex 1 :color 'green :xp 3 :description "a goblin with a sharp dagger")` creates a class named 'goblin' and a function named 'make-goblin'. The dmg, health, str, dex, color, xp, and description slots of the `goblin` class are set to the values entered in the `defenemy` call.
+Example: `(defenemy goblin #\g () :atk '(1 4 piercing) :health (1+ (roll 3)) :str -1 :dex 1 :color 'green :xp 3 :description "a goblin with a sharp dagger")` creates a class named 'goblin' and a function named 'make-goblin'. The atk, health, str, dex, color, xp, and description slots of the `goblin` class are set to the values entered in the `defenemy` call.
 
 **defactor (name display-char new-slots &rest keys &key inherit &allow-other-keys)**
 
