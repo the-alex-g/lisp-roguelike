@@ -20,12 +20,17 @@
      :inherit ooze))
 
 ;;; DEFINE ACTORS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defactor trap #\! ((atk '(1 4 piercing)) (save-dc 10) (discoverable t))
+(defactor trap #\! ((atk '(1 4 piercing)) (save-dc 10) (discoverable t)
+					  (one-use-p nil) (verb 'triggered)
+					  (trigger-chance 50))
   :interact-action-only nil :solid nil :destructible nil :color 'red :hiddenp t
   :description "a cunning trap")
 (defactor fire #\^ (burn-time (dmg 6)) :interact-action-only nil
   :solid nil :destructible nil
   :color 'red :description "a fire" :dynamicp t)
+(defactor acid-pool #\@ nil :hiddenp nil :description "a pool of acid"
+  :verb "stepped in" :interact-action-only nil :one-use-p t :trigger-chance 100
+  :atk '(1 4 acid) :save-dc 15 :color 'green :inherit trap)
 
 ;;; DEFINE EQUIPMENT ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp nil))

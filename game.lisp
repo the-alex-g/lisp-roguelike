@@ -26,12 +26,6 @@
       (print-to-log "the fire has gone out"))
     (destroy obj)))
 
-(defgeneric death-verb (obj)
-  (:method ((obj actor))
-    "destroying")
-  (:method ((obj combat-entity))
-    "killing"))
-
 ;;; custom eat function for food
 (defmethod eat ((item food) (target actor))
   (if (poisonp item)
@@ -90,7 +84,8 @@
 					 (name item)
 					 (name to)
 					 (health item)
-					 (if (and (deadp target) (not already-dead))
+					 (if (and (deadp target)
+						  (not already-dead))
 					     (log-to-string ", killing the ~a"
 							    (name target))
 					     ""))
@@ -99,14 +94,22 @@
 	 (onetime-effects to)))
 
 (defmethod interact ((a player) (b trap))
-  (when (= 0 (random 2))
+  (when (> (trigger-chance b) (random 100))
     (setf (hiddenp b) nil)
     (save (save-dc b) dex a
-	  (print-to-log "you triggered ~a but dodged out of the way" (description b))
 	  (let ((attack (eval-attack (atk b))))
-	    (print-to-log "you triggered ~a and took ~d damage"
-			  (description b) (damage a (cadr (assoc 'dmg attack))
-						  :damage-types (cdr (assoc 'dmg-types attack))))))))
+	    (when (one-use-p b)
+	      (destroy b))
+	    (print-to-log "you ~a ~a and took ~d damage"
+			  (verb b)
+			  (description b)
+			  (damage a (cadr (assoc 'dmg attack))
+				  :damage-types (cdr (assoc 'dmg-types
+							    attack)))))
+	  (print-to-log "you avoided ~a" (description b)))))
+
+(defmethod make-corpse ((obj ooze))
+  (setf (color (make-acid-pool (pos obj))) (color obj)))
 
 (defmethod damage :after ((target ooze) dmg &key unblockable damage-types)
   (declare (ignore dmg unblockable))
