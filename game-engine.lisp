@@ -268,7 +268,7 @@
 (defactor bones #\x (bone-type) :solid nil)
 (defactor secret-door #\S () :solid nil :health 10 :wallp t :persistent-visiblity-p t
   :interact-action-only nil)
-(defequipment weapon (damage-types statuses onetime-effects) :weaponp t)
+(defequipment weapon (statuses onetime-effects) :weaponp t)
 
 (defun has-legal-destination (obj)
   (and (>= (+ *layer-index* (direction obj)) 0)

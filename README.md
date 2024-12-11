@@ -29,7 +29,7 @@ A class for items and equipment that the player can find in the dungeon. Equipme
 **atk** the amount and type of damage done when the equipment is wielded in the hand slot. Attacks are lists where up to the first three values are numbers, then any number of damage types, then the `:status` key and any number of status objects.
 Examples: `(1 4 slashing)` is 1d4 slashing damage, `(1 bludgeoning)` is one bludgeoning damage, and `(2 4 1 piercing :status #<STATUS {10028D6B63}>)` is 2d4+1 piercing damage with a status effect. Defaults to `(1 bludgeoning)`.
 
-The next couple of slots increase the equipper's stats of the same name. They default to 0.
+The next couple of slots increase the equipper's stats of the same name. They default to 0 or an empty list, as appropriate.
 
 **def**, **str**, **dex**, **health**, **resist**, **immune**, **vulnerable**
 
@@ -112,7 +112,7 @@ A player is automatically created and stored in the `*player*` variable.
 
 **starvingp** if t, the player does not regain hit points from `heal-clock`. Defaults to nil.
 
-**hunger** how long is left before the player starts starving. Defaults to 10.
+**hunger** how long is left before the player starts starving. Defaults to 80.
 
 **xp** how much XP the player has.
 
@@ -179,7 +179,6 @@ The pickup's name, description, color, and display char are taken from its equip
 ## game-engine.lisp
 
 This file is called game-engine because it could theoretically be used as an engine behind other ASCII games. But not really.
-
 Some of the most important functions and macros will be highlighted below.
 
 **defenemy (name display-char new-slots &rest keys &key inherit &allow-other-keys)**
@@ -202,7 +201,7 @@ Several actor classes are automatically defined. These are the corpse, bones, la
 
 Also similar to `defenemy`, except it defines an extra function called `make-name-pickup`, which makes a pickup of the new class at the position passed to the function.
 
-The weapon class is automatically defined. Its `weaponp` slot is set to t by default, and it has additional damage-type, statuses, and onetime-effects slots.
+The weapon class is automatically defined. Its `weaponp` slot is set to t by default, and it has additional 'statuses' and 'onetime-effects' slots.
 
 **make-status (duration &key on-update on-applied)**
 
