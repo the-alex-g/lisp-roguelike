@@ -1,4 +1,5 @@
 (load "./colors.lisp")
+(load "./bsp-dungeon.lisp")
 (load "./class-definitions.lisp")
 
 (load "~/quicklisp/setup.lisp")
@@ -26,6 +27,18 @@
 (defparameter *treasure* (make-hash-table))
 (defparameter *level-up-pending* nil)
 (defparameter *statuses* '())
+(defparameter *dungeon-spawns* '(((40 ())
+				  (30 ())
+				  (20 ())
+				  (10 ()))
+				 ((40 ())
+				  (30 ())
+				  (20 ())
+				  (10 ()))
+				 ((40 ())
+				  (30 ())
+				  (20 ())
+				  (10 ()))))
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 
@@ -34,6 +47,38 @@
   (if *in-terminal*
       (trivial-raw-io:read-char)
       (read-char)))
+
+(defun distribute-list (list)
+  (let ((step (max 1 (floor (/ 100 (length list)))))
+	(d100 100))
+    (mapcar (lambda (i)
+	      (decf d100 step)
+	      (if (> d100 step)
+		  (list step i)
+		  (list (+ step d100) i)))
+	    list)))
+
+(defun get-spawn-list (list rarity)
+  (flet ((get-rarity-list (base-list)
+	   (cond ((eq rarity 'common)
+		  (cadar base-list))
+		 ((eq rarity 'uncommon)
+		  (cadadr base-list))
+		 ((eq rarity 'rare)
+		  (cadadr (cdr base-list)))
+		 (t (cadadr (cddr base-list))))))
+    (get-rarity-list (cond ((= list 0) (car *dungeon-spawns*))
+			   ((= list 1) (cadr *dungeon-spawns*))
+			   ((= list 2) (caddr *dungeon-spawns*))))))
+
+(defun prep-spawn-list ()
+  (loop for list below 3
+	do (loop for rarity in '(common uncommon rare legendary)
+		 do (setf (get-spawn-list list rarity)
+			  (distribute-list (get-spawn-list list rarity))))))
+
+(defun add-to-spawn (list rarity function)
+  (push function (get-spawn-list list rarity)))
 
 (defmacro defaction (key description &body body)
   `(progn (setf (gethash ,key *action-descriptions*) ,description)
@@ -1086,7 +1131,20 @@
 					:name p-name
 					:pos (pos *player*)))))))
 
+(defun create-dungeon ()
+  (prep-spawn-list)
+  (loop repeat 2
+	do (let* ((i (random 2))
+		  (size (if (= i 0)
+			    '(50 . 20)
+			    '(60 . 20)))
+		  (depth (if (= i 0)
+			     3
+			     4)))
+	     (make-layer (generate-dungeon size depth *dungeon-spawns*))))) 
+
 (defun start ()
+  (create-dungeon)
   (setf *current-layer* (car *layers*))
   (update-los)
   (create-new-player)

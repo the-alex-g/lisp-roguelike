@@ -132,25 +132,25 @@
 		(if (deadp a) ", killing it" "")))
 
 ;; generate a sample board
-(make-layer (generate-dungeon '(50 . 20) 3
-			      '(((20 make-rat)
-				 (40 make-goblin)
-				 (30 make-ogre)
-				 (10 make-grey-slime))
-				((50 make-food-pickup)
-				 (25 make-poison-herb-pickup)
-				 (25 make-healing-herb-pickup))
-				((99 make-trap)
-				 (1 make-acid-pool)))))
-(make-layer (generate-dungeon '(50 . 20) 3
-			      '(((30 make-rat)
-				 (60 make-goblin)
-				 (10 make-grey-slime))
-				((50 make-food-pickup)
-				 (25 make-poison-herb-pickup)
-				 (25 make-healing-herb-pickup))
-				((99 make-trap)
-				 (1 make-acid-pool)))))
+;(make-layer (generate-dungeon '(50 . 20) 3
+;			      '(((20 make-rat)
+;				 (40 make-goblin)
+;				 (30 make-ogre)
+;				 (10 make-grey-slime))
+;				((50 make-food-pickup)
+;				 (25 make-poison-herb-pickup)
+;				 (25 make-healing-herb-pickup))
+;				((99 make-trap)
+;				 (1 make-acid-pool)))))
+;(make-layer (generate-dungeon '(50 . 20) 3
+;			      '(((30 make-rat)
+;				 (60 make-goblin)
+;				 (10 make-grey-slime))
+;				((50 make-food-pickup)
+;				 (25 make-poison-herb-pickup)
+;				 (25 make-healing-herb-pickup))
+;				((99 make-trap)
+;				 (1 make-acid-pool)))))
 
 ;; equip player
 (equip (make-big-sword) *player*)
