@@ -26,6 +26,17 @@
       (print-to-log "the fire has gone out"))
     (destroy obj)))
 
+(defmethod update ((obj glowing-mushroom-actor))
+  (loop for p being the hash-keys of (board)
+	when (and (has-los p (pos obj) (glow-radius obj))
+		  (has-los (pos *player*) p -1))
+	  do (push p *light-zone*))
+  (update-spaces-found))
+
+(defmethod interact ((a player) (b glowing-mushroom-actor))
+  (print-to-log "you picked a clump of glowing mushrooms")
+  (add-to-inventory (make-glowing-mushrooms)))
+
 ;;; custom eat function for food
 (defmethod eat ((item food) (target actor))
   (if (poisonp item)
@@ -54,6 +65,13 @@
 (defmethod eat ((item poison-herb) (target actor))
   (damage target (health item))
   (print-to-log "~a ate ~a and lost ~a health" (name target) (name item) (health item)))
+
+(defmethod throw-at :around ((item glowing-mushrooms) (target actor))
+  (call-next-method item (pos target)))
+
+(defmethod throw-at ((item glowing-mushrooms) target)
+  (when (breakable item)
+    (make-glowing-mushroom-actor target)))
 
 (defmethod throw-at :around ((item bomb) (target actor))
   (call-next-method item (pos target)))
@@ -138,8 +156,9 @@
 				 (30 make-ogre)
 				 (10 make-grey-slime))
 				((50 make-food-pickup)
-				 (25 make-poison-herb-pickup)
-				 (25 make-healing-herb-pickup))
+				 (50 ((33 make-poison-herb-pickup)
+				      (33 make-healing-herb-pickup)
+				      (34 make-glowing-mushroom-actor))))
 				((99 make-trap)
 				 (1 make-acid-pool)))))
 (make-layer (generate-dungeon '(50 . 20) 3
@@ -147,8 +166,9 @@
 				 (60 make-goblin)
 				 (10 make-grey-slime))
 				((50 make-food-pickup)
-				 (25 make-poison-herb-pickup)
-				 (25 make-healing-herb-pickup))
+				 (50 ((33 make-poison-herb-pickup)
+				      (33 make-healing-herb-pickup)
+				      (34 make-glowing-mushroom-actor))))
 				((99 make-trap)
 				 (1 make-acid-pool)))))
 
@@ -158,6 +178,7 @@
 
 ;; put some stuff in the inventory
 (loop repeat 3 do (push (make-faggot) *inventory*))
+(push (make-glowing-mushrooms) *inventory*)
 (push (make-bomb) *inventory*)
 (push (make-bow) *inventory*)
 
@@ -178,6 +199,8 @@
 			  (destroy item)))))
     (incf (cookedp item)))
   (:method ((item food)))
+  (:method ((item glowing-mushrooms))
+    (setf (breakable item) nil))
   (:method ((item poison-rat-meat))
     (decf (health item))
     (when (<= (health item) 1)

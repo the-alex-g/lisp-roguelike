@@ -28,6 +28,8 @@
 (defactor fire #\^ (burn-time (dmg 6)) :interact-action-only nil
   :solid nil :destructible nil
   :color 'red :description "a fire" :dynamicp t)
+(defactor glowing-mushroom-actor #\f ((glow-radius 2)) :consumable t
+  :solid nil :color 'sky-blue :description "glowing mushrooms" :dynamicp t)
 (defactor acid-pool #\@ nil :hiddenp nil :description "a pool of acid"
   :verb "stepped in" :interact-action-only nil :one-use-p t :trigger-chance 100
   :atk '(1 4 acid) :save-dc 15 :color 'green :inherit trap)
@@ -41,6 +43,9 @@
 (defequipment poison-rat-meat () :poisonp t
   :health (roll 3) :hunger (+ 6 (random 4))
   :inherit rat-meat :fake-name "rat meat")
+(defequipment glowing-mushrooms ()
+  :throw-distance 3 :hunger (+ 8 (random 6)) :inherit food :breakable t
+  :description "a clump of glowing mushrooms" :burn-time (roll 10))
 (let ((bomb-color (random-color)))
   (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
     :identifiedp nil :fake-name (log-to-string "~a potion" bomb-color)
@@ -53,6 +58,8 @@
 (defequipment ranged-weapon (range) :dex -2 :inherit weapon)
 (defequipment bow () :atk '(1 4 piercing) :range 4 :burn-time 10
   :description "a bow" :inherit ranged-weapon)
+(defequipment dagger nil :atk '(1 4 piercing) :description "a dagger"
+  :inherit weapon)
 (defequipment sword nil :atk '(1 6 slashing)
   :description "a sword" :inherit weapon)
 (defequipment big-sword nil :atk '(1 8 slashing)
@@ -61,8 +68,8 @@
   :description "leather armor" :equip-slot 'body)
 
 ;;; DEFINE MONSTERS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defenemy goblin #\g () :atk '(1 4 piercing) :health (1+ (roll 3))
-  :str -1 :dex 1 :color 'green
+(defenemy goblin #\g () :health (1+ (roll 3))
+  :str -1 :dex 1 :color 'green :equips #'make-dagger
   :xp 3 :description "a goblin with a sharp dagger")
 (defenemy rat #\r () :atk '(1 2 piercing) :health (roll 2)
   :dex 2 :color 'dark-red

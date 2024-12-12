@@ -8,7 +8,7 @@
 (defparameter *current-layer* nil)
 (defparameter *layer-index* 0)
 (defparameter *player-actions* 0)
-(defparameter *sight-distance* 10)
+(defparameter *sight-distance* 6)
 (defconstant +left+ '(-1 . 0))
 (defconstant +right+ '(1 . 0))
 (defconstant +up+ '(0 . -1))
@@ -133,6 +133,16 @@
 (defun board-size ()
   (slot-value *current-layer* 'board-size))
 
+(let ((last-modified -1)
+      (current-walls '()))
+  (defun walls ()
+    (unless (= last-modified *player-actions*)
+      (setf last-modified *player-actions*)
+      (setf current-walls (loop for actor in (actors)
+				when (wallp actor)
+				  collect (pos actor))))
+    current-walls))
+
 (defmacro define-damage-modifier-getter (name slot-name)
   (let ((listing-body `(if (listp (slot-value obj (quote ,slot-name)))
 			   (slot-value obj (quote ,slot-name))
@@ -186,11 +196,20 @@
   ;; define new monster class and matching constructor function
   (defmacro defenemy (name display-char new-slots
 		      &rest keys
-		      &key (inherit 'enemy inheritp)
+		      &key
+			(inherit 'enemy)
+			equips
 		      &allow-other-keys)
     ;; remove :inherit from key list to prevent odd behavior
-    (when inheritp
-      (setf keys (remove inherit (remove :inherit keys))))
+    (setf keys (loop for k in keys
+		     with skip = nil
+		     if skip
+		       do (setf skip nil)
+		     else if (or (eq k :inherit)
+				 (eq k :equips))
+			    do (setf skip t)
+		     else
+		       collect k))
     `(progn
        ;; declare new monster class, including new keys and setting initform of
        ;; old values
@@ -203,6 +222,12 @@
 					 :display-char ,display-char
 					 :name (quote ,name))))
 	   (push new-enemy (dynamic-actors))
+	   (when ,equips
+	     (mapc (lambda (i)
+		     (equip (funcall i) new-enemy))
+		   (if (atom ,equips)
+		       (list ,equips)
+		       ,equips)))
 	   new-enemy))))
 
   ;; define class and constructor function for actor
@@ -284,7 +309,9 @@
     (let ((corpse (funcall old-make-corpse (pos obj))))
       (setf (corpse-type corpse) (name obj))
       (setf (loot corpse)
-	    (append (eval-weighted-list (loot obj))
+	    (append (loop for fxn in (eval-weighted-list (loot obj))
+			  when fxn
+			    collect (funcall fxn))
 		    (loop for q being the hash-values of (equips obj)
 			  collect q)))
       corpse)))
@@ -686,7 +713,7 @@
 	 (when item
 	   ,@body))))
 
-(defun has-los (to from walls)
+(defun has-los (to from distance)
   (let ((dx (- (car to) (car from)))
         (dy (- (cdr to) (cdr from))))
     (labels ((get-pos-on-line (m)
@@ -695,9 +722,9 @@
 	     (on-board-p (m)
 	       (let ((pos (get-pos-on-line m)))
 		 (and (gethash pos (board))
-		      (not (member pos walls :test #'equal))))))
-      (and (or (< *sight-distance* 0)
-	       (>= *sight-distance* (+ (abs dx) (abs dy))))
+		      (not (member pos (walls) :test #'equal))))))
+      (and (or (< distance 0)
+	       (>= distance (+ (abs dx) (abs dy))))
            (loop for x below (abs dx)
                  always (on-board-p (/ x (abs dx))))
            (loop for y below (abs dy)
@@ -709,13 +736,11 @@
 	*light-zone*))
 
 (defun update-los ()
-  (let ((walls (loop for actor in (actors)
-  					 when (wallp actor)
-					   collect (pos actor))))
-    (setf *light-zone* (loop for p being the hash-keys of (board)
-							 when (has-los (pos *player*) p walls)
-						       collect p))
-  (update-spaces-found)))
+  (setf *light-zone*
+	(loop for p being the hash-keys of (board)
+	      when (has-los (pos *player*) p *sight-distance*)
+		collect p))
+  (update-spaces-found))
 
 (defun change-layer (direction)
   (unless (or (and (= *layer-index* 0) (= direction -1))
