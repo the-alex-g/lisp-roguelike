@@ -48,4 +48,24 @@
   (1+ (random (max 1 d))))
 
 (defun randnth (lst)
-  (nth (random (length lst)) lst))
+  (if (listp lst)
+      (nth (random (length lst)) lst)
+      lst))
+
+(defun eval-weighted-list (list)
+  (labels ((get-results (lst)
+	     (if (numberp (caar lst))
+		 (loop for pair in lst
+		       with index = (random 100)
+		       when (< index (car pair))
+			 return (if (atom (cadr pair))
+				    (cadr pair)
+				    (get-results (cdr pair)))
+		       do (decf index (car pair)))
+		 (mapcar #'get-results lst)))
+	   (flatten (lst) ;; https://www.lee-mac.com/flatten.html
+	     (if (atom lst)
+		 (list lst)
+		 (append (flatten (car lst)) (if (cdr lst)
+						 (flatten (cdr lst)))))))
+    (flatten (get-results list))))

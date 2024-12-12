@@ -133,19 +133,24 @@
 
 ;; generate a sample board
 (make-layer (generate-dungeon '(50 . 20) 3
-			      (list (list #'make-ogre #'make-goblin
-					  #'make-goblin #'make-rat #'make-grey-slime)
-				    (list #'make-food-pickup
-					  #'make-poison-herb-pickup
-					  #'make-healing-herb-pickup)
-				    #'make-trap)))
+			      '(((20 make-rat)
+				 (40 make-goblin)
+				 (30 make-ogre)
+				 (10 make-grey-slime))
+				((50 make-food-pickup)
+				 (25 make-poison-herb-pickup)
+				 (25 make-healing-herb-pickup))
+				((99 make-trap)
+				 (1 make-acid-pool)))))
 (make-layer (generate-dungeon '(50 . 20) 3
-			      (list (list #'make-goblin #'make-goblin
-					  #'make-rat #'make-grey-slime)
-				    (list #'make-food-pickup
-					  #'make-poison-herb-pickup
-					  #'make-healing-herb-pickup)
-				    #'make-trap)))
+			      '(((30 make-rat)
+				 (60 make-goblin)
+				 (10 make-grey-slime))
+				((50 make-food-pickup)
+				 (25 make-poison-herb-pickup)
+				 (25 make-healing-herb-pickup))
+				((99 make-trap)
+				 (1 make-acid-pool)))))
 
 ;; equip player
 (equip (make-big-sword) *player*)
@@ -159,6 +164,9 @@
 (defgeneric cook (item)
   (:method (item)
     (print-to-log "you can't cook that"))
+  (:method :before ((item equipment))
+    (remove-from-inventory item)
+    (add-to-inventory item))
   (:method :before ((item food))
     (if (= (cookedp item) 0)
 	(progn (incf (hunger item) 10)

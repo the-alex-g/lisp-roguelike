@@ -55,7 +55,7 @@
   :description "a bow" :inherit ranged-weapon)
 (defequipment sword nil :atk '(1 6 slashing)
   :description "a sword" :inherit weapon)
-(defequipment big-sword nil :atk '(1 slashing)
+(defequipment big-sword nil :atk '(1 8 slashing)
   :description "a big sword" :inherit weapon)
 (defequipment leather-armor nil :def 1
   :description "leather armor" :equip-slot 'body)
@@ -66,8 +66,8 @@
   :xp 3 :description "a goblin with a sharp dagger")
 (defenemy rat #\r () :atk '(1 2 piercing) :health (roll 2)
   :dex 2 :color 'dark-red
-  :loot (list (list #'make-rat-meat 50)
-	      (list #'make-poison-rat-meat 50))
+  :loot '((60 make-rat-meat)
+	  (40 make-poison-rat-meat))
   :description "a giant rat")
 (defenemy ogre #\O () :atk '(1 6 bludgeoning) :health (+ 4 (roll 2))
   :str 2 :dex -2 :color 'orange :speed 1.75

@@ -1,3 +1,5 @@
+(load "./utils.lisp")
+
 (defclass dungeon ()
   ((board :initform '())
    (actors :initform (make-hash-table :test 'equal))))
@@ -7,11 +9,6 @@
       0
       (random (round v))))
 
-(defun randnth (l)
-  (if (listp l)
-      (nth (randval (length l)) l)
-      l))
-
 (defun populate (region functions board)
   (let ((priority (random 3)))
     (loop for pos in region
@@ -19,11 +16,14 @@
 	    do (setf (gethash pos (slot-value board 'actors))
 		     (let ((r (random 6)))
 		       (cond ((<= r 3)
-			      (randnth (nth priority functions)))
+			      (car (eval-weighted-list
+				    (nth priority functions))))
 			     ((= r 4)
-			      (randnth (nth (mod (1+ priority) 3) functions)))
+			      (car (eval-weighted-list
+				    (nth (mod (1+ priority) 3) functions))))
 			     ((= r 5)
-			      (randnth (nth (mod (1- priority) 3) functions)))))))
+			      (car (eval-weighted-list
+				    (nth (mod (1- priority) 3) functions))))))))
     region))
 
 (defun partial-fill (offset size)
