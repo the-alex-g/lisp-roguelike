@@ -33,7 +33,7 @@
   :atk '(1 4 acid) :save-dc 15 :color 'green :inherit trap)
 
 ;;; DEFINE EQUIPMENT ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp nil))
+(defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp 0))
   :health (if (= (random 5) 0) 1 0) :consumable t
   :description "food")
 (defequipment rat-meat () :hunger (+ 10 (random 6)) :secretp t
@@ -45,11 +45,13 @@
   (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
     :identifiedp nil :fake-name (log-to-string "~a potion" bomb-color)
     :throw-distance 3 :breakable t))
-(defequipment faggot () :burn-time (+ 10 (random 11)) :dmg 2 :weaponp t)
+(defequipment faggot () :burn-time (+ 10 (random 11)) :atk '(1 2 bludgeoning)
+  :weaponp t)
+(defequipment coal () :burn-time (+ 20 (random 11)))
 (defherb healing-herb :health (roll 4))
 (defherb poison-herb :health (roll 4))
 (defequipment ranged-weapon (range) :dex -2 :inherit weapon)
-(defequipment bow () :atk '(1 4 piercing) :range 4
+(defequipment bow () :atk '(1 4 piercing) :range 4 :burn-time 10
   :description "a bow" :inherit ranged-weapon)
 (defequipment sword nil :atk '(1 6 slashing)
   :description "a sword" :inherit weapon)
