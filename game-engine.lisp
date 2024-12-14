@@ -1,4 +1,5 @@
 (load "./colors.lisp")
+(load "./bsp-dungeon.lisp")
 (load "./class-definitions.lisp")
 
 (load "~/quicklisp/setup.lisp")
@@ -23,9 +24,11 @@
 (defparameter *inventory-size* 9)
 (defparameter *light-zone* '())
 (defparameter *show-found-spaces* nil)
-(defparameter *treasure* (make-hash-table))
 (defparameter *level-up-pending* nil)
 (defparameter *statuses* '())
+(defparameter *monster-spawn-table* (make-hash-table))
+(defparameter *treasure-spawn-table* (make-hash-table))
+(defparameter *trap-spawn-table* (make-hash-table))
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 
@@ -34,6 +37,51 @@
   (if *in-terminal*
       (trivial-raw-io:read-char)
       (read-char)))
+
+(defun distribute-list (list)
+  (let ((step (max 1 (floor (/ 100 (length list)))))
+	(d100 100))
+    (mapcar (lambda (i)
+	      (decf d100 step)
+	      (if (>= d100 step)
+		  (list step i)
+		  (list (+ step d100) i)))
+	    list)))
+
+(let ((compiled-spawn-list nil))
+  (defun spawn-list ()
+    (unless compiled-spawn-list
+      (labels ((get-list-from-table (table)
+		 (let ((rare (gethash 'rare table))
+		       (common (gethash 'common table))
+		       (uncommon (gethash 'uncommon table))
+		       (legendary (gethash 'legendary table))
+		       (amount 10)
+		       (total 0))
+		   (loop for sub-list in (list legendary rare uncommon common)
+			 when sub-list
+			   if (<= amount 30)
+			     collect (cons amount (distribute-list sub-list))
+			     and do (incf total amount)
+			 else collect (cons (- 100 total)
+					    (distribute-list sub-list))
+			 do (incf amount 10)))))
+	(setf compiled-spawn-list
+	      (list (get-list-from-table *treasure-spawn-table*)
+		    (get-list-from-table *monster-spawn-table*)
+		    (get-list-from-table *trap-spawn-table*)))))
+    compiled-spawn-list))
+
+(defun add-to-spawn (list rarity function &rest more-functions)
+  (let ((flist (if more-functions
+		   (distribute-list (cons function more-functions))
+		   function)))
+    (cond ((eq list 'monster)
+	   (push flist (gethash rarity *monster-spawn-table*)))
+	  ((eq list 'treasure)
+	   (push flist (gethash rarity *treasure-spawn-table*)))
+	  ((eq list 'trap)
+	   (push flist (gethash rarity *trap-spawn-table*))))))
 
 (defmacro defaction (key description &body body)
   `(progn (setf (gethash ,key *action-descriptions*) ,description)
@@ -1111,7 +1159,19 @@
 					:name p-name
 					:pos (pos *player*)))))))
 
+(defun create-dungeon ()
+  (loop repeat 2
+	do (let* ((i (random 2))
+		  (size (if (= i 0)
+			    '(50 . 20)
+			    '(60 . 20)))
+		  (depth (if (= i 0)
+			     3
+			     4)))
+	     (make-layer (generate-dungeon size depth (spawn-list))))))
+
 (defun start ()
+  (create-dungeon)
   (setf *current-layer* (car *layers*))
   (update-los)
   (create-new-player)
