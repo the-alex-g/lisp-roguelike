@@ -21,7 +21,7 @@
 
 ;;; DEFINE ACTORS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
- 'trap 'common
+ 'trap 'common "1+"
  (defactor trap #\! ((atk '(1 4 piercing)) (save-dc 10) (discoverable t)
 					   (one-use-p nil) (verb 'triggered)
 					   (trigger-chance 50))
@@ -30,15 +30,18 @@
 (defactor fire #\^ (burn-time (dmg 6)) :interact-action-only nil
   :solid nil :destructible nil
   :color 'red :description "a fire" :dynamicp t)
-(defactor glowing-mushroom-actor #\f ((glow-radius 2)) :consumable t
-  :solid nil :color 'sky-blue :description "glowing mushrooms" :dynamicp t)
+(add-to-spawn
+ 'treasure 'uncommon "1+"
+ (defactor glowing-mushroom-actor #\f ((glow-radius 2))
+   :consumable t
+   :solid nil :color 'sky-blue :description "glowing mushrooms" :dynamicp t))
 (defactor acid-pool #\@ nil :hiddenp nil :description "a pool of acid"
   :verb "stepped in" :interact-action-only nil :one-use-p t :trigger-chance 100
   :atk '(1 4 acid) :save-dc 15 :color 'green :inherit trap)
 
 ;;; DEFINE EQUIPMENT ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
- 'treasure 'common
+ 'treasure 'common "1+"
  (defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp 0))
    :health (if (= (random 5) 0) 1 0) :consumable t
    :description "food"))
@@ -55,11 +58,11 @@
     :identifiedp nil :fake-name (log-to-string "~a potion" bomb-color)
     :throw-distance 3 :breakable t))
 (add-to-spawn
- 'treasure 'uncommon
+ 'treasure 'uncommon "1+"
  (defequipment faggot () :burn-time (+ 10 (random 11)) :atk '(1 2 bludgeoning)
   :weaponp t))
 (defequipment coal () :burn-time (+ 20 (random 11)))
-(add-to-spawn 'treasure 'common
+(add-to-spawn 'treasure 'common "1+"
 	      (defherb healing-herb :health (roll 4))
 	      (defherb poison-herb :health (roll 4)))
 (defequipment ranged-weapon (range) :dex -2 :inherit weapon)
@@ -76,24 +79,24 @@
 
 ;;; DEFINE MONSTERS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
- 'monster 'common
+ 'monster 'common "1,3+"
  (defenemy goblin #\g () :equips #'make-dagger :health (1+ (roll 3))
 			 :str -1 :dex 1 :color 'green
 			 :xp 3 :description "a goblin with a sharp dagger"))
 (add-to-spawn
- 'monster 'common
+ 'monster 'common "1+"
  (defenemy rat #\r () :atk '(1 2 piercing) :health (roll 2)
 		      :dex 2 :color 'dark-red
 		      :loot '((60 make-rat-meat)
 			      (40 make-poison-rat-meat))
 		      :description "a giant rat"))
 (add-to-spawn
- 'monster 'uncommon
+ 'monster 'uncommon "2+"
  (defenemy ogre #\O () :atk '(1 6 bludgeoning) :health (+ 4 (roll 2))
 		       :str 2 :dex -2 :color 'orange :speed 1.75
 		       :xp 8 :description "a hulking ogre"))
 (add-to-spawn
- 'monster 'rare
+ 'monster 'rare "2+"
  (defooze grey-slime () :atk '((1 4 acid) (1 4 acid)) :health (+ 4 (roll 4))
 			:dex -2 :spd 2 :color 'grey :xp 4
 			:description "a pool of grey slime"))

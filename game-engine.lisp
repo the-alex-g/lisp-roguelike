@@ -48,34 +48,65 @@
 		  (list (+ step d100) i)))
 	    list)))
 
-(let ((compiled-spawn-list nil))
-  (defun spawn-list ()
-    (unless compiled-spawn-list
-      (labels ((get-list-from-table (table)
-		 (let ((rare (gethash 'rare table))
-		       (common (gethash 'common table))
-		       (uncommon (gethash 'uncommon table))
-		       (legendary (gethash 'legendary table))
-		       (amount 10)
-		       (total 0))
-		   (loop for sub-list in (list legendary rare uncommon common)
-			 when sub-list
-			   if (<= amount 30)
-			     collect (cons amount (distribute-list sub-list))
-			     and do (incf total amount)
-			 else collect (cons (- 100 total)
-					    (distribute-list sub-list))
-			 do (incf amount 10)))))
-	(setf compiled-spawn-list
-	      (list (get-list-from-table *treasure-spawn-table*)
-		    (get-list-from-table *monster-spawn-table*)
-		    (get-list-from-table *trap-spawn-table*)))))
-    compiled-spawn-list))
+(defun spawn-list (depth)
+  (labels ((get-sections (a b c)
+	     (if (car a)
+		 (if (eq (car a) #\,)
+		     (if (and (= (length b) 1) (digit-char-p (car b)))
+			 (get-sections (cdr a) nil (cons (digit-char-p (car b))
+							 c))
+			 (get-sections (cdr a) nil (cons (reverse b) c)))
+		     (get-sections (cdr a) (cons (car a) b) c))
+		 (cons (reverse b) c)))
+	   (split (list)
+	     (get-sections list nil nil))
+	   (in-depth-p (value)
+	     (loop for x
+		     in (mapcar (lambda (x)
+				  (if (numberp x)
+				      (= depth x)
+				      (loop for c in x
+					    with last = 0
+					    with modifier = #\space
+					    when (digit-char-p c)
+					      if (eq modifier #\-)
+						return (<= last depth
+							   (digit-char-p c))
+					    else
+					      do (setf last (digit-char-p c))
+					    when (eq c #\+)
+						  return (>= depth last)
+					    when (eq c #\-)
+					      do (setf modifier #\-))))
+				(split (coerce value 'list)))
+		       thereis x))
+	   (prune-for-depth (list)
+	     (loop for i in list
+		   when (in-depth-p (car i))
+		     collect (cdr i)))
+	   (get-list-from-table (table)
+	     (let ((rare (prune-for-depth (gethash 'rare table)))
+		   (common (prune-for-depth (gethash 'common table)))
+		   (uncommon (prune-for-depth (gethash 'uncommon table)))
+		   (legendary (prune-for-depth (gethash 'legendary table)))
+		   (amount 10)
+		   (total 0))
+	       (loop for sub-list in (list legendary rare uncommon common)
+		     when sub-list
+		       if (<= amount 30)
+			 collect (cons amount (distribute-list	sub-list))
+			 and do (incf total amount)
+		     else collect (cons (- 100 total)
+					(distribute-list sub-list))
+		     do (incf amount 10)))))
+    (list (get-list-from-table *treasure-spawn-table*)
+	  (get-list-from-table *monster-spawn-table*)
+	  (get-list-from-table *trap-spawn-table*))))
 
-(defun add-to-spawn (list rarity function &rest more-functions)
-  (let ((flist (if more-functions
-		   (distribute-list (cons function more-functions))
-		   function)))
+(defun add-to-spawn (list rarity depths function &rest more-functions)
+  (let ((flist (cons depths (if more-functions
+				(distribute-list (cons function more-functions))
+				function))))
     (cond ((eq list 'monster)
 	   (push flist (gethash rarity *monster-spawn-table*)))
 	  ((eq list 'treasure)
@@ -1159,19 +1190,20 @@
 					:name p-name
 					:pos (pos *player*)))))))
 
-(defun create-dungeon ()
-  (loop repeat 2
-	do (let* ((i (random 2))
-		  (size (if (= i 0)
-			    '(50 . 20)
-			    '(60 . 20)))
-		  (depth (if (= i 0)
-			     3
-			     4)))
-	     (make-layer (generate-dungeon size depth (spawn-list))))))
+(defun create-dungeon (dungeon-depth)
+  (mapcar #'make-layer
+	  (loop for layer downfrom dungeon-depth to 1
+		collect (let* ((i (random 2))
+			       (size (if (= i 0)
+					 '(50 . 20)
+					 '(60 . 20)))
+			       (depth (if (= i 0)
+					  3
+					  4)))
+			  (generate-dungeon size depth (spawn-list layer))))))
 
 (defun start ()
-  (create-dungeon)
+  (create-dungeon 3)
   (setf *current-layer* (car *layers*))
   (update-los)
   (create-new-player)
