@@ -32,6 +32,37 @@
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 
+(defun layers (&rest controls)
+  (labels ((get-segments (list operator arg sequences)
+	     (if (car list)
+		 (cond ((eq operator 'below)
+			(get-segments (cdr list) nil nil
+				      (cons (format nil "~d+"
+						    (1+ (car list)))
+					    sequences)))
+		       ((eq operator 'from)
+			(get-segments (cdr list) nil (car list) sequences))
+		       ((eq operator 'to)
+			(get-segments (cdr list) nil nil
+				      (cons (format nil "~d-~d"
+						    arg
+						    (car list))
+					    sequences)))
+		       ((and (eq operator 'on) (numberp (car list)))
+			(get-segments (cdr list) 'on nil
+				      (cons (car list) sequences)))
+		       ((and (eq operator 'excluding) (numberp (car list)))
+			(get-segments (cdr list) 'excluding nil
+				      (cons (format nil "~d!" (car list))
+					    sequences)))
+		       (t
+			(get-segments (cdr list) (car list) arg sequences)))
+		 sequences)))
+    (let ((sequences (get-segments controls nil nil nil)))
+      (if (> (length sequences) 1)
+	  (format nil "~a~{,~a~}" (car sequences) (cdr sequences))
+	  (format nil "~a" (car sequences))))))
+
 (defun custom-read-char ()
   (force-output)
   (if *in-terminal*
@@ -61,25 +92,28 @@
 	   (split (list)
 	     (get-sections list nil nil))
 	   (in-depth-p (value)
-	     (loop for x
-		     in (mapcar (lambda (x)
-				  (if (numberp x)
-				      (= depth x)
-				      (loop for c in x
-					    with last = 0
-					    with modifier = #\space
-					    when (digit-char-p c)
-					      if (eq modifier #\-)
-						return (<= last depth
-							   (digit-char-p c))
-					    else
-					      do (setf last (digit-char-p c))
-					    when (eq c #\+)
-						  return (>= depth last)
-					    when (eq c #\-)
-					      do (setf modifier #\-))))
-				(split (coerce value 'list)))
-		       thereis x))
+	     (let ((layer-list
+		     (mapcar (lambda (x)
+			       (if (= 1 (length x))
+				   (= depth (digit-char-p (car x)))
+				   (loop for c in x
+					 with last = 0
+					 with modifier = #\space
+					 when (digit-char-p c)
+					   if (eq modifier #\-)
+					     return (<= last depth
+							(digit-char-p c))
+					 else
+					   do (setf last (digit-char-p c))
+					 when (eq c #\+)
+					   return (>= depth last)
+					 when (and (eq c #\!) (= depth last))
+					   return 'abort
+					 when (eq c #\-)
+					   do (setf modifier #\-))))
+			     (split (coerce value 'list)))))
+	       (and (loop for x in layer-list thereis x)
+		    (loop for x in layer-list never (eq x 'abort)))))
 	   (prune-for-depth (list)
 	     (loop for i in list
 		   when (in-depth-p (car i))

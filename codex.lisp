@@ -1,3 +1,4 @@
+(defparameter *undead-layer* 3)
 
 ;;; DEFINE MACROS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defequipment herb ((hunger (roll 5))) :consumable t :burn-time 1)
@@ -74,29 +75,47 @@
   :description "a sword" :inherit weapon)
 (defequipment big-sword nil :atk '(1 8 slashing)
   :description "a big sword" :inherit weapon)
+(defequipment rusty-sword nil :atk '(1 6 -1 slashing)
+  :description "a rusty sword" :inherit weapon)
 (defequipment leather-armor nil :def 1
   :description "leather armor" :equip-slot 'body)
 
 ;;; DEFINE MONSTERS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
- 'monster 'common "1,3+"
+ 'monster 'common (layers 'below 0 'excluding *undead-layer*)
  (defenemy goblin #\g () :equips #'make-dagger :health (1+ (roll 3))
 			 :str -1 :dex 1 :color 'green
 			 :xp 3 :description "a goblin with a sharp dagger"))
 (add-to-spawn
- 'monster 'common "1+"
+ 'monster 'common (layers 'below 0)
  (defenemy rat #\r () :atk '(1 2 piercing) :health (roll 2)
 		      :dex 2 :color 'dark-red
 		      :loot '((60 make-rat-meat)
 			      (40 make-poison-rat-meat))
 		      :description "a giant rat"))
 (add-to-spawn
- 'monster 'uncommon "2+"
+ 'monster 'uncommon (layers 'below 1 'excluding *undead-layer*)
  (defenemy ogre #\O () :atk '(1 6 bludgeoning) :health (+ 4 (roll 2))
 		       :str 2 :dex -2 :color 'orange :speed 1.75
 		       :xp 8 :description "a hulking ogre"))
 (add-to-spawn
- 'monster 'rare "2+"
+ 'monster 'rare (layers 'below 1)
  (defooze grey-slime () :atk '((1 4 acid) (1 4 acid)) :health (+ 4 (roll 4))
 			:dex -2 :spd 2 :color 'grey :xp 4
 			:description "a pool of grey slime"))
+(add-to-spawn
+ 'monster 'common (layers 'on *undead-layer*)
+ (defenemy skeleton #\s () :health (roll 6) :equips #'make-rusty-sword
+			   :vulnerable '(bludgeoning holy) :xp 2
+			   :description "a skeleton with a rusty sword"))
+(add-to-spawn
+ 'monster 'common (layers 'on *undead-layer*)
+ (defenemy zombie #\z () :health (+ 4 (roll 6)) :xp 4
+			 :atk '(1 6 bludgeoning) :spd 2 :dex -2 :str 1
+			 :vulnerable 'holy :description "a rotting zombie"))
+(add-to-spawn
+ 'monster 'rare (layers 'on *undead-layer*)
+ (defenemy wraith #\W () :health (+ 2 (roll 4)) :xp 8 :atk '(1 6 1 necrotic)
+			 :dex 2 :vulnerable 'holy :description "a wraith"
+			 :resist '(piercing slashing bludgeoning)
+			 :color 'grey))
