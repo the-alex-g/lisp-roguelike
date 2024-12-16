@@ -1,4 +1,4 @@
-(defparameter *undead-layer* 3)
+(defparameter *undead-layer* 1)
 
 ;;; DEFINE MACROS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defequipment herb ((hunger (roll 5))) :consumable t :burn-time 1)

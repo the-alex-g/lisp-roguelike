@@ -417,16 +417,18 @@
   :interact-action-only nil)
 (defequipment weapon (statuses onetime-effects) :weaponp t)
 
+(defun get-loot (obj)
+  (append (loop for fxn in (eval-weighted-list (loot obj))
+		when fxn
+		  collect (funcall fxn))
+	  (loop for q being the hash-values of (equips obj)
+		collect q)))
+
 (let ((old-make-corpse #'make-corpse))
   (defun make-default-corpse (obj)
     (let ((corpse (funcall old-make-corpse (pos obj))))
       (setf (corpse-type corpse) (name obj))
-      (setf (loot corpse)
-	    (append (loop for fxn in (eval-weighted-list (loot obj))
-			  when fxn
-			    collect (funcall fxn))
-		    (loop for q being the hash-values of (equips obj)
-			  collect q)))
+      (setf (loot corpse) (get-loot obj))
       corpse)))
 (fmakunbound 'make-corpse)
 

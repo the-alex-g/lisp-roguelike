@@ -129,6 +129,14 @@
 (defmethod make-corpse ((obj ooze))
   (setf (color (make-acid-pool (pos obj))) (color obj)))
 
+(defmethod make-corpse ((obj skeleton))
+  (setf (bone-type (make-bones (pos obj))) (name obj))
+  (mapc (lambda (equipment)
+	  (make-pickup equipment (pos obj)))
+	(get-loot obj)))
+
+(defmethod make-corpse ((obj wraith)))
+
 (defmethod damage :after ((target ooze) dmg &key unblockable damage-types)
   (declare (ignore dmg unblockable))
   (when (and (>= (health target) 2)
