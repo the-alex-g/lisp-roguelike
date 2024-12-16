@@ -66,12 +66,8 @@
   (damage target (health item))
   (print-to-log "~a ate ~a and lost ~a health" (name target) (name item) (health item)))
 
-(defmethod throw-at :around ((item glowing-mushrooms) (target actor))
-  (call-next-method item (pos target)))
-
-(defmethod throw-at ((item glowing-mushrooms) target)
-  (when (breakable item)
-    (make-glowing-mushroom-actor target)))
+(defmethod make-pickup ((item glowing-mushrooms) pos)
+  (make-glowing-mushroom-actor pos))
 
 (defmethod throw-at :around ((item bomb) (target actor))
   (call-next-method item (pos target)))
@@ -184,8 +180,6 @@
 			  (destroy item)))))
     (incf (cookedp item)))
   (:method ((item food)))
-  (:method ((item glowing-mushrooms))
-    (setf (breakable item) nil))
   (:method ((item poison-rat-meat))
     (decf (health item))
     (when (<= (health item) 1)

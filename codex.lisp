@@ -1,4 +1,4 @@
-(defparameter *undead-layer* 1)
+(defparameter *undead-layer* 3)
 
 ;;; DEFINE MACROS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defequipment herb ((hunger (roll 5))) :consumable t :burn-time 1)
@@ -52,7 +52,7 @@
   :health (roll 3) :hunger (+ 6 (random 4))
   :inherit rat-meat :fake-name "rat meat")
 (defequipment glowing-mushrooms ()
-  :throw-distance 3 :hunger (+ 8 (random 6)) :inherit food :breakable t
+  :throw-distance 3 :hunger (+ 8 (random 6)) :inherit food
   :description "a clump of glowing mushrooms" :burn-time (roll 10))
 (let ((bomb-color (random-color)))
   (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))

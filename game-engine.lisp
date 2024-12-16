@@ -276,11 +276,12 @@
 (define-damage-modifier-getter vulnerabilities vulnerable)
 (define-damage-modifier-getter immunities immune)
 
-(defun make-pickup (equipment pos)
-  (let ((pickup (make-instance 'pickup :equipment equipment :pos pos
-				       :interact-action-only t)))
-    (push pickup (static-actors))
-    pickup))
+(defgeneric make-pickup (equipment pos)
+  (:method ((equipment equipment) pos)
+    (let ((pickup (make-instance 'pickup :equipment equipment :pos pos
+					 :interact-action-only t)))
+      (push pickup (static-actors))
+      pickup)))
 
 ;; initialize helper functions for macros
 (labels ((constructor (name)
@@ -965,6 +966,7 @@
     (declare (ignore target))
     (remove-from-inventory item)
     (print-to-log "you threw ~a~%" (description item)))
+  (:method ((item equipment) target))
   (:method :after ((item equipment) (target list))
     (unless (breakable item)
       (make-pickup item target)))
