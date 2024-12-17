@@ -34,7 +34,7 @@
 (add-to-spawn
  'treasure 'uncommon "1+"
  (defactor glowing-mushroom-actor #\f ((glow-radius 2))
-   :consumable t
+   :consumable t :secretp t :fake-name "glowing mushrooms"
    :solid nil :color 'sky-blue :description "glowing mushrooms" :dynamicp t))
 (defactor acid-pool #\@ nil :hiddenp nil :description "a pool of acid"
   :verb "stepped in" :interact-action-only nil :one-use-p t :trigger-chance 100
@@ -67,7 +67,7 @@
 	      (defherb healing-herb :health (roll 4))
 	      (defherb poison-herb :health (roll 4)))
 (defequipment ranged-weapon (range) :dex -2 :inherit weapon)
-(defequipment bow () :atk '(1 4 piercing) :range 4 :burn-time 10
+(defequipment bow () :atk '(1 4 piercing ranged) :range 4 :burn-time 10
   :description "a bow" :inherit ranged-weapon)
 (defequipment dagger nil :atk '(1 4 piercing) :description "a dagger"
   :inherit weapon)
@@ -86,6 +86,11 @@
  (defenemy goblin #\g () :equips #'make-dagger :health (1+ (roll 3))
 			 :str -1 :dex 1 :color 'green
 			 :xp 3 :description "a goblin with a sharp dagger"))
+
+(add-to-spawn
+ 'monster 'uncommon (layers 'below 0 'excluding *undead-layer*)
+ (defenemy goblin-archer #\g () :equips #'make-bow :inherit goblin
+   :description "a goblin with a bow"))
 (add-to-spawn
  'monster 'common (layers 'below 0)
  (defenemy rat #\r () :atk '(1 2 piercing) :health (roll 2)

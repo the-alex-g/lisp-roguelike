@@ -34,7 +34,7 @@
 
 (defun layers (&rest controls)
   (labels ((get-segments (list operator arg sequences)
-	     (if (car list)
+	     (if list
 		 (cond ((eq operator 'below)
 			(get-segments (cdr list) nil nil
 				      (cons (format nil "~d+"
@@ -81,7 +81,7 @@
 
 (defun spawn-list (depth)
   (labels ((get-sections (a b c)
-	     (if (car a)
+	     (if a
 		 (if (eq (car a) #\,)
 		     (if (and (= (length b) 1) (digit-char-p (car b)))
 			 (get-sections (cdr a) nil (cons (digit-char-p (car b))
@@ -238,11 +238,13 @@
   (setf (slot-value *current-layer* 'dynamic-actors) value))
 
 (defun actors ()
-  (append (slot-value *current-layer* 'actors) (dynamic-actors) (list *player*)))
+  (append (slot-value *current-layer* 'actors)
+	  (dynamic-actors)
+	  (list *player*)))
 
 (defun board ()
   (slot-value *current-layer* 'board))
-			;
+
 (defun board-size ()
   (slot-value *current-layer* 'board-size))
 
@@ -707,8 +709,9 @@
 	   (statuses (cdr foo)))
       `((dmg ,dmg) (dmg-types ,@dmg-types) (statuses ,@statuses)))))
 
-(defgeneric get-attacks (obj &key for-display)
-  (:method ((obj player) &key for-display)
+(defgeneric get-attacks (obj &key for-display rangedp)
+  (:method ((obj player) &key for-display rangedp)
+    (declare (ignore rangedp))
     (let* ((weapon (gethash 'hand (equips obj)))
 	   (attack (if weapon
 		       (list (if for-display
@@ -721,17 +724,36 @@
       (unless for-display
 	(setf (onetime-effects weapon) nil))
       attack))
-  (:method ((obj enemy) &key for-display)
+  (:method ((obj enemy) &key for-display rangedp)
     (declare (ignore for-display))
     (let ((weapon (gethash 'hand (equips obj))))
       (if weapon
-	  (list (atk weapon))
+	  (if rangedp
+	      (when (rangedp (atk weapon))
+		(list (atk weapon)))
+	      (list (atk weapon)))
 	  (if (listp (car (atk obj)))
-	      (atk obj)
-	      (list (atk obj)))))))
+	      (loop for atk in (atk obj)
+		    if rangedp
+		      when (rangedp atk)
+			collect atk
+		    else collect atk)
+	      (if rangedp
+		  (when (rangedp (atk obj))
+		    (list (atk obj)))
+		  (list (atk obj))))))))
 
-(defgeneric attack (a d)
-  (:method ((a combat-entity) (d combat-entity))
+(defgeneric rangedp (obj)
+  (:method ((obj equipment))
+    (member 'ranged (atk obj)))
+  (:method ((obj list))
+    (member 'ranged obj))
+  (:method ((obj enemy))
+    (loop for atk in (get-attacks obj)
+	  thereis (member 'ranged atk))))
+
+(defgeneric attack (a d &key rangedp)
+  (:method ((a combat-entity) (d combat-entity) &key rangedp)
     (let ((accuracy (roll 20)))
       (if (and (>= (+ accuracy (dex a)) (+ (- 6 (def d)) (dex d)))
 	       (> accuracy 1))
@@ -750,9 +772,10 @@
 			  (when status
 			    (apply-to status d)))
 			(cdr (assoc 'statuses atk))))
-		(mapcar #'eval-attack (get-attacks a)))
+		(mapcar #'eval-attack (get-attacks a :rangedp rangedp)))
 	  (print-to-log "~a missed~&" (name a)))))
-  (:method ((a combat-entity) (d actor))
+  (:method ((a combat-entity) (d actor) &key rangedp)
+    (declare (ignore rangedp))
     (when (destructible d)
       (let ((attack (eval-attack (car (get-attacks a)))))
 	(print-to-log "~a hit a ~a for ~d damage~a~&"
@@ -783,7 +806,7 @@
 				 (exit-option t)
 				 (what "object"))
   (labels ((print-list (l i new-list)
-	     (if (car l)
+	     (if l
 		 (let ((n (funcall naming-function (car l))))
 		   (if n
 		       (progn (print-to-screen "~%~d) ~a" i n)
@@ -887,6 +910,7 @@
   (:method ((a player) (b secret-door))
     (unless (eq (color b) 'grey)
       (setf (color b) 'grey)
+      (incf (xp *player*) 2)
       (print-to-log "you have discovered a secret door")))
   (:method ((a player) (b corpse))
     (loop for item in (loot b)
@@ -1057,13 +1081,17 @@
 
 (defgeneric update (obj)
   (:method :around ((obj enemy))
-    (when (visiblep obj)
+    (when (and (not (enabled obj))
+	       (has-los (pos obj) (pos *player*) -1))
       (setf (enabled obj) t))
     (when (and (enabled obj)
 	       (< (mod *player-actions* (spd obj)) 1))
       (call-next-method)))
   (:method ((obj enemy))
-    (move obj (step-towards *player* obj)))
+    (if (and (rangedp obj)
+	     (has-los (pos obj) (pos *player*) 4))
+	(attack obj *player* :rangedp (> (distance (pos obj) (pos *player*)) 1))
+	(move obj (step-towards *player* obj))))
   (:method ((obj player))
     (decf (hunger *player*))
     (decf (heal-clock *player*)))    

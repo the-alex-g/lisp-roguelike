@@ -154,14 +154,11 @@
 		(if (deadp a) ", killing it" "")))
 
 ;; equip player
-(equip (make-big-sword) *player*)
+(equip (make-sword) *player*)
 (equip (make-leather-armor) *player*)
 
 ;; put some stuff in the inventory
-(loop repeat 3 do (push (make-faggot) *inventory*))
-(push (make-glowing-mushrooms) *inventory*)
-(push (make-bomb) *inventory*)
-(push (make-bow) *inventory*)
+(loop repeat 3 do (push (make-food) *inventory*))
 
 (defgeneric cook (item)
   (:method (item)
