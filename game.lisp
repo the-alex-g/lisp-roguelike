@@ -76,8 +76,27 @@
   (damage target (health item))
   (print-to-log "~a ate ~a and lost ~a health" (name target) (name item) (health item)))
 
+(defmethod eat :around ((item bottle) (target actor))
+  (if (contents item)
+      (let ((bottle-contents (contents item)))
+	;; 'unbottle' so it's removed correctly
+	(when (in-inventory-p bottle-contents)
+	  (add-to-inventory bottle-contents))
+	(eat bottle-contents target)
+	(setf (contents item) nil))
+      (call-next-method)))
+
 (defmethod make-pickup ((item glowing-mushrooms) pos)
   (make-glowing-mushroom-actor pos))
+
+(defmethod name ((item bottle))
+  (if (contents item)
+      (log-to-string "bottle of ~a" (name (contents item)))
+      (slot-value item 'name)))
+
+(defmethod throw-at ((item bottle) target)
+  (when (contents item)
+    (throw-at (contents item) target)))
 
 (defmethod throw-at :around ((item bomb) (target actor))
   (call-next-method item (pos target)))
@@ -96,6 +115,19 @@
 
 (defmethod apply-to ((item herb) (target actor))
   (eat item target))
+
+(defmethod apply-to ((item equipment) (to bottle))
+  (cond ((contents to)
+	 (print-to-log "the bottle is already full"))
+	((not (consumable item))
+	 (print-to-log "you can't bottle that"))
+	(t
+	 (setf (contents to) item)
+	 (destroy item)
+	 (print-to-log "you have bottled ~a" (name item)))))
+
+(defmethod apply-to (item (to bottle))
+  (print-to-log "you can't bottle that"))
 
 (defmethod apply-to ((item poison-herb) (to weapon))
   (print-to-log "you have applied ~a to ~a" (name item) (name to))
@@ -169,6 +201,7 @@
 
 ;; put some stuff in the inventory
 (loop repeat 3 do (push (make-food) *inventory*))
+(push (make-bottle) *inventory*)
 
 (defgeneric cook (item)
   (:method (item)
@@ -200,7 +233,11 @@
 	   (print-to-log "you have turned the faggot into coal"))
 	  (t
 	   (setf (name item) "charred faggot")
-	   (print-to-log "you have charred the faggot")))))
+	   (print-to-log "you have charred the faggot"))))
+  (:method ((item bottle))
+    (if (contents item)
+	(cook (contents item))
+	(print-to-log "you can't cook that"))))
 
 (defmethod name ((obj food))
   (log-to-string "~a~a"

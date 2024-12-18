@@ -41,6 +41,7 @@
   :atk '(1 4 acid) :save-dc 15 :color 'green :inherit trap)
 
 ;;; DEFINE EQUIPMENT ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defequipment bottle (contents) :breakable t)
 (add-to-spawn
  'treasure 'common "1+"
  (defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp 0))

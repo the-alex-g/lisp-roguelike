@@ -35,28 +35,33 @@
 (defun layers (&rest controls)
   (labels ((get-segments (list operator arg sequences)
 	     (if list
-		 (cond ((eq operator 'below)
+		 (cond ((eq operator 'above)
+			(get-segments (cdr list) nil nil
+				      (cons (format nil "1-~d"
+						    (1- (car list)))
+					    sequences)))
+		       ((eq operator 'below)
 			(get-segments (cdr list) nil nil
 				      (cons (format nil "~d+"
 						    (1+ (car list)))
 					    sequences)))
-		       ((eq operator 'from)
-			(get-segments (cdr list) nil (car list) sequences))
-		       ((eq operator 'to)
-			(get-segments (cdr list) nil nil
-				      (cons (format nil "~d-~d"
-						    arg
-						    (car list))
-					    sequences)))
-		       ((and (eq operator 'on) (numberp (car list)))
-			(get-segments (cdr list) 'on nil
-				      (cons (car list) sequences)))
-		       ((and (eq operator 'excluding) (numberp (car list)))
-			(get-segments (cdr list) 'excluding nil
-				      (cons (format nil "~d!" (car list))
-					    sequences)))
-		       (t
-			(get-segments (cdr list) (car list) arg sequences)))
+			 ((eq operator 'from)
+			  (get-segments (cdr list) nil (car list) sequences))
+			 ((eq operator 'to)
+			  (get-segments (cdr list) nil nil
+					(cons (format nil "~d-~d"
+						      arg
+						      (car list))
+					      sequences)))
+			 ((and (eq operator 'on) (numberp (car list)))
+			  (get-segments (cdr list) 'on nil
+					(cons (car list) sequences)))
+			 ((and (eq operator 'excluding) (numberp (car list)))
+			  (get-segments (cdr list) 'excluding nil
+					(cons (format nil "~d!" (car list))
+					      sequences)))
+			 (t
+			  (get-segments (cdr list) (car list) arg sequences)))
 		 sequences)))
     (let ((sequences (get-segments controls nil nil nil)))
       (if (> (length sequences) 1)
@@ -592,21 +597,6 @@
 	(when (next-method-p)
 	  (call-next-method)))))
 
-(defun get-player-lines ()
-  (list
-   (apply-color (log-to-string "~a (~c)" (name *player*) (display-char *player*))
-		(color *player*))
-   (log-to-string "str: ~2d dex: ~2d" (str *player*) (dex *player*))
-   (log-to-string "def: ~2d atk: ~{~a ~}" (def *player*)
-		  (car (get-attacks *player* :for-display t)))
-   (log-to-string "health: ~d/~d" (health *player*) (max-health *player*))
-   (log-to-string "xp: ~d/~d" (xp *player*) (xp-bound *player*))
-   (log-to-string "hunger: ~{~c~}" (loop for x below 10
-					 collect (if (<= x (ash (hunger *player*) -3))
-						     #\/
-						     #\-)))
-   (if (starvingp *player*) "you are starving!" "")))
-
 (defgeneric eat (item target)
   (:method :before ((item equipment) target)
     (when (secretp item)
@@ -623,7 +613,7 @@
   (:method :around (item (target pickup))
     (apply-to item (equipment target)))
   (:method (item target)
-    (print-to-log "You can't apply ~a that to ~a" item target))
+    (print-to-log "You can't apply ~a to ~a" item target))
   (:method ((item status) (target actor))
     (setf (target item) target)
     (on-applied item)
@@ -786,6 +776,21 @@
 		      (if (deadp d)
 			  ", destroying it"
 			  ""))))))
+
+(defun get-player-lines ()
+  (list
+   (apply-color (log-to-string "~a (~c)" (name *player*) (display-char *player*))
+		(color *player*))
+   (log-to-string "str: ~2d dex: ~2d" (str *player*) (dex *player*))
+   (log-to-string "def: ~2d atk: ~{~a ~}" (def *player*)
+		  (car (get-attacks *player* :for-display t)))
+   (log-to-string "health: ~d/~d" (health *player*) (max-health *player*))
+   (log-to-string "xp: ~d/~d" (xp *player*) (xp-bound *player*))
+   (log-to-string "hunger: ~{~c~}" (loop for x below 10
+					 collect (if (<= x (ash (hunger *player*) -3))
+						     #\/
+						     #\-)))
+   (if (starvingp *player*) "you are starving!" "")))
 
 (defgeneric check (dc stat creature)
   (:method (dc stat (creature combat-entity))
@@ -1232,29 +1237,30 @@
 
 (defun create-new-player ()
   (let ((p-name (progn (print-to-screen "enter the name of your character: ")
-		       (read-line))))
-    (if (equal p-name "F")
-	(setf *player* (make-instance 'player
-				      :health 10 :color 'red :display-char #\F
-				      :equips (equips *player*)
-				      :name "Foobar"
-				      :pos (pos *player*)))
-	(let ((p-color (get-item-from-list *color-list*
-					   :naming-function
-					   (lambda (x)
-					     (apply-color
-					      (log-to-string "~a" x)
-					      x))
-					   :what "color"
-					   :exit-option nil))
-	      (p-char (progn (print-to-screen "~%enter a character: ")
-			     (read-char))))
-	  (setf *player* (make-instance 'player
-					:health 10 :color p-color
-					:display-char p-char
-					:equips (equips *player*)
-					:name p-name
-					:pos (pos *player*)))))))
+		       (read-line)))
+	(p-color 'white)
+	(p-char #\P))
+    (cond ((equal p-name "F")
+	   (setf p-color 'red)
+	   (setf p-name "Foobar")
+	   (setf p-char #\F))
+	  (*in-terminal*
+	   (setf p-color (get-item-from-list *color-list*
+					     :naming-function
+					     (lambda (x)
+					       (apply-color
+						(log-to-string "~a" x)
+						x))
+					     :what "color"
+					     :exit-option nil))
+	   (setf p-char (progn (print-to-screen "~%enter a character: ")
+			       (read-char))))
+	  (t
+	   (setf p-char (progn (print-to-screen "~%enter a character: ")
+			       (read-char)))))
+    (setf (name *player*) p-name)
+    (setf (color *player*) p-color)
+    (setf (display-char *player*) p-char)))
 
 (defun create-dungeon (dungeon-depth)
   (mapcar #'make-layer
