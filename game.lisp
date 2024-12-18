@@ -33,6 +33,16 @@
 	  do (push p *light-zone*))
   (update-spaces-found))
 
+(defmethod get-ascii ((obj glowing-mushroom-actor))
+  (if *in-terminal*
+      (apply-color (display-char obj) (color obj) 'uline)
+      (display-char obj)))
+
+(defmethod get-ascii ((obj herb))
+  (if *in-terminal*
+      (apply-color (display-char obj) 'uline (color obj))
+      (display-char obj)))
+
 (defmethod interact ((a player) (b glowing-mushroom-actor))
   (print-to-log "you picked a clump of glowing mushrooms")
   (add-to-inventory (make-glowing-mushrooms)))

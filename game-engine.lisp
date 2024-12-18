@@ -170,7 +170,13 @@
   (:method ((obj actor))
     (if *in-terminal*
 	(apply-color (display-char obj) (color obj))
-	(display-char obj))))
+	(display-char obj)))
+  (:method ((obj equipment))
+    (if *in-terminal*
+	(apply-color (display-char obj) (color obj))
+	(display-char obj)))
+  (:method ((obj pickup))
+    (get-ascii (equipment obj))))
 
 (defgeneric death-verb (obj)
   (:method ((obj actor))
@@ -183,12 +189,6 @@
 
 (defmethod description ((obj pickup))
   (description (equipment obj)))
-
-(defmethod display-char ((obj pickup))
-  (display-char (equipment obj)))
-
-(defmethod color ((obj pickup))
-  (color (equipment obj)))
 
 ;; generate setters and getters for combat-entity stats
 (mapc (lambda (name)
