@@ -1,17 +1,26 @@
 (defparameter *undead-layer* 3)
 
 ;;; DEFINE MACROS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmacro with-random-name (variations &body body)
+  `(let* ((chosen-variations (mapcar #'randnth ,variations))
+	  (chosen-name (log-to-string "~{~a~^ ~}" chosen-variations)))
+     ,@body))
+
+(defmacro define-secret-equipment (variations name new-slots &rest slots)
+  `(with-random-name ,variations
+     (defequipment ,name ,new-slots
+       :fake-name chosen-name :identifiedp nil ,@slots)))
+
 (defequipment herb ((hunger (roll 5))) :consumable t :burn-time 1)
-(defmacro defherb (real-name &rest slots)
-  (let* ((herb-config (randnth '((herb #\v) (lichen #\_) (fungus #\f)
-				 (wort #\w) (cress #\%))))
-	 (herb-type (car herb-config))
-	 (herb-char (cadr herb-config))
-	 (herb-color (random-color)))
-    `(defequipment ,real-name nil ,@slots
-       :color (quote ,herb-color) :display-char ,herb-char
-       :fake-name ,(log-to-string "~a ~a" herb-color herb-type)
-       :inherit herb :identifiedp nil)))
+(defmacro defherb (name &rest slots)
+  `(define-secret-equipment (list *color-list* '(herb lichen fungus wort cress))
+     ,name nil
+     :inherit herb
+     :color (car chosen-variations)
+     :display-char (cadr (assoc (cadr chosen-variations)
+				'((herb #\v) (lichen #\_) (fungus #\f)
+				  (wort #\w) (cress #\%))))
+     ,@slots))
 
 (defenemy ooze #\o ((split-damage-types '(slashing)) (build-function)))
 (defmacro defooze (name &rest args)
@@ -55,10 +64,9 @@
 (defequipment glowing-mushrooms ()
   :throw-distance 3 :hunger (+ 8 (random 6)) :inherit food
   :description "a clump of glowing mushrooms" :burn-time (roll 10))
-(let ((bomb-color (random-color)))
-  (defequipment bomb ((explode-damage (+ (roll 4) (roll 4))))
-    :identifiedp nil :fake-name (log-to-string "~a potion" bomb-color)
-    :throw-distance 3 :breakable t))
+(define-secret-equipment (list *color-list*)
+  bomb ((explode-damage (+ (roll 4) (roll 4))))
+  :throw-distance 3 :breakable t)
 (add-to-spawn
  'treasure 'uncommon "1+"
  (defequipment faggot () :burn-time (+ 10 (random 11)) :atk '(1 2 bludgeoning)

@@ -5,8 +5,8 @@
    (str :initform 0 :accessor str :initarg :str)
    (dex :initform 0 :accessor dex :initarg :dex)
    (health :initform 0 :accessor health :initarg :health)
-   (name :initform "" :accessor name :initarg :name)
-   (description :accessor description :initarg :description)
+   (name :initform "" :writer (setf name) :initarg :name)
+   (description :writer (setf description) :initarg :description)
    (breakable :initform nil :accessor breakable :initarg :breakable)
    (display-char :initform #\* :accessor display-char :initarg :display-char)
    (color :initform 'white :accessor color :initarg :color)
@@ -81,12 +81,12 @@
 
 (defclass player (combat-entity)
   ((heal-clock :initform 10
-	       :accessor heal-clock)
+	       :reader heal-clock)
    (starvingp :initform nil
 	      :accessor starvingp)
    (hunger :initform 80
 	   :accessor hunger)
-   (xp :initform 0 :accessor xp)
+   (xp :initform 0 :reader xp)
    (max-health :initform 10 :accessor max-health)
    (xp-bound :initform 10 :accessor xp-bound)))
 
