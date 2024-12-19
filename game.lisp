@@ -73,35 +73,59 @@
 		(name target) (name item) (health item)))
 
 (defmethod eat ((item poison-herb) (target actor))
-  (damage target (health item))
+  (damage target (health item) :damage-types '(poison))
   (print-to-log "~a ate ~a and lost ~a health" (name target) (name item) (health item)))
+
+(defmethod eat ((item healing-potion) (target actor))
+  (incf (health target) (health item))
+  (print-to-log "~a drank ~a and regained ~a health"
+		(name target) (name item) (health item)))
+
+(defmethod eat ((item poison-potion) (target actor))
+  (damage target (health item) :damage-types '(poison))
+  (print-to-log "~a drank ~a and lost ~a health"
+		(name target) (name item) (health item)))
+
+(defmethod eat ((item explosive-potion) (target actor))
+  (damage target (explode-damage item) :damage-types '(fire))
+  (print-to-log "the ~a explodes, dealing ~a damage to ~a"
+		(name item) (explode-damage item) (name target)))
 
 (defmethod eat :around ((item bottle) (target actor))
   (if (contents item)
-      (let ((bottle-contents (contents item)))
-	;; 'unbottle' so it's removed correctly
-	(when (in-inventory-p bottle-contents)
-	  (add-to-inventory bottle-contents))
-	(eat bottle-contents target)
-	(setf (contents item) nil))
+      (progn (eat (contents item) target)
+	     (setf (contents item) nil))
       (call-next-method)))
+
+(defmethod (setf contents) ((new-val equipment) (obj bottle))
+  (setf (slot-value obj 'contents) new-val)
+  (setf (container new-val) obj))
+
+(defmethod (setf contents) (new-val (obj bottle))
+  (setf (slot-value obj 'contents) nil))
 
 (defmethod make-pickup ((item glowing-mushrooms) pos)
   (make-glowing-mushroom-actor pos))
 
+(defgeneric bottle-name (item)
+  (:method ((item equipment))
+    (log-to-string "bottle of ~a" (name item)))
+  (:method ((item potion))
+    (name item)))
+    
 (defmethod name ((item bottle))
   (if (contents item)
-      (log-to-string "bottle of ~a" (name (contents item)))
+      (bottle-name (contents item))
       (slot-value item 'name)))
 
 (defmethod throw-at ((item bottle) target)
   (when (contents item)
     (throw-at (contents item) target)))
 
-(defmethod throw-at :around ((item bomb) (target actor))
+(defmethod throw-at :around ((item explosive-potion) (target actor))
   (call-next-method item (pos target)))
 
-(defmethod throw-at ((item bomb) target)
+(defmethod throw-at ((item explosive-potion) target)
   (print-to-log "it explodes for ~d damage~%" (explode-damage item))
   (for-each-adjacent-actor target
 			   (save 12 dex actor
@@ -207,8 +231,9 @@
   (:method (item)
     (print-to-log "you can't cook that"))
   (:method :before ((item equipment))
-    (remove-from-inventory item)
-    (add-to-inventory item))
+    (unless (containedp item)
+      (remove-from-inventory item)
+      (add-to-inventory item)))
   (:method :before ((item food))
     (if (= (cookedp item) 0)
 	(progn (incf (hunger item) 10)
@@ -238,6 +263,15 @@
     (if (contents item)
 	(cook (contents item))
 	(print-to-log "you can't cook that"))))
+
+(macrolet ((make-brewing-method (in out)
+	     `(defmethod cook ((item ,in))
+		(when (containedp item)
+		  (let ((potion (,(constructor out) :without-bottle t)))
+		    (print-to-log "you have brewed a ~a" (name potion))
+		    (setf (contents (container item)) potion))))))
+  (make-brewing-method healing-herb healing-potion)
+  (make-brewing-method poison-herb poison-potion))
 
 (defmethod name ((obj food))
   (log-to-string "~a~a"

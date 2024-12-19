@@ -19,6 +19,7 @@
    (consumable :initform nil :accessor consumable :initarg :consumable)
    (secretp :initform nil :accessor secretp :initarg :secretp)
    (identifiedp :initform t :accessor identifiedp :allocation :class)
+   (container :initform nil :accessor container)
    (fake-name :accessor fake-name :initarg :fake-name)
    (equip-slot :initform 'hand :accessor equip-slot :initarg :equip-slot)))
 

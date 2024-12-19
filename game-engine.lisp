@@ -153,6 +153,10 @@
 	  ((eq list 'trap)
 	   (push flist (gethash rarity *trap-spawn-table*))))))
 
+(defgeneric containedp (obj)
+  (:method ((obj equipment))
+    (container obj)))
+
 (defmacro defaction (key description &body body)
   `(progn (setf (gethash ,key *action-descriptions*) ,description)
 	  (setf (gethash ,key *actions*) (lambda ()
@@ -209,7 +213,7 @@
 				      (if (eq eq-slot 'hand)
 					  0
 					  (slot-value qpmnt (quote ,name))))))))
-		 (defmethod (setf ,name) (new-val (obj combat-entity))
+		 (defmethod (setf,name) (new-val (obj combat-entity))
 		   (setf (slot-value obj (quote ,name)) new-val)))))
       '(def str health dex)) ; this is the list of stats
 
@@ -290,11 +294,12 @@
       (push pickup (static-actors))
       pickup)))
 
+(defun constructor (name)
+  (read-from-string (concatenate 'string "make-"
+				 (symbol-name name))))
+
 ;; initialize helper functions for macros
-(labels ((constructor (name)
-	   (read-from-string (concatenate 'string "make-"
-					  (symbol-name name))))
-	 (build-slot (slt) ; creates slot information for new slots
+(labels ((build-slot (slt) ; creates slot information for new slots
 	     (list (if (listp slt)
 		       `(,(car slt) :accessor ,(car slt)
 				    :initform ,(cadr slt)
@@ -396,8 +401,8 @@
 						      :allocation :class)
 					(name :initform (quote ,name))))
        ;; define constructor function
-       (defun ,(constructor name) (&rest keys &key &allow-other-keys)
-	 (apply #'make-instance (quote ,name) keys))
+       (defun ,(constructor name) ()
+	 (make-instance (quote ,name)))
        ;; define pickup constructor function
        (defun ,(read-from-string (concatenate 'string "make-"
 					      (symbol-name name) "-pickup"))
@@ -603,7 +608,8 @@
       (setf (secretp item) nil)))
   (:method :around ((item equipment) target)
     (if (consumable item)
-	(progn (destroy item) ; destroy first to ensure it is removed correctly
+	(progn (unless (containedp item)
+		 (destroy item)) ; destroy first to ensure correct removal
 	       (call-next-method))
 	(print-to-log "That cannot be eaten")))
   (:method (item target)
@@ -993,8 +999,9 @@
 (defgeneric throw-at (item target)
   (:method :before ((item equipment) target)
     (declare (ignore target))
-    (remove-from-inventory item)
-    (print-to-log "you threw ~a~%" (description item)))
+    (unless (containedp item)
+      (remove-from-inventory item)
+      (print-to-log "you threw ~a~%" (description item))))
   (:method ((item equipment) target))
   (:method :after ((item equipment) (target list))
     (unless (breakable item)

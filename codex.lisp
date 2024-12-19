@@ -29,6 +29,21 @@
 			      (concatenate 'string "make-" (symbol-name name))))
      :inherit ooze))
 
+(defequipment potion () :consumable t)
+(defequipment bottle (contents) :breakable t :throw-distance 3)
+(defmacro defpotion (name new-slots &rest slots)
+  `(progn (define-secret-equipment (list *color-list* (list "potion"))
+	    ,name ,new-slots
+	    :inherit potion :breakable t ,@slots)
+	  (let ((old-function #',(constructor name)))
+	    (setf (fdefinition (quote ,(constructor name)))
+		  (lambda (&key without-bottle)
+		    (if without-bottle
+			(funcall old-function)
+			(let ((bottle (make-bottle)))
+			  (setf (contents bottle) (funcall old-function))
+			  bottle)))))))
+
 ;;; DEFINE ACTORS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
  'trap 'common "1+"
@@ -50,7 +65,6 @@
   :atk '(1 4 acid) :save-dc 15 :color 'green :inherit trap)
 
 ;;; DEFINE EQUIPMENT ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defequipment bottle (contents) :breakable t)
 (add-to-spawn
  'treasure 'common "1+"
  (defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp 0))
@@ -64,9 +78,9 @@
 (defequipment glowing-mushrooms ()
   :throw-distance 3 :hunger (+ 8 (random 6)) :inherit food
   :description "a clump of glowing mushrooms" :burn-time (roll 10))
-(define-secret-equipment (list *color-list*)
-  bomb ((explode-damage (+ (roll 4) (roll 4))))
-  :throw-distance 3 :breakable t)
+(defpotion explosive-potion ((explode-damage (+ (roll 4) (roll 4)))))
+(defpotion healing-potion () :health (+ (roll 4) (roll 4)))
+(defpotion poison-potion () :health (+ (roll 4) (roll 4)))
 (add-to-spawn
  'treasure 'uncommon "1+"
  (defequipment faggot () :burn-time (+ 10 (random 11)) :atk '(1 2 bludgeoning)
