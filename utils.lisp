@@ -1,4 +1,5 @@
 (defparameter *log* '())
+
 (setf *random-state* (make-random-state t))
 
 (defun log-to-string (control-string &rest args)

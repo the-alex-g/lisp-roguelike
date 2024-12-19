@@ -2,6 +2,7 @@
 
 (defparameter *styles* (make-hash-table))
 (defparameter *color-list* nil)
+(defparameter *default-style* 0)
 
 (mapc (lambda (color-pair)
 	(setf (gethash (car color-pair) *styles*) (cadr color-pair))
@@ -14,16 +15,30 @@
       '((bold 1) (italic 3) (uline 4) (blink 5) (black-on-white 7) (striken 9)
 	(2uline 21) (oline 53) (none 0)))
 
+(defun apply-default-style (to-print)
+  (let ((result (format to-print "~c[0;~dm" #\esc *default-style*)))
+    (if to-print (force-output))
+    result))
+
 (defun apply-color (to color &rest colors)
-  (format nil "~c[~d~{;~d~}m~a~c[0m"
+  (format nil "~c[~d~{;~d~}m~a~a"
 	  #\esc
 	  (gethash color *styles*)
 	  (mapcar (lambda (c) (gethash c *styles*)) colors)
 	  to
-	  #\esc))
+	  (apply-default-style nil)))
 
 (defun apply-background (to color)
-  (format nil "~c[~dm~a~c[0m" #\esc (+ (gethash color *styles*) 10) to #\esc))
+  (format nil "~c[~dm~a~a" #\esc (+ (gethash color *styles*) 10)
+	  to (apply-default-style nil)))
 
 (defun random-color ()
   (randnth *color-list*))
+
+(defmacro with-color-applied (color &body body)
+  `(let (result)
+     (let ((*default-style* (gethash ,color *styles*)))
+       (apply-default-style t)
+       (setf result (progn ,@body)))
+     (apply-default-style t)
+     result))

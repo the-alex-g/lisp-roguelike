@@ -32,6 +32,13 @@
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 
+
+(defun game-date ()
+  (let ((*player-actions* (ash *player-actions* -4)))
+    (format nil "~d-~d"
+	    (1+ (floor (/ *player-actions* 100)))
+	    (1+ (mod *player-actions* 100)))))
+
 (defun layers (&rest controls)
   (labels ((get-segments (list operator arg sequences)
 	     (if list
@@ -1119,6 +1126,7 @@
       (destroy obj))))
 
 (defun print-board ()
+  (apply-default-style t)
   (let ((actor-chars (make-hash-table :test 'equal))
 	(wall-positions ()))
     (loop for actor in (actors)

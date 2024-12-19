@@ -2,6 +2,8 @@
 (load "./bsp-dungeon.lisp")
 (load "./codex.lisp")
 
+(defparameter *notes* ())
+
 (defmethod description ((obj trap))
   (if (hiddenp obj)
       (cond ((and (discoverable obj) (>= (roll 20) 11))
@@ -423,6 +425,16 @@
 		 (print (eval input))
 		 (my-repl)))))
     (my-repl)))
+(defaction #\n "read or take notes"
+  (let ((option (get-item-from-list '(read-notes write-note))))
+    (cond ((eq option 'read-notes)
+	   (mapc #'print-to-log (reverse *notes*)))
+	  ((eq option 'write-note)
+	   (print-to-screen "~&write your note~%")
+	   (let ((note (with-color-applied 'grey
+			 (read-line))))
+	     (print-to-log "added note \"~a\"" note)
+	     (push (format nil "~a] ~a" (game-date) note) *notes*))))))
 
 ;; start game
 (start)
