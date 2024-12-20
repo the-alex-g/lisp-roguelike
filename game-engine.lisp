@@ -481,8 +481,31 @@
 (defmethod hiddenp ((obj ladder))
   (not (has-legal-destination obj)))
 
-(defun make-layer (dungeon)
-  (let* ((dungeon-board (slot-value dungeon 'board))
+(defun populate (region functions)
+  (let ((priority (random 3)))
+    (loop for pos in region
+	  when (= (random 8) 0)
+	    collect (let ((r (random 6)))
+		      (cons (car (eval-weighted-list
+				  (cond ((<= r 3)
+					 (nth priority functions))
+					((= r 4)
+					 (nth (mod (1+ priority) 3) functions))
+					((= r 5)
+					 (nth (mod (1- priority) 3) functions)))))
+			    pos)))))
+
+(defun flatten (lst)
+  (if lst
+      (if (and (numberp (car lst)) (numberp (cdr lst)))
+	  (list lst)
+	  (append (flatten (car lst)) (if (cdr lst)
+					  (flatten (cdr lst)))))))
+
+(defun make-layer (dungeon depth)
+  (let* ((rooms (car dungeon))
+	 (corridors (cdr dungeon))
+	 (dungeon-board (flatten (append rooms corridors)))
 	 (down-ladder-pos (car dungeon-board))
 	 (up-ladder-pos (randnth (cdr dungeon-board)))
 	 (layer (make-instance
@@ -501,26 +524,16 @@
     (setf (pos *player*) up-ladder-pos)
     (setf (direction (make-ladder down-ladder-pos)) 1)
     (setf (direction (make-ladder up-ladder-pos)) -1)
-    (loop for pos being the hash-keys of (slot-value dungeon 'actors)
-	  unless (or (equal pos up-ladder-pos) (equal pos down-ladder-pos))
-	    do (let ((fxn (gethash pos (slot-value dungeon 'actors))))
-		 (when fxn
-		   (funcall fxn pos))))
+    (loop for room in rooms
+	  do (loop for actor-data in (populate room (spawn-list depth))
+		   do (funcall (car actor-data) (cdr actor-data))))
     ;; Create secret doors
     (flet ((board-member (&rest points)
 	     (member (apply #'add-pos points) dungeon-board :test #'equal)))
-      (loop for pos in dungeon-board
-	    when (and (= 0 (random 8))
-		      ;; check for chokepoints
-		      (loop for set in (list (list +down+ +left+ +right+)
-					     (list +up+ +left+ +right+)
-					     (list +right+ +up+ +down+)
-					     (list +left+ +up+ +down+))
-			      thereis (and (board-member pos (car set))
-					   (board-member pos (car set) (cadr set))
-					   (board-member pos (car set) (caddr set))
-					   (not (board-member pos (cadr set)))
-					   (not (board-member pos (caddr set))))))
+      (loop for pos in (loop for corridor in (append corridors)
+			     collect (car corridor)
+			     collect (car (last corridor)))
+	    when (= 0 (random 8))
 	      ;; make a secret door with the correct orientation
 	      do (setf (display-char (make-secret-door pos))
 		       (if (or (board-member pos +left+)
@@ -1278,7 +1291,8 @@
     (setf (display-char *player*) p-char)))
 
 (defun create-dungeon (dungeon-depth)
-  (mapcar #'make-layer
+  (mapcar (lambda (x)
+	    (make-layer (car x) (cdr x)))
 	  (loop for layer downfrom dungeon-depth to 1
 		collect (let* ((i (random 2))
 			       (size (if (= i 0)
@@ -1287,7 +1301,7 @@
 			       (depth (if (= i 0)
 					  3
 					  4)))
-			  (generate-dungeon size depth (spawn-list layer))))))
+			  (cons (generate-dungeon size depth) layer)))))
 
 (defun start ()
   (create-dungeon 3)

@@ -1,30 +1,9 @@
 (load "./utils.lisp")
 
-(defclass dungeon ()
-  ((board :initform '())
-   (actors :initform (make-hash-table :test 'equal))))
-
 (defun randval (v)
   (if (<= v 1)
       0
       (random (round v))))
-
-(defun populate (region functions board)
-  (let ((priority (random 3)))
-    (loop for pos in region
-	  when (= (random 8) 0)
-	    do (setf (gethash pos (slot-value board 'actors))
-		     (let ((r (random 6)))
-		       (cond ((<= r 3)
-			      (car (eval-weighted-list
-				    (nth priority functions))))
-			     ((= r 4)
-			      (car (eval-weighted-list
-				    (nth (mod (1+ priority) 3) functions))))
-			     ((= r 5)
-			      (car (eval-weighted-list
-				    (nth (mod (1- priority) 3) functions))))))))
-    region))
 
 (defun partial-fill (offset size)
   (let* ((fill-size (cons (+ 3 (randval (- (car size) 4)))
@@ -39,40 +18,60 @@
 			       collect (cons (+ (car fill-offset) x)
 					     (+ (cdr fill-offset) y)))))))
 
+(defun flatten (lst)
+  (if lst
+      (if (and (numberp (car lst)) (numberp (cdr lst)))
+	  (list lst)
+	  (append (flatten (car lst)) (if (cdr lst)
+					  (flatten (cdr lst)))))))
+
 (defun connect (r1 r2)
-  (let ((region (append r1 r2)))
-    (when (and r1 r2)
-      (let* ((cp1 (randnth r1))
-	     (px (loop for point in r2
-		      with min-x = 1000
-		      when (< (abs (- (car cp1) (car point))) min-x)
-			do (setf min-x (car point))
-		      finally (return min-x)))
-	     (py (loop for point in r2
-		       with min-y = 1000
-		       when (and (eq (car point) px)
-				 (< (abs (- (cdr cp1) (cdr point))) min-y))
-			 do (setf min-y (cdr point))
-		      finally (return min-y)))
-	     (dx (- px (car cp1)))
-	     (dy (- py (cdr cp1)))
-	     (cp2 (cons px py)))
-	(unless (eq (cdr cp1) (cdr cp2))
-	  (loop for y from 0 to (abs dy)
-		do (push (cons (car cp1)
-			       (if (< dy 0)
-				   (- (cdr cp1) y)
-				   (+ (cdr cp1) y)))
-			 region)
-		finally (setf cp1 (cons (car cp1) (cdr cp2)))))
-	(unless (eq (car cp1) (car cp2))
-	  (loop for x from 0 to (abs dx)
-		do (push (cons (if (< dx 0)
-				   (- (car cp1) x)
-				   (+ (car cp1) x))
-			       (cdr cp1))
-			 region)))))
-    region))
+  (let* ((rooms (append (car r1) (car r2)))
+	 (corridors (append (cdr r1) (cdr r2)))
+	 (region (flatten (append rooms corridors))))
+    (if (loop for r in rooms always r)
+	(let* ((region2 (flatten r2))
+	       (cp1 (randnth (flatten r1)))
+	       (px (loop for point in region2
+			 with minx = 1000
+			 when (< (abs (- (car cp1) (car point))) minx)
+			   do (setf minx (car point))
+			 finally (return minx)))
+	       (py (loop for point in region2
+			 with miny = 1000
+			 when (and (eq (car point) px)
+				   (abs (- (cdr cp1) (cdr point))))
+			   do (setf miny (cdr point))
+			 finally (return miny)))
+	       (dx (- px (car cp1)))
+	       (dy (- py (cdr cp1)))
+	       (cp2 (cons px py)))
+	  (flet ((region-member (point) (member point region :test 'equal)))
+	    (let ((new-corridor (append
+				 (unless (eq (cdr cp1) (cdr cp2))
+				   (flet ((get-point (y)
+					    (cons (car cp1)
+						  (if (< dy 0)
+						      (- (cdr cp1) y)
+						      (+ (cdr cp1) y)))))
+				     (loop for y from 0 to (abs dy)
+					   unless (region-member (get-point y))
+					     collect (get-point y)
+					   finally (setf cp1 (cons (car cp1)
+								   (cdr cp2))))))
+				 (unless (eq (car cp1) (car cp2))
+				   (flet ((get-point (x)
+					    (cons (if (< dx 0)
+						      (- (car cp1) x)
+						      (+ (car cp1) x))
+						  (cdr cp1))))
+				     (loop for x from 0 to (abs dx)
+					   unless (region-member (get-point x))
+					     collect (get-point x)))))))
+	      (if new-corridor
+		  (cons rooms (cons new-corridor corridors))
+		  (cons rooms corridors)))))
+	(cons rooms corridors))))
 
 (defun vary-from (val)
   (if (<= val 8)
@@ -80,7 +79,7 @@
       (+ val (round (* (1- (random 2.0))
 		       (/ val 2))))))
 
-(defun partition (offset size max-depth functions board &optional (cur-depth 0))
+(defun partition (offset size max-depth &optional (cur-depth 0))
   (if (< cur-depth max-depth)
       (let* ((split-direction (cond ((> 8 (car size)) 'h)
 				    ((> 8 (cdr size)) 'v)
@@ -91,35 +90,45 @@
 	(if (eq split-direction 'v)
 	    (connect (partition offset
 				(cons split (cdr size))
-				max-depth functions board (1+ cur-depth))
+				max-depth (1+ cur-depth))
 		     (partition (cons (+ (car offset) split) (cdr offset))
 				(cons (- (car size) split) (cdr size))
-				 max-depth functions board (1+ cur-depth)))
+				 max-depth (1+ cur-depth)))
 	    (connect (partition offset
 				(cons (car size) split)
-				max-depth functions board (1+ cur-depth))
+				max-depth (1+ cur-depth))
 		     (partition (cons (car offset) (+ (cdr offset) split))
 				(cons (car size) (- (cdr size) split))
-				max-depth functions board (1+ cur-depth)))))
-      (populate (partial-fill offset size) functions board)))
+				max-depth (1+ cur-depth)))))
+      (list (list (partial-fill offset size)))))
 
-(defun generate-dungeon (size depth functions)
-  (let ((dungeon (make-instance 'dungeon)))
-    (setf (slot-value dungeon 'board)
-	  (partition '(0 . 0) size depth functions dungeon))
-    dungeon))
+(defun generate-dungeon (size depth)
+  (partition '(0 . 0) size depth))
 
 ;; a function for testing the boards
 (defun main (size depth)
-  (let ((board (generate-dungeon size depth ())))
+  (let* ((board (generate-dungeon size depth))
+	 (rooms (flatten (car board)))
+	 (corridors (flatten (cdr board)))
+	 (corridor-endpoints (loop for corridor in (append (cdr board))
+				   collect (car corridor)
+				   collect (car (last corridor)))))
     (format t "~{~{~c~}~%~}"
 	    (loop for y below (cdr size)
 		  collect (loop for x below (car size)
-				collect (if (member (cons x y)
-						    board
-						    :test 'equal)
-					    #\#
-					    #\space)))))
+				collect (cond ((member (cons x y)
+						       corridor-endpoints
+						       :test 'equal)
+					       #\S)
+					      ((member (cons x y)
+						       corridors
+						       :test 'equal)
+					       #\.)
+					      ((member (cons x y)
+						       rooms
+						       :test 'equal)
+					       #\#)
+					      (t #\space))))))
   (unless (eq (read-char) #\q)
     (format t "-------------------------------------------------~%")
     (main size depth)))
