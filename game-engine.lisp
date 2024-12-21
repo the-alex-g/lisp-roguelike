@@ -334,15 +334,8 @@
 			equips
 		      &allow-other-keys)
     ;; remove :inherit from key list to prevent odd behavior
-    (setf keys (loop for k in keys
-		     with skip = nil
-		     if skip
-		       do (setf skip nil)
-		     else if (or (eq k :inherit)
-				 (eq k :equips))
-			    do (setf skip t)
-		     else
-		       collect k))
+    (remf keys :inherit)
+    (remf keys :equips)
     `(progn
        ;; declare new monster class, including new keys and setting initform of
        ;; old values
@@ -366,10 +359,9 @@
   ;; define class and constructor function for actor
   (defmacro defactor (name display-char new-slots
 		      &rest keys
-		      &key (inherit 'actor inheritp)
+		      &key (inherit 'actor)
 		      &allow-other-keys)
-    (when inheritp
-      (setf keys (remove inherit (remove :inherit keys))))
+    (remf keys :inherit)
     `(progn (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
 					     ,@(reinit-slots keys nil)
 					     (name :initform (quote ,name))
@@ -386,20 +378,11 @@
   ;; define class, constructor function, and pickup generator function for equipment
   (defmacro defequipment (name new-slots
 			  &rest keys
-			  &key (inherit 'equipment inheritp)
-			    (identifiedp t identifiedp-p)
+			  &key (inherit 'equipment)
+			    (identifiedp t)
 			  &allow-other-keys)
-    (when inheritp
-      (setf keys (remove inherit (remove :inherit keys))))
-    (when identifiedp-p
-      (setf keys (loop for k in keys
-		       with skip = nil
-		       unless (or skip (eq k :identifiedp))
-			 collect k
-		       when skip
-			 do (setf skip nil)
-		       when (eq k :identifiedp)
-			 do (setf skip t))))
+    (remf keys :inherit)
+    (remf keys :identifiedp)
     `(progn
        ;; define equipment class
        (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
@@ -544,8 +527,8 @@
     layer))
 
 (defun names-equal-p (a b)
-  (equal (log-to-string "~a" (name a))
-	 (log-to-string "~a" (name b))))
+  (string= (log-to-string "~a" (name a))
+	   (log-to-string "~a" (name b))))
 
 (defun short-inventory ()
   (loop for item in *inventory*
@@ -574,11 +557,20 @@
 	count (names-equal-p i item)))
 
 (defun add-to-inventory (item)
-  (if (or (< (inventory-length) *inventory-size*) (in-inventory-p item))
-      (setf *inventory* (append *inventory* (list item)))
-      (progn (print-to-log "your inventory is full")
-	     (make-pickup item (pos *player*))
-	     nil)))
+  (let ((in-inventory (in-inventory-p item)))
+    (if (or (< (inventory-length) *inventory-size*) in-inventory)
+	(if in-inventory
+	    (setf *inventory*
+		  (loop for i in *inventory*
+			with needs-collecting = t
+			when (and needs-collecting (names-equal-p item i))
+			  collect item
+			  and do (setf needs-collecting nil)
+			collect i))
+	    (setf *inventory* (append *inventory* (list item))))
+	(progn (print-to-log "your inventory is full")
+	       (make-pickup item (pos *player*))
+	       nil))))
 
 (defgeneric identify (obj)
   (:method ((obj equipment))
