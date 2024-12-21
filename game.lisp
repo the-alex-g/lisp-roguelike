@@ -1,7 +1,3 @@
-(load "./game-engine.lisp")
-(load "./bsp-dungeon.lisp")
-(load "./codex.lisp")
-
 (defparameter *notes* ())
 
 (defmethod description ((obj trap))

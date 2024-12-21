@@ -1,6 +1,14 @@
 (defparameter *log* '())
+(defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
+			      (error () nil)))
 
 (setf *random-state* (make-random-state t))
+
+(defun custom-read-char ()
+  (force-output)
+  (if *in-terminal*
+      (trivial-raw-io:read-char)
+      (read-char)))
 
 (defun log-to-string (control-string &rest args)
   (labels ((convert-to-string (item)

@@ -1,10 +1,3 @@
-(load "./colors.lisp")
-(load "./bsp-dungeon.lisp")
-(load "./class-definitions.lisp")
-
-(load "~/quicklisp/setup.lisp")
-(ql:quickload :trivial-raw-io)
-
 (defparameter *layers* '())
 (defparameter *current-layer* nil)
 (defparameter *layer-index* 0)
@@ -29,9 +22,6 @@
 (defparameter *monster-spawn-table* (make-hash-table))
 (defparameter *treasure-spawn-table* (make-hash-table))
 (defparameter *trap-spawn-table* (make-hash-table))
-(defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
-			      (error () nil)))
-
 
 (defun game-date ()
   (let ((*player-actions* (ash *player-actions* -4)))
@@ -74,12 +64,6 @@
       (if (> (length sequences) 1)
 	  (format nil "~a~{,~a~}" (car sequences) (cdr sequences))
 	  (format nil "~a" (car sequences))))))
-
-(defun custom-read-char ()
-  (force-output)
-  (if *in-terminal*
-      (trivial-raw-io:read-char)
-      (read-char)))
 
 (defun distribute-list (list)
   (let ((step (max 1 (floor (/ 100 (length list)))))

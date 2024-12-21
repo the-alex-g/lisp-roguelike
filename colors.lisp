@@ -1,5 +1,3 @@
-(load "./utils.lisp")
-
 (defparameter *styles* (make-hash-table))
 (defparameter *color-list* nil)
 (defparameter *default-style* 0)

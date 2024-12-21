@@ -1,5 +1,3 @@
-(load "./utils.lisp")
-
 (defun randval (v)
   (if (<= v 1)
       0
@@ -15,8 +13,7 @@
     (apply #'append
 	   (loop for y below (cdr fill-size)
 		 collect (loop for x below (car fill-size)
-			       collect (cons (+ (car fill-offset) x)
-					     (+ (cdr fill-offset) y)))))))
+			       collect (add-pos fill-offset (cons x y)))))))
 
 (defun flatten (lst)
   (if lst
