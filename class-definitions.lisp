@@ -120,6 +120,7 @@
   ((duration :accessor duration :initarg :duration)
    (on-applied)
    (on-update)
+   (on-removed)
    (target :initform nil :accessor target)))
 
 (defclass pickup (actor)

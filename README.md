@@ -16,7 +16,7 @@ Contains functions and variables for dealing with color escape codes.
 
 ## class-definitions.lisp
 
-This file contains the definitions for all classes used in the game, except for one. That one is defined in `bsp-dungeon.lisp` and is only used for shuffling dungeon data around.
+This file contains the definitions for all classes used in the game.
 
 ### equipment
 
@@ -48,6 +48,9 @@ The next couple of slots increase the equipper's stats of the same name. They de
 **burn-time** the length of time the item burns for. Defaults to 0. Items with a zero burn time cannot be burnt.
 
 **consumable** if t, the item is destroyed when used. Defaults to nil.
+
+**container** should be used to keep track of any item "containing" this one. See `bottle` methods
+in game.lisp for examples.
 
 **fake-name** used instead of `name` if the identity of the item is secret.
 

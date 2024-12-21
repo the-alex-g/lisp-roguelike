@@ -44,6 +44,17 @@
 			  (setf (contents bottle) (funcall old-function))
 			  bottle)))))))
 
+;;; DEFINE STATUSES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defparameter *snake-poison*
+  (make-status 3 :on-update (save 10 str target
+				  (print-to-log "~a took ~d damage from poison"
+						(name target)
+						(damage target 1 :unblockable t
+								 :damage-types '(poison)))
+				  (destroy status))
+		 :on-removed (print-to-log "~a recovered from poison" (name target))))
+
 ;;; DEFINE ACTORS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
  'trap 'common "1+"
@@ -147,3 +158,8 @@
 			 :dex 2 :vulnerable 'holy :description "a wraith"
 			 :resist '(piercing slashing bludgeoning)
 			 :color 'grey))
+(add-to-spawn
+ 'monster 'uncommon (layers 'below 0)
+ (defenemy snake #\s () :health (roll 4) :xp 2
+			:atk `(1 piercing :status ,*snake-poison*)
+			:dex 1 :description "a snake" :color 'pale-green))

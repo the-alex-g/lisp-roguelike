@@ -33,6 +33,10 @@
 (defun random-color ()
   (randnth *color-list*))
 
+(defun print-colors ()
+  (loop for color in *color-list*
+    do (format t "~c[~dmcode ~:*~d, color ~a~c[0m~%" #\esc (gethash color *styles*) color #\esc)))
+
 (defmacro with-color-applied (color &body body)
   `(let (result)
      (let ((*default-style* (gethash ,color *styles*)))

@@ -385,14 +385,18 @@
 
 (defmacro make-status (duration &key
 				  (on-update nil on-update-p)
+				  (on-removed nil on-removed-p)
 				  (on-applied nil on-applied-p))
   `(let* ((status (make-instance 'status :duration ,duration)))
      (when ,on-update-p
-       (setf (slot-value status 'on-update) (lambda (target)
+       (setf (slot-value status 'on-update) (lambda (target status)
 					      (when target ,on-update))))
      (when ,on-applied-p
-       (setf (slot-value status 'on-applied) (lambda (target)
+       (setf (slot-value status 'on-applied) (lambda (target status)
 					       (when target ,on-applied))))
+     (when ,on-removed-p
+       (setf (slot-value status 'on-removed) (lambda (target status)
+					       (when target ,on-removed))))
      status))
 
 (defactor ladder #\# (direction) :destructible nil :solid nil)
@@ -560,6 +564,21 @@
   (:method ((obj equipment))
     (setf (identifiedp obj) t)))
 
+(defgeneric on-applied (obj)
+  (:method ((obj status))
+    (when (slot-boundp obj 'on-applied)
+      (funcall (slot-value obj 'on-applied) (target obj) obj))))
+
+(defgeneric on-update (obj)
+  (:method ((obj status))
+    (when (slot-boundp obj 'on-update)
+      (funcall (slot-value obj 'on-update) (target obj) obj))))
+
+(defgeneric on-removed (obj)
+  (:method ((obj status))
+    (when (slot-boundp obj 'on-removed)
+      (funcall (slot-value obj 'on-removed) (target obj) obj))))
+
 (defgeneric destroy (obj)
   (:method (obj)
     (print-to-log "~a destroyed~&" obj))
@@ -574,17 +593,8 @@
   (:method ((obj equipment))
     (remove-from-inventory obj))
   (:method ((obj status))
+    (on-removed obj)
     (setf *statuses* (remove obj *statuses* :test #'equal))))
-
-(defgeneric on-applied (obj)
-  (:method ((obj status))
-    (when (slot-boundp obj 'on-applied)
-      (funcall (slot-value obj 'on-applied) (target obj)))))
-
-(defgeneric on-update (obj)
-  (:method ((obj status))
-    (when (slot-boundp obj 'on-update)
-      (funcall (slot-value obj 'on-update) (target obj)))))
 
 (defgeneric equip (item obj)
   (:method ((item equipment) (obj combat-entity))
@@ -612,6 +622,9 @@
     (print-to-log "That cannot be eaten")))
 
 (defgeneric apply-to (item target)
+  (:method ((item list) target)
+    (loop for i in item
+	  do (apply-to i target)))
   (:method :around (item (target pickup))
     (apply-to item (equipment target)))
   (:method (item target)
@@ -619,7 +632,7 @@
   (:method ((item status) (target actor))
     (setf (target item) target)
     (on-applied item)
-    (when (slot-boundp item 'on-update)
+    (when (> (duration item) 0)
       (push item *statuses*))))
 
 (defgeneric deadp (obj)
@@ -1217,11 +1230,11 @@
   (decf (xp *player*) (xp-bound *player*))
   (incf (xp-bound *player*) (xp-bound *player*))
   (let ((health-increase (roll 10))
-	(upgrade-stat (get-item-from-list '(dex str)
+	(stat (get-item-from-list '(dex str)
 					  :what "stat" :exit-option nil)))
     (incf (max-health *player*) health-increase)
     (incf (health *player*) health-increase)
-    (eval `(incf (,upgrade-stat *player*))))
+    (eval `(incf (,stat *player*))))
   (when *level-up-pending*
     (level-up)))
 
