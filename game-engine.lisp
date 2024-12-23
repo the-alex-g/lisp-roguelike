@@ -640,6 +640,12 @@
     (and (destructible obj)
 	 (<= (health obj) 0))))
 
+(defun print-damage-results (target message &rest args)
+  (apply #'print-to-log
+	 (concatenate 'string message "~[, ~a it~;~*~]")
+	 (append args
+		 (list (if (deadp target) 0 1) (death-verb target)))))
+
 (defgeneric resolve-damage-modifiers (amount types actor)
   (:method (amount (types list) (actor actor))
     (flet ((resolve-damage-modifier (lst amt)
@@ -763,16 +769,13 @@
       (if (and (>= (+ accuracy (dex a)) (+ (- 6 (def d)) (dex d)))
 	       (> accuracy 1))
 	  (mapc (lambda (atk)
-		  (print-to-log "~a hit ~a for ~d damage~a"
-				(name a)
-				(name d)
-				(damage d
-					(+ (cadr (assoc 'dmg atk)) (str a))
-					:damage-types (cdr
-						       (assoc 'dmg-types atk)))
-				(if (deadp d)
-				    ", killing it"
-				    ""))
+		  (print-damage-results d "~a hit ~a for ~d damage"
+					(name a)
+					(name d)
+					(damage d
+						(+ (cadr (assoc 'dmg atk)) (str a))
+						:damage-types (cdr
+							       (assoc 'dmg-types atk))))
 		  (mapc (lambda (status)
 			  (when status
 			    (apply-to status d)))
@@ -783,14 +786,11 @@
     (declare (ignore rangedp))
     (when (destructible d)
       (let ((attack (eval-attack (car (get-attacks a)))))
-	(print-to-log "~a hit a ~a for ~d damage~a~&"
-		      (name a)
-		      (name d)
-		      (damage d (+ (cadr (assoc 'dmg attack)) (str a))
-			      :damage-types (cdr (assoc 'dmg-types attack)))
-		      (if (deadp d)
-			  ", destroying it"
-			  ""))))))
+	(print-damage-results d "~a hit a ~a for ~d damage"
+			      (name a)
+			      (name d)
+			      (damage d (+ (cadr (assoc 'dmg attack)) (str a))
+				      :damage-types (cdr (assoc 'dmg-types attack))))))))
 
 (defun get-player-lines ()
   (list
@@ -1049,7 +1049,7 @@
 (defgeneric move (obj distance)
   (:method ((obj actor) (distance list))
     (let* ((newpos (add-pos (pos obj) distance))
-	   (collider (find-solid-actor-at newpos obj)))
+	   (collider (find-solid-actor-at newpos)))
       (if collider
 	  (unless (interact-action-only collider)
 	      (interact obj collider))

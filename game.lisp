@@ -124,14 +124,14 @@
   (call-next-method item (pos target)))
 
 (defmethod throw-at ((item explosive-potion) target)
-  (print-to-log "it explodes for ~d damage~%" (explode-damage item))
+  (print-to-log "it explodes for ~d damage" (explode-damage item))
   (for-each-adjacent-actor target
 			   (save 12 dex actor
 				 (damage actor (explode-damage item))
 				 (damage actor (ash (explode-damage item) -1)))
 			   (when (and (deadp actor)
 				      (destructible actor))
-			     (print-to-log "~a a ~a~%"
+			     (print-to-log "~a a ~a"
 					   (death-verb actor)
 					   (name actor)))))
 
@@ -186,6 +186,29 @@
 							    attack)))))
 	  (print-to-log "you avoided ~a" (description b)))))
 
+(defmethod move ((obj spider) (distance list))
+  (let* ((newpos (add-pos (pos obj) distance))
+	 (collider (find-solid-actor-at newpos)))
+    (flet ((move-and-collide ()
+	     (mapc (lambda (actor) (unless (interact-action-only actor)
+				     (interact obj actor)))
+		   (find-all-actors-at newpos))
+	     (setf (pos obj) newpos)))
+      (cond ((slot-exists-p collider 'webbingp)
+	     (move-and-collide))
+	    (collider
+	     (unless (interact-action-only collider)
+	       (interact obj collider)))
+	    (t
+	     (move-and-collide))))))
+
+(defmethod update :before ((obj spider))
+  (when (enabled obj)
+    (if (= (web-cooldown obj) 0)
+	(progn (make-webbing (pos obj))
+	       (setf (web-cooldown obj) 20))
+	(decf (web-cooldown obj)))))
+
 (defmethod make-corpse ((obj ooze))
   (setf (color (make-acid-pool (pos obj))) (color obj)))
 
@@ -213,9 +236,9 @@
 	(setf (health new-ooze) new-health)))))
  
 (defmethod interact ((a combat-entity) (b fire))
-  (print-to-log "~a walked into fire and took ~a damage~a" (name a)
-		(damage a (roll (dmg b)))
-		(if (deadp a) ", killing it" "")))
+  (print-damage-results a "~a walked into fire and took ~a damage"
+			(name a)
+			(damage a (roll (dmg b)))))
 
 ;; equip player
 (equip (make-sword) *player*)

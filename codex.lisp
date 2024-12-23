@@ -54,6 +54,12 @@
 								 :damage-types '(poison)))
 				  (destroy status))
 		 :on-removed (print-to-log "~a recovered from poison" (name target))))
+(defparameter *spider-poison*
+  (make-status 6 :on-update (save 12 str target nil
+				  (destroy status))
+		 :on-applied (decf (str target) 2)
+		 :on-removed (progn (print-to-log "~a recovered from poison" (name target))
+				    (incf (str target) 2))))
 
 ;;; DEFINE ACTORS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
@@ -74,6 +80,8 @@
 (defactor acid-pool #\@ nil :hiddenp nil :description "a pool of acid"
   :verb "stepped in" :interact-action-only nil :one-use-p t :trigger-chance 100
   :atk '(1 4 acid) :save-dc 15 :color 'green :inherit trap)
+(defactor webbing #\W (webbingp) :health (roll 6) :vulnerable 'fire
+  :description "thick strands of webbing")
 
 ;;; DEFINE EQUIPMENT ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
@@ -159,7 +167,14 @@
 			 :resist '(piercing slashing bludgeoning)
 			 :color 'grey))
 (add-to-spawn
- 'monster 'uncommon (layers 'below 0)
+ 'monster 'uncommon (layers 'below 0 'excluding *undead-layer*)
  (defenemy snake #\s () :health (roll 4) :xp 2
 			:atk `(1 piercing :status ,*snake-poison*)
 			:dex 1 :description "a snake" :color 'pale-green))
+(defenemy spider #\s ((web-cooldown 0)))
+(add-to-spawn
+ 'monster 'uncommon (layers 'below 1 'excluding *undead-layer*)
+ (defenemy giant-spider #\S ()
+   :health (+ 4 (roll 4)) :xp 4 :atk `(1 4 piercing :status ,*spider-poison*)
+   :dex 1 :def 1 :str 1 :inherit spider))
+   
