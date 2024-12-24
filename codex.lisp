@@ -46,7 +46,7 @@
 
 ;;; DEFINE STATUSES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *snake-poison*
+(defun make-snake-venom ()
   (make-status 3 :on-update (save 10 str target
 				  (print-to-log "~a took ~d damage from poison"
 						(name target)
@@ -54,7 +54,7 @@
 								 :damage-types '(poison)))
 				  (destroy status))
 		 :on-removed (print-to-log "~a recovered from poison" (name target))))
-(defparameter *spider-poison*
+(defun make-spider-venom ()
   (make-status 6 :on-update (save 12 str target nil
 				  (destroy status))
 		 :on-applied (decf (str target) 2)
@@ -169,12 +169,12 @@
 (add-to-spawn
  'monster 'uncommon (layers 'below 0 'excluding *undead-layer*)
  (defenemy snake #\s () :health (roll 4) :xp 2
-			:atk `(1 piercing :status ,*snake-poison*)
+			:atk `(1 piercing :status ,(make-snake-venom))
 			:dex 1 :description "a snake" :color 'pale-green))
 (defenemy spider #\s ((web-cooldown 0)))
 (add-to-spawn
  'monster 'uncommon (layers 'below 1 'excluding *undead-layer*)
  (defenemy giant-spider #\S ()
-   :health (+ 4 (roll 4)) :xp 4 :atk `(1 4 piercing :status ,*spider-poison*)
+   :health (+ 4 (roll 4)) :xp 4 :atk `(1 4 piercing :status ,(make-spider-venom))
    :dex 1 :def 1 :str 1 :inherit spider))
    

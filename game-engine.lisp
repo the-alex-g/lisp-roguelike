@@ -22,6 +22,10 @@
 (defparameter *monster-spawn-table* (make-hash-table))
 (defparameter *treasure-spawn-table* (make-hash-table))
 (defparameter *trap-spawn-table* (make-hash-table))
+(defparameter *shop-table* (make-hash-table))
+(defparameter *gold* 10)
+
+(setf (gethash 'rare *shop-table*) (list #'print))
 
 (defun game-date ()
   (let ((*player-actions* (ash *player-actions* -4)))
@@ -133,6 +137,22 @@
 	  (get-list-from-table *monster-spawn-table*)
 	  (get-list-from-table *trap-spawn-table*))))
 
+(defun shop-list ()
+  (let ((rare (gethash 'rare *shop-table*))
+	(common (gethash 'common *shop-table*))
+	(uncommon (gethash 'uncommon *shop-table*))
+	(legendary (gethash 'legendary *shop-table*))
+	(amount 10)
+	(total 0))
+    (loop for sub-list in (list legendary rare uncommon common)
+	  when sub-list
+	    if (<= amount 30)
+	      collect (cons amount (distribute-list sub-list))
+	      and do (incf total amount)
+	  else collect (cons (- 100 total)
+			     (distribute-list sub-list))
+	  do (incf amount 10))))
+
 (defun add-to-spawn (list rarity depths function &rest more-functions)
   (let ((flist (cons depths (if more-functions
 				(distribute-list (cons function more-functions))
@@ -161,22 +181,10 @@
       (fake-name obj)
       (slot-value obj 'name)))
 
-(defmethod description ((obj equipment))
+(defmethod description ((obj display-object))
   (if (slot-boundp obj 'description)
       (slot-value obj 'description)
       (log-to-string "a ~a" (name obj))))
-
-(defgeneric get-ascii (obj)
-  (:method ((obj actor))
-    (if *in-terminal*
-	(apply-color (display-char obj) (color obj))
-	(display-char obj)))
-  (:method ((obj equipment))
-    (if *in-terminal*
-	(apply-color (display-char obj) (color obj))
-	(display-char obj)))
-  (:method ((obj pickup))
-    (get-ascii (equipment obj))))
 
 (defgeneric death-verb (obj)
   (:method ((obj actor))
@@ -407,6 +415,15 @@
 (defactor secret-door #\S () :solid nil :health 10 :wallp t :persistent-visiblity-p t
   :interact-action-only nil)
 (defequipment weapon (statuses onetime-effects) :weaponp t)
+(defenemy shopkeeper #\U (domain (enragedp nil)) :color 'dark-purple :str 3 :dex 1 :atk '((1 8 slashing) (1 8 slashing)))
+
+(defgeneric get-ascii (obj)
+  (:method ((obj display-object))
+    (if *in-terminal*
+	(apply-color (display-char obj) (color obj))
+	(display-char obj)))
+  (:method ((obj pickup))
+    (get-ascii (equipment obj))))
 
 (defun get-loot (obj)
   (append (loop for fxn in (eval-weighted-list (loot obj))
@@ -456,15 +473,24 @@
   (let ((priority (random 3)))
     (loop for pos in region
 	  when (= (random 8) 0)
-	    collect (let ((r (random 6)))
-		      (cons (car (eval-weighted-list
-				  (cond ((<= r 3)
-					 (nth priority functions))
-					((= r 4)
-					 (nth (mod (1+ priority) 3) functions))
-					((= r 5)
-					 (nth (mod (1- priority) 3) functions)))))
-			    pos)))))
+	    do (let ((r (random 6)))
+		 (funcall (car (eval-weighted-list
+				(cond ((<= r 3)
+				       (nth priority functions))
+				      ((= r 4)
+				       (nth (mod (1+ priority) 3) functions))
+				      ((= r 5)
+				       (nth (mod (1- priority) 3) functions)))))
+			  pos)))))
+
+(defun make-shop (region functions)
+  (let ((shopkeeper (make-shopkeeper (car region))))
+    (setf (domain shopkeeper) region))
+  (loop for pos in (cdr region)
+	when (= (random 6) 0)
+	  do (let ((f (car (eval-weighted-list functions))))
+	       (when f
+		 (funcall f pos)))))
 
 (defun flatten (lst)
   (if lst
@@ -479,6 +505,7 @@
 	 (dungeon-board (flatten (append rooms corridors)))
 	 (down-ladder-pos (car dungeon-board))
 	 (up-ladder-pos (randnth (cdr dungeon-board)))
+	 (shop-p nil)
 	 (layer (make-instance
 		 'layer
 		 :up-ladder-pos up-ladder-pos
@@ -495,9 +522,12 @@
     (setf (pos *player*) up-ladder-pos)
     (setf (direction (make-ladder down-ladder-pos)) 1)
     (setf (direction (make-ladder up-ladder-pos)) -1)
-    (loop for room in rooms
-	  do (loop for actor-data in (populate room (spawn-list depth))
-		   do (funcall (car actor-data) (cdr actor-data))))
+    (mapc (lambda (r)
+	    (if (and (= 0 (random 8)) (not shop-p))
+		(progn (setf shop-p t)
+		       (make-shop r (shop-list)))
+		(populate r (spawn-list depth))))
+	  rooms)
     ;; Create secret doors
     (flet ((board-member (&rest points)
 	     (member (apply #'add-pos points) dungeon-board :test #'equal)))
@@ -1113,6 +1143,9 @@
 	     (has-los (pos obj) (pos *player*) 4))
 	(attack obj *player* :rangedp (> (distance (pos obj) (pos *player*)) 1))
 	(move obj (step-towards *player* obj))))
+  (:method :around ((obj shopkeeper))
+    (when (enragedp obj)
+      (call-next-method)))
   (:method ((obj player))
     (decf (hunger *player*))
     (decf (heal-clock *player*)))    
