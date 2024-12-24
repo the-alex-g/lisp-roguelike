@@ -18,6 +18,7 @@
 (defclass equipment (display-object stat-object)
   ((atk :initform '(1 bludgeoning) :accessor atk :initarg :atk)
    (weaponp :initform nil :accessor weaponp :initarg :weaponp)
+   (price :initform 2 :accessor price :initarg :price)
    (breakable :initform nil :accessor breakable :initarg :breakable)
    (throw-distance :initform 2
 		   :accessor throw-distance :initarg :throw-distance)

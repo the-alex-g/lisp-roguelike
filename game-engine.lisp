@@ -415,7 +415,8 @@
 (defactor secret-door #\S () :solid nil :health 10 :wallp t :persistent-visiblity-p t
   :interact-action-only nil)
 (defequipment weapon (statuses onetime-effects) :weaponp t)
-(defenemy shopkeeper #\U (domain (enragedp nil)) :color 'dark-purple :str 3 :dex 1 :atk '((1 8 slashing) (1 8 slashing)))
+(defenemy shopkeeper #\U (domain (enragedp nil)) :color 'dark-purple :str 3 :dex 1
+  :atk '((1 8 slashing) (1 8 slashing)) :health (+ 12 (roll 6) (roll 6)) :xp 20)
 
 (defgeneric get-ascii (obj)
   (:method ((obj display-object))
@@ -775,10 +776,11 @@
 	      (list (atk weapon)))
 	  (if (listp (car (atk obj)))
 	      (loop for atk in (atk obj)
-		    if rangedp
-		      when (rangedp atk)
+		    when rangedp
+		      if (rangedp atk)
 			collect atk
-		    else collect atk)
+		    unless rangedp
+		      collect atk)
 	      (if rangedp
 		  (when (rangedp (atk obj))
 		    (list (atk obj)))
@@ -887,12 +889,8 @@
   (get-item-from-list
    (short-inventory)
    :naming-function (lambda (i)
-		      (log-to-string "~a~a"
-				     (if (> (num-in-inventory i) 1)
-					 (log-to-string
-					  "~dx "
-					  (num-in-inventory i))
-					 "")
+		      (log-to-string "~[~;~:;~:*~dx ~]~a"
+				     (num-in-inventory i)
 				     (name i)))))
 
 (defmacro with-item-from-inventory (&body body)
@@ -967,7 +965,34 @@
 	  when (add-to-inventory item)
 	    do (print-to-log "you have picked up a ~a~&" (name item))))
   (:method ((a enemy) (b player))
-    (attack a b)))
+    (attack a b))
+  (:method ((a player) (b shopkeeper))
+    (if (enragedp b)
+	(attack a b)
+	(let ((choice (get-item-from-list '(sell checkout attack haggle))))
+	  (cond ((eq choice 'attack)
+		 (setf (enragedp b) t)
+		 (attack a b))
+		((eq choice 'checkout)
+		 (print-to-log "checking out"))
+		((eq choice 'sell)
+		 (if (= (length *inventory*) 0)
+		     (print-to-log "you have nothing to sell")
+		     (let ((item (get-item-from-list
+				  (short-inventory)
+				  :naming-function (lambda (i)
+						     (log-to-string "~[~;~:;~:*~dx ~]~a (~d gold)"
+								    (num-in-inventory i)
+								    (name i)
+								    (ash (price i) -1))))))
+		       (when item
+			 (if (> (price item) 0)
+			     (progn (incf *gold* (ash (price item) -1))
+				    (remove-from-inventory item)
+				    (print-to-log "you sold ~a for ~d gold"
+						  (name item)
+						  (ash (price item) -1)))
+			     (print-to-log "you can't sell that")))))))))))
 
 (defgeneric visiblep (obj)
   (:method :around (obj)
