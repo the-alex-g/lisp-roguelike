@@ -13,6 +13,7 @@
 (defclass stat-object (destructible-object)
   ((def :initform 0 :accessor def :initarg :def)
    (str :initform 0 :accessor str :initarg :str)
+   (cha :initform 0 :accessor cha :initarg :cha)
    (dex :initform 0 :accessor dex :initarg :dex)))
 
 (defclass equipment (display-object stat-object)
@@ -29,6 +30,7 @@
    (container :initform nil :accessor container)
    (fake-name :accessor fake-name :initarg :fake-name)
    (equip-slot :initform 'hand :accessor equip-slot :initarg :equip-slot)
+   (shopkeeper :initform nil :accessor shopkeeper)
    ;; set new initforms
    (display-char :initform #\*)
    (health :initform 0)))

@@ -25,8 +25,6 @@
 (defparameter *shop-table* (make-hash-table))
 (defparameter *gold* 10)
 
-(setf (gethash 'rare *shop-table*) (list #'print))
-
 (defun game-date ()
   (let ((*player-actions* (ash *player-actions* -4)))
     (format nil "~d-~d"
@@ -137,21 +135,24 @@
 	  (get-list-from-table *monster-spawn-table*)
 	  (get-list-from-table *trap-spawn-table*))))
 
-(defun shop-list ()
-  (let ((rare (gethash 'rare *shop-table*))
-	(common (gethash 'common *shop-table*))
-	(uncommon (gethash 'uncommon *shop-table*))
-	(legendary (gethash 'legendary *shop-table*))
-	(amount 10)
-	(total 0))
-    (loop for sub-list in (list legendary rare uncommon common)
-	  when sub-list
-	    if (<= amount 30)
-	      collect (cons amount (distribute-list sub-list))
-	      and do (incf total amount)
-	  else collect (cons (- 100 total)
-			     (distribute-list sub-list))
-	  do (incf amount 10))))
+(let ((shop-list-value ()))
+  (defun shop-list ()
+    (unless shop-list-value
+      (let ((rare (gethash 'rare *shop-table*))
+	    (common (gethash 'common *shop-table*))
+	    (uncommon (gethash 'uncommon *shop-table*))
+	    (legendary (gethash 'legendary *shop-table*))
+	    (amount 10)
+	    (total 0))
+	(setf shop-list-value (loop for sub-list in (list legendary rare uncommon common)
+				    when sub-list
+				      if (<= amount 30)
+					collect (cons amount (distribute-list sub-list))
+					and do (incf total amount)
+				    else collect (cons (- 100 total)
+						       (distribute-list sub-list))
+				    do (incf amount 10)))))
+    shop-list-value))
 
 (defun add-to-spawn (list rarity depths function &rest more-functions)
   (let ((flist (cons depths (if more-functions
@@ -162,7 +163,8 @@
 	  ((eq list 'treasure)
 	   (push flist (gethash rarity *treasure-spawn-table*)))
 	  ((eq list 'trap)
-	   (push flist (gethash rarity *trap-spawn-table*))))))
+	   (push flist (gethash rarity *trap-spawn-table*)))))
+  function)
 
 (defgeneric containedp (obj)
   (:method ((obj equipment))
@@ -175,11 +177,14 @@
 					   (incf *player-actions*) t))))
 
 (defmethod name ((obj equipment))
-  (if (and (or (secretp obj)
-	       (not (identifiedp obj)))
-	   (slot-boundp obj 'fake-name))
-      (fake-name obj)
-      (slot-value obj 'name)))
+  (let ((base-name (if (and (or (secretp obj)
+				(not (identifiedp obj)))
+			    (slot-boundp obj 'fake-name))
+		       (fake-name obj)
+		       (slot-value obj 'name))))
+    (if (shopkeeper obj)
+	(log-to-string "~a (~d gold)" base-name (price obj))
+	base-name)))
 
 (defmethod description ((obj display-object))
   (if (slot-boundp obj 'description)
@@ -191,6 +196,12 @@
     "destroying")
   (:method ((obj combat-entity))
     "killing"))
+
+(defmethod price ((obj equipment))
+  (let ((base-price (slot-value obj 'price)))
+    (if (shopkeeper obj)
+	(max (- base-price (haggle (shopkeeper obj))) (ash base-price -1) 1)
+	base-price)))
 
 (defmethod name ((obj pickup))
   (name (equipment obj)))
@@ -214,7 +225,7 @@
 					  (slot-value qpmnt (quote ,name))))))))
 		 (defmethod (setf,name) (new-val (obj combat-entity))
 		   (setf (slot-value obj (quote ,name)) new-val)))))
-      '(def str health dex)) ; this is the list of stats
+      '(def str health dex cha)) ; this is the list of stats
 
 (defmethod (setf xp) (value (obj player))
   (setf (slot-value obj 'xp) value)
@@ -415,8 +426,9 @@
 (defactor secret-door #\S () :solid nil :health 10 :wallp t :persistent-visiblity-p t
   :interact-action-only nil)
 (defequipment weapon (statuses onetime-effects) :weaponp t)
-(defenemy shopkeeper #\U (domain (enragedp nil)) :color 'dark-purple :str 3 :dex 1
-  :atk '((1 8 slashing) (1 8 slashing)) :health (+ 12 (roll 6) (roll 6)) :xp 20)
+(defenemy shopkeeper #\U (domain (enragedp nil) goods (haggle 0) (haggle-count 0))
+  :color 'dark-purple :str 3 :dex 1
+  :atk '((1 8 slashing) (1 8 slashing)) :health (+ 12 (roll 6) (roll 6)) :xp 20 :cha 4)
 
 (defgeneric get-ascii (obj)
   (:method ((obj display-object))
@@ -485,13 +497,28 @@
 			  pos)))))
 
 (defun make-shop (region functions)
-  (let ((shopkeeper (make-shopkeeper (car region))))
-    (setf (domain shopkeeper) region))
-  (loop for pos in (cdr region)
-	when (= (random 6) 0)
-	  do (let ((f (car (eval-weighted-list functions))))
-	       (when f
-		 (funcall f pos)))))
+  (let ((shopkeeper (make-shopkeeper (cadr region))))
+    (setf (domain shopkeeper) (loop for p in region
+				    maximize (car p) into max-x
+				    maximize (cdr p) into max-y
+				    minimize (car p) into min-x
+				    minimize (cdr p) into min-y
+				    finally (return (cons (cons min-x min-y) (cons max-x max-y)))))
+    (loop for pos in (cddr region)
+	  when (and (= (random 3) 0)
+		    (< (distance (pos shopkeeper) pos) 6))
+	    do (let ((f (car (eval-weighted-list functions))))
+		 (when f
+		   (push (funcall f pos shopkeeper) (goods shopkeeper)))))))
+
+(defun add-to-shop (rarity &rest functions)
+  (mapc (lambda (fxn)
+	  (push (lambda (pos shopkeeper)
+		  (let ((pickup (funcall fxn pos)))
+		    (setf (shopkeeper (equipment pickup)) shopkeeper)
+		    (equipment pickup)))
+		(gethash rarity *shop-table*)))
+	functions))
 
 (defun flatten (lst)
   (if lst
@@ -524,7 +551,7 @@
     (setf (direction (make-ladder down-ladder-pos)) 1)
     (setf (direction (make-ladder up-ladder-pos)) -1)
     (mapc (lambda (r)
-	    (if (and (= 0 (random 8)) (not shop-p))
+	    (if (not shop-p);(and (= 0 (random 8)) (not shop-p))
 		(progn (setf shop-p t)
 		       (make-shop r (shop-list)))
 		(populate r (spawn-list depth))))
@@ -544,6 +571,10 @@
 			   #\-))))
     (push layer *layers*)
     layer))
+
+(defun inventory-checkedout-p ()
+  (loop for item in *inventory*
+	never (shopkeeper item)))
 
 (defun names-equal-p (a b)
   (string= (log-to-string "~a" (name a))
@@ -591,6 +622,12 @@
 	       (make-pickup item (pos *player*))
 	       nil))))
 
+(defun reorder-inventory ()
+  (let ((old-inventory *inventory*))
+    (setf *inventory* nil)
+    (loop for item in old-inventory
+	  do (add-to-inventory item))))
+
 (defgeneric identify (obj)
   (:method ((obj equipment))
     (setf (identifiedp obj) t)))
@@ -625,7 +662,11 @@
     (remove-from-inventory obj))
   (:method ((obj status))
     (on-removed obj)
-    (setf *statuses* (remove obj *statuses* :test #'equal))))
+    (setf *statuses* (remove obj *statuses* :test #'equal)))
+  (:method ((obj shopkeeper))
+    (loop for item in (goods obj)
+	  do (setf (shopkeeper item) nil))
+    (call-next-method)))
 
 (defgeneric equip (item obj)
   (:method ((item equipment) (obj combat-entity))
@@ -633,7 +674,8 @@
       (setf (gethash (equip-slot item) (equips obj)) item)
       old-item))
   (:method :around ((item equipment) (obj combat-entity))
-    (if (eq (equip-slot item) 'none)
+    (if (or (eq (equip-slot item) 'none)
+	    (shopkeeper item))
 	(progn (print-to-log "That cannot be equipped")
 	       'failed)
 	(when (next-method-p)
@@ -828,11 +870,12 @@
   (list
    (apply-color (log-to-string "~a (~c)" (name *player*) (display-char *player*))
 		(color *player*))
-   (log-to-string "str: ~2d dex: ~2d" (str *player*) (dex *player*))
-   (log-to-string "def: ~2d atk: ~{~a ~}" (def *player*)
+   (log-to-string "str: ~@d dex: ~@d cha: ~@d" (str *player*) (dex *player*) (cha *player*))
+   (log-to-string "def: ~2d atk: ~{~a~^ ~}" (def *player*)
 		  (car (get-attacks *player* :for-display t)))
    (log-to-string "health: ~d/~d" (health *player*) (max-health *player*))
    (log-to-string "xp: ~d/~d" (xp *player*) (xp-bound *player*))
+   (log-to-string "gold: ~d" *gold*)
    (log-to-string "hunger: ~{~c~}" (loop for x below 10
 					 collect (if (<= x (ash (hunger *player*) -3))
 						     #\/
@@ -974,19 +1017,56 @@
 		 (setf (enragedp b) t)
 		 (attack a b))
 		((eq choice 'checkout)
-		 (print-to-log "checking out"))
+		 (let ((items-to-checkout ())
+		       (total-cost 0))
+		   (loop for item in *inventory*
+			 when (shopkeeper item)
+			   do (progn (incf total-cost (price item))
+				     (push item items-to-checkout)))
+		   (if (<= total-cost *gold*)
+		       (progn (decf *gold* total-cost)
+			      (apply #'print-to-log
+				     "you bought ~#[nothing~;~a~;~a and ~a~:;~@{~#[~;and ~]~a~^, ~}~]"
+				     (loop for item in items-to-checkout
+					   do (setf (shopkeeper item) nil)
+					   collect (name item)))
+			      (reorder-inventory))
+		       (print-to-log "you do not have enough gold to pay for everything"))))
+		((eq choice 'haggle)
+		 (if (= (haggle-count b) -1)
+		     (print-to-log "the ~a says that prices are final" (name b))
+		     (let ((haggle-val (- (+ (roll 20) (cha *player*))
+					  (+ (roll 20) (cha b)))))
+		       (cond ((> haggle-val 3)
+			      (setf (haggle b) (- haggle-val 3))
+			      (print-to-log "the ~a has lowered its prices by ~d"
+					    (name b)
+					    (haggle b)))
+			     ((< haggle-val -3)
+			      (setf (haggle b) (+ haggle-val 3))
+			      (print-to-log "the ~a has raised its prices by ~d"
+					    (name b)
+					    (abs (haggle b))))
+			     (t
+			      (print-to-log "the ~a refuses to haggle" (name b))))
+		       (incf (haggle-count b))
+		       (when (< (random 8) (haggle-count b))
+			 (print-to-log "the ~a says that prices are final" (name b))
+			 (setf (haggle-count b) -1)))))
 		((eq choice 'sell)
 		 (if (= (length *inventory*) 0)
 		     (print-to-log "you have nothing to sell")
 		     (let ((item (get-item-from-list
-				  (short-inventory)
+				  (loop for item in (short-inventory)
+					unless (shopkeeper item)
+					  collect item)
 				  :naming-function (lambda (i)
 						     (log-to-string "~[~;~:;~:*~dx ~]~a (~d gold)"
 								    (num-in-inventory i)
 								    (name i)
 								    (ash (price i) -1))))))
 		       (when item
-			 (if (> (price item) 0)
+			 (if (>= (price item) 2)
 			     (progn (incf *gold* (ash (price item) -1))
 				    (remove-from-inventory item)
 				    (print-to-log "you sold ~a for ~d gold"
@@ -1114,7 +1194,24 @@
 		  unless (interact-action-only actor)
 		    do (interact obj actor))))))
   (:method ((obj player) (distance list))
-    (call-next-method)
+    (if (inventory-checkedout-p)
+	(call-next-method)
+	(let ((shopkeeper (loop for item in *inventory*
+				when (shopkeeper item)
+				  return (shopkeeper item)))
+	      (newpos (add-pos (pos obj) distance)))
+	  (if (or (< (car newpos) (caar (domain shopkeeper)))
+		  (< (cdr newpos) (cdar (domain shopkeeper)))
+		  (> (car newpos) (cadr (domain shopkeeper)))
+		  (> (cdr newpos) (cddr (domain shopkeeper))))
+	      (progn (print-to-screen "if you take this move, you will be stealing~%~
+do you want to continue (y/N)")
+		     (when (eq (custom-read-char) #\y)
+		       (setf (enragedp shopkeeper) t)
+		       (loop for item in *inventory*
+			     do (setf (shopkeeper item) nil))
+		       (call-next-method)))
+	      (call-next-method))))
     (update-los)))
 
 ;;; Use breadth-first search to find shortest path between the two input points
@@ -1288,8 +1385,8 @@
   (decf (xp *player*) (xp-bound *player*))
   (incf (xp-bound *player*) (xp-bound *player*))
   (let ((health-increase (roll 10))
-	(stat (get-item-from-list '(dex str)
-					  :what "stat" :exit-option nil)))
+	(stat (get-item-from-list '(dex str cha)
+					  :what "stat to increase" :exit-option nil)))
     (incf (max-health *player*) health-increase)
     (incf (health *player*) health-increase)
     (eval `(incf (,stat *player*))))

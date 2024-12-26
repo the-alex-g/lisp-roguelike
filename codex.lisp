@@ -84,6 +84,7 @@
   :description "thick strands of webbing")
 
 ;;; DEFINE EQUIPMENT ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(add-to-shop 'common
 (add-to-spawn
  'treasure 'common "1+"
  (defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp 0))
@@ -91,24 +92,11 @@
    :description "food"))
 (defequipment rat-meat () :hunger (+ 10 (random 6)) :secretp t
   :inherit food :description "rat meat")
-(defequipment poison-rat-meat () :poisonp t
-  :health (roll 3) :hunger (+ 6 (random 4))
-  :inherit rat-meat :fake-name "rat meat")
-(defequipment glowing-mushrooms ()
-  :throw-distance 3 :hunger (+ 8 (random 6)) :inherit food
-  :description "a clump of glowing mushrooms" :burn-time (roll 10))
-(defpotion explosive-potion ((explode-damage (+ (roll 4) (roll 4)))))
-(defpotion healing-potion () :health (+ (roll 4) (roll 4)))
-(defpotion poison-potion () :health (+ (roll 4) (roll 4)))
 (add-to-spawn
  'treasure 'uncommon "1+"
  (defequipment faggot () :burn-time (+ 10 (random 11)) :atk '(1 2 bludgeoning)
   :weaponp t))
 (defequipment coal () :burn-time (+ 20 (random 11)))
-(add-to-spawn 'treasure 'common "1+"
-	      (defherb healing-herb :health (roll 4))
-	      (defherb poison-herb :health (roll 4)))
-(defequipment ranged-weapon (range) :dex -2 :inherit weapon)
 (defequipment bow () :atk '(1 4 piercing ranged) :range 4 :burn-time 10
   :description "a bow" :inherit ranged-weapon)
 (defequipment dagger nil :atk '(1 4 piercing) :description "a dagger"
@@ -120,7 +108,20 @@
 (defequipment rusty-sword nil :atk '(1 6 -1 slashing)
   :description "a rusty sword" :inherit weapon)
 (defequipment leather-armor nil :def 1
-  :description "leather armor" :equip-slot 'body)
+  :description "leather armor" :equip-slot 'body))
+(defequipment poison-rat-meat () :poisonp t
+  :health (roll 3) :hunger (+ 6 (random 4))
+  :inherit rat-meat :fake-name "rat meat")
+(defequipment ranged-weapon (range) :dex -2 :inherit weapon)
+(add-to-spawn 'treasure 'common "1+"
+	      (defherb healing-herb :health (roll 4))
+	      (defherb poison-herb :health (roll 4)))
+(defpotion explosive-potion ((explode-damage (+ (roll 4) (roll 4)))))
+(defpotion healing-potion () :health (+ (roll 4) (roll 4)))
+(defpotion poison-potion () :health (+ (roll 4) (roll 4)))
+(defequipment glowing-mushrooms ()
+  :throw-distance 3 :hunger (+ 8 (random 6)) :inherit food
+  :description "a clump of glowing mushrooms" :burn-time (roll 10))
 
 ;;; DEFINE MONSTERS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
