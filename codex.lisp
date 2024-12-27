@@ -33,7 +33,7 @@
 (defequipment bottle (contents) :breakable t :throw-distance 3)
 (defmacro defpotion (name new-slots &rest slots)
   `(progn (define-secret-equipment (list *color-list* (list "potion"))
-	    ,name ,new-slots
+	    ,name ,new-slots :color (car chosen-variations)
 	    :inherit potion :breakable t ,@slots)
 	  (let ((old-function #',(constructor name)))
 	    (setf (fdefinition (quote ,(constructor name)))
@@ -42,7 +42,9 @@
 			(funcall old-function)
 			(let ((bottle (make-bottle)))
 			  (setf (contents bottle) (funcall old-function))
-			  bottle)))))))
+			  bottle)))))
+	  ;; return the make-name-pickup function
+	  #',(read-from-string (format nil "make-~a-pickup" (symbol-name name)))))
 
 ;;; DEFINE STATUSES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -85,30 +87,34 @@
 
 ;;; DEFINE EQUIPMENT ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-shop 'common
-(add-to-spawn
- 'treasure 'common "1+"
- (defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp 0))
-   :health (if (= (random 5) 0) 1 0) :consumable t
-   :description "food"))
-(defequipment rat-meat () :hunger (+ 10 (random 6)) :secretp t
-  :inherit food :description "rat meat")
-(add-to-spawn
- 'treasure 'uncommon "1+"
- (defequipment faggot () :burn-time (+ 10 (random 11)) :atk '(1 2 bludgeoning)
-  :weaponp t))
-(defequipment coal () :burn-time (+ 20 (random 11)))
-(defequipment bow () :atk '(1 4 piercing ranged) :range 4 :burn-time 10
-  :description "a bow" :inherit ranged-weapon)
-(defequipment dagger nil :atk '(1 4 piercing) :description "a dagger"
-  :inherit weapon)
-(defequipment sword nil :atk '(1 6 slashing)
-  :description "a sword" :inherit weapon)
-(defequipment big-sword nil :atk '(1 8 slashing)
-  :description "a big sword" :inherit weapon)
-(defequipment rusty-sword nil :atk '(1 6 -1 slashing)
-  :description "a rusty sword" :inherit weapon)
-(defequipment leather-armor nil :def 1
-  :description "leather armor" :equip-slot 'body))
+	     (defequipment identify-scroll () :consumable t)
+	     (add-to-spawn
+	      'treasure 'common "1+"
+	      (defequipment food ((hunger (+ 20 (random 11))) (poisonp nil) (cookedp 0))
+		:health (if (= (random 5) 0) 1 0) :consumable t
+		:description "food"))
+	     (defequipment rat-meat () :hunger (+ 10 (random 6)) :secretp t
+				       :inherit food :description "rat meat")
+	     (add-to-spawn
+	      'treasure 'uncommon "1+"
+	      (defequipment faggot () :burn-time (+ 10 (random 11)) :atk '(1 2 bludgeoning)
+				      :weaponp t))
+	     (defequipment coal () :burn-time (+ 20 (random 11)))
+	     (defequipment bow () :atk '(1 4 piercing ranged) :range 4 :burn-time 10
+				  :description "a bow" :inherit ranged-weapon)
+	     (defequipment dagger nil :atk '(1 4 piercing) :description "a dagger"
+				      :inherit weapon)
+	     (defequipment sword nil :atk '(1 6 slashing)
+				     :description "a sword" :inherit weapon)
+	     (defequipment big-sword nil :atk '(1 8 slashing)
+					 :description "a big sword" :inherit weapon)
+	     (defequipment rusty-sword nil :atk '(1 6 -1 slashing)
+					   :description "a rusty sword" :inherit weapon)
+	     (defequipment leather-armor nil :def 1
+					     :description "leather armor" :equip-slot 'body)
+	     (defpotion explosive-potion ((explode-damage (+ (roll 4) (roll 4)))))
+	     (defpotion healing-potion () :health (+ (roll 4) (roll 4)))
+	     (defpotion poison-potion () :health (+ (roll 4) (roll 4))))
 (defequipment poison-rat-meat () :poisonp t
   :health (roll 3) :hunger (+ 6 (random 4))
   :inherit rat-meat :fake-name "rat meat")
@@ -116,9 +122,6 @@
 (add-to-spawn 'treasure 'common "1+"
 	      (defherb healing-herb :health (roll 4))
 	      (defherb poison-herb :health (roll 4)))
-(defpotion explosive-potion ((explode-damage (+ (roll 4) (roll 4)))))
-(defpotion healing-potion () :health (+ (roll 4) (roll 4)))
-(defpotion poison-potion () :health (+ (roll 4) (roll 4)))
 (defequipment glowing-mushrooms ()
   :throw-distance 3 :hunger (+ 8 (random 6)) :inherit food
   :description "a clump of glowing mushrooms" :burn-time (roll 10))

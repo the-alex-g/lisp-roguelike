@@ -95,12 +95,20 @@
 	     (setf (contents item) nil))
       (call-next-method)))
 
+(defmethod (setf identifiedp) (new-val (obj bottle))
+  (setf (identifiedp (contents obj)) new-val))
+
 (defmethod (setf contents) ((new-val equipment) (obj bottle))
   (setf (slot-value obj 'contents) new-val)
   (setf (container new-val) obj))
 
 (defmethod (setf contents) (new-val (obj bottle))
   (setf (slot-value obj 'contents) nil))
+
+(defmethod color ((obj bottle))
+  (if (contents obj)
+      (color (contents obj))
+      (slot-value obj 'color)))
 
 (defmethod make-pickup ((item glowing-mushrooms) pos)
   (make-glowing-mushroom-actor pos))
@@ -110,11 +118,14 @@
     (log-to-string "bottle of ~a" (name item)))
   (:method ((item potion))
     (name item)))
-    
+
 (defmethod name ((item bottle))
-  (if (contents item)
-      (bottle-name (contents item))
-      (slot-value item 'name)))
+  (let ((base-name (if (contents item)
+		       (bottle-name (contents item))
+		       (slot-value item 'name))))
+    (if (shopkeeper item)
+	(log-to-string "~a (~d gold)" base-name (price (contents item)))
+	base-name)))
 
 (defmethod throw-at ((item bottle) target)
   (when (contents item)
@@ -134,6 +145,13 @@
 			     (print-to-log "~a a ~a"
 					   (death-verb actor)
 					   (name actor)))))
+
+(defmethod throw-at ((item poison-potion) (target actor))
+  (print-to-log "the potion splashes on ~a, dealing ~d damage"
+		(name target)
+		(save 15 dex target
+		      (damage target (health item) :damage-types '(poison))
+		      (damage target (ash (health item) -1) :damage-types '(poison)))))
 
 (defmethod apply-to ((item herb) (target actor))
   (eat item target))
@@ -170,6 +188,16 @@
 			   (if (and (deadp target) (not already-dead))
 			       (print-to-log "the ~a dies" (name target))))))
 	 (onetime-effects to)))
+
+(defmethod apply-to ((item identify-scroll) (to pickup))
+  (apply-to item (equipment to)))
+
+(defmethod apply-to ((item identify-scroll) (to equipment))
+  (if (identifiedp to)
+      (let ((old-name (name to)))
+	(setf (identifiedp to) t)
+	(print-to-log "the ~a has been revealed to be a ~a" old-name (name to)))
+      (print-to-log "there is nothing hidden about that object")))
 
 (defmethod interact ((a player) (b trap))
   (when (> (trigger-chance b) (random 100))

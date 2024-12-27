@@ -154,6 +154,16 @@
 				    do (incf amount 10)))))
     shop-list-value))
 
+(defun add-to-shop (rarity &rest functions)
+  (mapc (lambda (fxn)
+	  (push (lambda (pos shopkeeper)
+		  (let ((pickup (funcall fxn pos)))
+		    (setf (shopkeeper (equipment pickup)) shopkeeper)
+		    (equipment pickup)))
+		(gethash rarity *shop-table*)))
+	functions)
+  (car functions))
+
 (defun add-to-spawn (list rarity depths function &rest more-functions)
   (let ((flist (cons depths (if more-functions
 				(distribute-list (cons function more-functions))
@@ -198,9 +208,12 @@
     "killing"))
 
 (defmethod price ((obj equipment))
-  (let ((base-price (slot-value obj 'price)))
-    (if (shopkeeper obj)
-	(max (- base-price (haggle (shopkeeper obj))) (ash base-price -1) 1)
+  (let ((base-price (slot-value obj 'price))
+	(shopkeeper (if (container obj)
+			(shopkeeper (container obj))
+			(shopkeeper obj))))
+    (if shopkeeper
+	(max (- base-price (haggle shopkeeper)) (ash base-price -1) 1)
 	base-price)))
 
 (defmethod name ((obj pickup))
@@ -305,8 +318,7 @@
       pickup)))
 
 (defun constructor (name)
-  (read-from-string (concatenate 'string "make-"
-				 (symbol-name name))))
+  (read-from-string (format nil "make-~a" (symbol-name name))))
 
 ;; initialize helper functions for macros
 (labels ((build-slot (slt) ; creates slot information for new slots
@@ -511,15 +523,6 @@
 		 (when f
 		   (push (funcall f pos shopkeeper) (goods shopkeeper)))))))
 
-(defun add-to-shop (rarity &rest functions)
-  (mapc (lambda (fxn)
-	  (push (lambda (pos shopkeeper)
-		  (let ((pickup (funcall fxn pos)))
-		    (setf (shopkeeper (equipment pickup)) shopkeeper)
-		    (equipment pickup)))
-		(gethash rarity *shop-table*)))
-	functions))
-
 (defun flatten (lst)
   (if lst
       (if (and (numberp (car lst)) (numberp (cdr lst)))
@@ -551,7 +554,7 @@
     (setf (direction (make-ladder down-ladder-pos)) 1)
     (setf (direction (make-ladder up-ladder-pos)) -1)
     (mapc (lambda (r)
-	    (if (not shop-p);(and (= 0 (random 8)) (not shop-p))
+	    (if (and (= 0 (random 8)) (not shop-p))
 		(progn (setf shop-p t)
 		       (make-shop r (shop-list)))
 		(populate r (spawn-list depth))))
@@ -575,6 +578,11 @@
 (defun inventory-checkedout-p ()
   (loop for item in *inventory*
 	never (shopkeeper item)))
+
+(defun inventory-cost ()
+  (loop for item in *inventory*
+	when (shopkeeper item)
+	  sum (price item)))
 
 (defun names-equal-p (a b)
   (string= (log-to-string "~a" (name a))
@@ -686,7 +694,8 @@
     (when (secretp item)
       (setf (secretp item) nil)))
   (:method :around ((item equipment) target)
-    (if (consumable item)
+    (if (and (consumable item)
+	     (not (shopkeeper item)))
 	(progn (unless (containedp item)
 		 (destroy item)) ; destroy first to ensure correct removal
 	       (call-next-method))
@@ -875,7 +884,7 @@
 		  (car (get-attacks *player* :for-display t)))
    (log-to-string "health: ~d/~d" (health *player*) (max-health *player*))
    (log-to-string "xp: ~d/~d" (xp *player*) (xp-bound *player*))
-   (log-to-string "gold: ~d" *gold*)
+   (log-to-string "gold: ~d~[~:;~:* (~d of shop items)~]" *gold* (inventory-cost))
    (log-to-string "hunger: ~{~c~}" (loop for x below 10
 					 collect (if (<= x (ash (hunger *player*) -3))
 						     #\/
@@ -1012,17 +1021,18 @@
   (:method ((a player) (b shopkeeper))
     (if (enragedp b)
 	(attack a b)
-	(let ((choice (get-item-from-list '(sell checkout attack haggle))))
+	(let ((choice (get-item-from-list (if (= (haggle-count b) -1)
+					      '(sell checkout attack)
+					      '(sell checkout attack haggle)))))
 	  (cond ((eq choice 'attack)
 		 (setf (enragedp b) t)
 		 (attack a b))
 		((eq choice 'checkout)
 		 (let ((items-to-checkout ())
-		       (total-cost 0))
+		       (total-cost (inventory-cost)))
 		   (loop for item in *inventory*
 			 when (shopkeeper item)
-			   do (progn (incf total-cost (price item))
-				     (push item items-to-checkout)))
+			   do (push item items-to-checkout))
 		   (if (<= total-cost *gold*)
 		       (progn (decf *gold* total-cost)
 			      (apply #'print-to-log
