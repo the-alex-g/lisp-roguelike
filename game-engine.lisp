@@ -1164,6 +1164,22 @@
     (unless (breakable item)
       (make-pickup item (pos target)))))
 
+(defun look (at)
+  (let ((actors (find-all-actors-at (add-pos (pos *player*) at)
+				    *player*)))
+    (if actors
+	(let ((something-found-p nil))
+	  (mapc (lambda (actor)
+		  (let ((d (description actor)))
+		    (unless (hiddenp actor)
+		      (setf something-found-p t)
+		      (when d
+			(print-to-log "You see ~a" d)))))
+		actors)
+	  (unless something-found-p
+	    (print-to-log "there's nothing there")))
+	(print-to-log "there's nothing there"))))
+
 (defun find-solid-actor-at (a &rest actors-to-ignore)
   (loop for actor in (apply #'find-all-actors-at a actors-to-ignore)
 	when (solid actor)
@@ -1215,13 +1231,13 @@
 		  (> (car newpos) (cadr (domain shopkeeper)))
 		  (> (cdr newpos) (cddr (domain shopkeeper))))
 	      (progn (print-to-screen "if you take this move, you will be stealing~%~
-do you want to continue (y/N)")
+                                       do you want to continue (y/N)")
 		     (when (eq (custom-read-char) #\y)
 		       (setf (enragedp shopkeeper) t)
 		       (loop for item in *inventory*
 			     do (setf (shopkeeper item) nil))
 		       (call-next-method)))
-	      (call-next-method))))
+	      (call-next-method)))) 
     (update-los)))
 
 ;;; Use breadth-first search to find shortest path between the two input points

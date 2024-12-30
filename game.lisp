@@ -378,22 +378,9 @@
   (with-item-from-inventory (eat item *player*)))
 (defaction #\v "print inventory" (print-inventory))
 (defaction #\l "look"
-    (let ((position (get-direction :include-zero t)))
-      (when position
-	(let ((actors (find-all-actors-at (add-pos (pos *player*) position)
-					  *player*)))
-	  (if actors
-	      (let ((something-found-p nil))
-		(mapc (lambda (actor)
-			(let ((d (description actor)))
-			  (unless (hiddenp actor)
-			    (setf something-found-p t)
-			    (when d
-			      (print-to-log "You see ~a" d)))))
-		      actors)
-		(unless something-found-p
-		  (print-to-log "there's nothing there")))
-	      (print-to-log "there's nothing there"))))))
+  (let ((position (get-direction :include-zero t)))
+    (when position
+      (look position))))
 (defaction #\u "unequip an item"
   (let ((item (get-item-from-list
 	       (loop for x being the hash-values of (equips *player*)
