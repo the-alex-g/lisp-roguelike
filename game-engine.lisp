@@ -913,7 +913,7 @@
 	     (if l
 		 (let ((n (funcall naming-function (car l))))
 		   (if n
-		       (progn (print-to-screen "~%~d) ~a" i n)
+		       (progn (print-to-screen "~%~2t~d) ~a" i n)
 			      (print-list (cdr l) (1+ i) (cons (car l) new-list)))
 		       (print-list (cdr l) i new-list)))
 		 (reverse new-list)))
@@ -934,7 +934,7 @@
 		      (pick-item))))))
     (setf lst (print-list lst 0 nil))
     (when exit-option
-      (print-to-screen "~%~d) cancel" (length lst)))
+      (print-to-screen "~%~2t~d) cancel" (length lst)))
     (pick-item)))
 
 (defun get-item-from-inventory ()
@@ -1006,7 +1006,7 @@
 	  (print-to-log "you climb down the ladder to the next dungeon level"))))
   (:method ((a player) (b pickup))
     (when (add-to-inventory (equipment b))
-      (print-to-log "You have picked up a ~a~&" (name b))))
+      (print-to-log "You have picked up a ~a" (name b))))
   (:method ((a player) (b secret-door))
     (unless (eq (color b) 'grey)
       (setf (color b) 'grey)
@@ -1015,7 +1015,7 @@
   (:method ((a player) (b corpse))
     (loop for item in (loot b)
 	  when (add-to-inventory item)
-	    do (print-to-log "you have picked up a ~a~&" (name item))))
+	    do (print-to-log "you have picked up a ~a" (name item))))
   (:method ((a enemy) (b player))
     (attack a b))
   (:method ((a player) (b shopkeeper))
@@ -1430,7 +1430,7 @@
     (when *level-up-pending*
       (level-up))
     (if (deadp *player*)
-	(print-to-screen "~%~a has died.~%~%" (name *player*))
+	(print-to-screen "~%~a has died.~2%" (name *player*))
 	(game-loop (custom-read-char)))))
 
 (defun create-new-player ()
