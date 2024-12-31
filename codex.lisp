@@ -125,12 +125,14 @@
 (defequipment glowing-mushrooms ()
   :throw-distance 3 :hunger (+ 8 (random 6)) :inherit food
   :description "a clump of glowing mushrooms" :burn-time (roll 10))
+(defequipment gold ((amount (roll 6))))
 
 ;;; DEFINE MONSTERS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (add-to-spawn
  'monster 'common (layers 'below 0 'excluding *undead-layer*)
  (defenemy goblin #\g () :equips #'make-dagger :health (1+ (roll 3))
 			 :str -1 :dex 1 :color 'green
+			 :loot '((80 make-gold))
 			 :xp 3 :description "a goblin with a sharp dagger"))
 
 (add-to-spawn
@@ -158,9 +160,7 @@
  'monster 'common (layers 'on *undead-layer*)
  (defenemy skeleton #\s () :health (roll 6) :equips #'make-rusty-sword
 			   :vulnerable '(bludgeoning holy) :xp 2
-			   :description "a skeleton with a rusty sword"))
-(add-to-spawn
- 'monster 'common (layers 'on *undead-layer*)
+			   :description "a skeleton with a rusty sword")
  (defenemy zombie #\z () :health (+ 4 (roll 6)) :xp 4
 			 :atk '(1 6 bludgeoning) :spd 2 :dex -2 :str 1
 			 :vulnerable 'holy :description "a rotting zombie"))

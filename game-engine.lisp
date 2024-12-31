@@ -23,7 +23,7 @@
 (defparameter *treasure-spawn-table* (make-hash-table))
 (defparameter *trap-spawn-table* (make-hash-table))
 (defparameter *shop-table* (make-hash-table))
-(defparameter *gold* 10)
+(defparameter *gold* 0)
 
 (defun game-date ()
   (let ((*player-actions* (ash *player-actions* -4)))
@@ -614,21 +614,22 @@
   (loop for i in *inventory*
 	count (names-equal-p i item)))
 
-(defun add-to-inventory (item)
-  (let ((in-inventory (in-inventory-p item)))
-    (if (or (< (inventory-length) *inventory-size*) in-inventory)
-	(if in-inventory
-	    (setf *inventory*
-		  (loop for i in *inventory*
-			with needs-collecting = t
-			when (and needs-collecting (names-equal-p item i))
-			  collect item
-			  and do (setf needs-collecting nil)
-			collect i))
-	    (setf *inventory* (append *inventory* (list item))))
-	(progn (print-to-log "your inventory is full")
-	       (make-pickup item (pos *player*))
-	       nil))))
+(defgeneric add-to-inventory (item)
+  (:method ((item equipment))
+    (let ((in-inventory (in-inventory-p item)))
+      (if (or (< (inventory-length) *inventory-size*) in-inventory)
+	  (if in-inventory
+	      (setf *inventory*
+		    (loop for i in *inventory*
+			  with needs-collecting = t
+			  when (and needs-collecting (names-equal-p item i))
+			    collect item
+			    and do (setf needs-collecting nil)
+			  collect i))
+	      (setf *inventory* (append *inventory* (list item))))
+	  (progn (print-to-log "your inventory is full")
+		 (make-pickup item (pos *player*))
+		 nil)))))
 
 (defun reorder-inventory ()
   (let ((old-inventory *inventory*))

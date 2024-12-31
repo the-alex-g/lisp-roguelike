@@ -8,6 +8,11 @@
 	    (t (setf (discoverable obj) nil) nil))
       (slot-value obj 'description)))
 
+(defmethod add-to-inventory ((item gold))
+  (incf *gold* (amount item))
+  (print-to-log "you have picked up ~d gold coins" (amount item))
+  nil)
+
 (defmethod update ((obj fire))
   (decf (burn-time obj))
   (loop for actor in (find-all-actors-at obj)
