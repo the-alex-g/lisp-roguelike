@@ -1,12 +1,11 @@
 (defparameter *notes* ())
 
-(defmethod description ((obj trap))
-  (if (hiddenp obj)
-      (cond ((and (discoverable obj) (>= (roll 20) 11))
-	     (print-to-log "you discovered ~a" (slot-value obj 'description))
-	     (setf (hiddenp obj) nil))
-	    (t (setf (discoverable obj) nil) nil))
-      (slot-value obj 'description)))
+(defmethod look ((at trap))
+  (if (hiddenp at)
+      (if (and (discoverable at) (check 11 #'per *player*))
+	  (setf (hiddenp at) nil))
+	  (setf (discoverable at) nil))
+      (name at))
 
 (defmethod add-to-inventory ((item gold))
   (incf *gold* (amount item))
@@ -213,11 +212,11 @@
 	      (destroy b))
 	    (print-to-log "you ~a ~a and took ~d damage"
 			  (verb b)
-			  (description b)
+			  (name b)
 			  (damage a (cadr (assoc 'dmg attack))
 				  :damage-types (cdr (assoc 'dmg-types
 							    attack)))))
-	  (print-to-log "you avoided ~a" (description b)))))
+	  (print-to-log "you avoided ~a" (name b)))))
 
 (defmethod move ((obj spider) (distance list))
   (let* ((newpos (add-pos (pos obj) distance))

@@ -1,7 +1,6 @@
 (defclass display-object ()
   ((display-char :accessor display-char :initarg :display-char :initform #\#)
    (name :initform "" :accessor name :initarg :name)
-   (description :accessor description :initarg :description)
    (color :initform 'white :accessor color :initarg :color)))
 
 (defclass destructible-object ()
@@ -14,6 +13,9 @@
   ((def :initform 0 :accessor def :initarg :def)
    (str :initform 0 :accessor str :initarg :str)
    (cha :initform 0 :accessor cha :initarg :cha)
+   (det :initform 0 :accessor det :initarg :det)
+   (intl :initform 0 :accessor intl :initarg :int)
+   (per :initform 0 :accessor per :initarg :per)
    (dex :initform 0 :accessor dex :initarg :dex)))
 
 (defclass equipment (display-object stat-object)

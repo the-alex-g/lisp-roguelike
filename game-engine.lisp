@@ -374,12 +374,15 @@
   ;; define class and constructor function for actor
   (defmacro defactor (name display-char new-slots
 		      &rest keys
-		      &key (inherit 'actor)
+		      &key (inherit 'actor) ((:name name-override) nil name-overriden-p)
 		      &allow-other-keys)
     (remf keys :inherit)
+    (remf keys :name)
     `(progn (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
 					     ,@(reinit-slots keys nil)
-					     (name :initform (quote ,name))
+					     ,(if name-overriden-p
+						  `(name :initform ,name-override)
+						  `(name :initform (quote ,name)))
 					     (display-char :initform ,display-char)))
 	    (defun ,(constructor name) (pos)
 	      (let ((new-actor (make-instance (quote ,name) :pos pos)))
@@ -479,14 +482,11 @@
 	"a ladder leading back up"
 	"a ladder leading down into the darkness")))
 
-(defmethod description ((obj corpse))
-  (log-to-string "a ~a corpse" (corpse-type obj)))
-
 (defmethod name ((obj corpse))
   (log-to-string "~a corpse" (corpse-type obj)))
 
 (defmethod description ((obj bones))
-  (log-to-string "~a bones" (bone-type obj)))
+  (name obj))
 
 (defmethod name ((obj bones))
   (log-to-string "~a bones" (bone-type obj)))
@@ -1156,7 +1156,7 @@
     (declare (ignore target))
     (unless (containedp item)
       (remove-from-inventory item)
-      (print-to-log "you threw ~a~%" (description item))))
+      (print-to-log "you threw ~a~%" (name item))))
   (:method ((item equipment) target))
   (:method :after ((item equipment) (target list))
     (unless (breakable item)
@@ -1165,21 +1165,23 @@
     (unless (breakable item)
       (make-pickup item (pos target)))))
 
-(defun look (at)
-  (let ((actors (find-all-actors-at (add-pos (pos *player*) at)
-				    *player*)))
-    (if actors
-	(let ((something-found-p nil))
-	  (mapc (lambda (actor)
-		  (let ((d (description actor)))
+(defgeneric look (at)
+  (:method ((at list))
+    (let ((actors (find-all-actors-at (add-pos (pos *player*) at)
+				      *player*)))
+      (if actors
+	  (let ((something-found-p nil))
+	    (mapc (lambda (actor)
+		    (look actor)
 		    (unless (hiddenp actor)
-		      (setf something-found-p t)
-		      (when d
-			(print-to-log "You see ~a" d)))))
-		actors)
-	  (unless something-found-p
-	    (print-to-log "there's nothing there")))
-	(print-to-log "there's nothing there"))))
+		      (progn (setf something-found-p t)
+			     (when (name actor)
+			       (print-to-log "You see ~a" (name actor))))))
+		  actors)
+	    (unless something-found-p
+	      (print-to-log "there's nothing there")))
+	  (print-to-log "there's nothing there"))))
+  (:method ((at actor))))
 
 (defun find-solid-actor-at (a &rest actors-to-ignore)
   (loop for actor in (apply #'find-all-actors-at a actors-to-ignore)
@@ -1189,7 +1191,7 @@
 (defun choose-actor-at (pos)
   (let ((actor-list (remove nil (loop for actor in (find-all-actors-at pos)
 				      collect (if (and (not (hiddenp actor))
-						       (description actor))
+						       (name actor))
 						  actor)))))
     (if (<= (length actor-list) 1)
 	(if (and (car actor-list) (not (hiddenp (car actor-list))))
