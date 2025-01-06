@@ -238,7 +238,12 @@
 					  (slot-value qpmnt (quote ,name))))))))
 		 (defmethod (setf,name) (new-val (obj combat-entity))
 		   (setf (slot-value obj (quote ,name)) new-val)))))
-      '(def str health dex cha)) ; this is the list of stats
+      '(def str health dex cha con det intl per)) ; this is the list of stats
+
+(defmethod (setf con) (value (obj player))
+  (let ((old-value (con obj)))
+    (setf (slot-value obj 'con) value)
+    (incf (health obj) (- value old-value))))
 
 (defmethod (setf xp) (value (obj player))
   (setf (slot-value obj 'xp) value)
@@ -880,7 +885,12 @@
   (list
    (apply-color (log-to-string "~a (~c)" (name *player*) (display-char *player*))
 		(color *player*))
-   (log-to-string "str: ~@d dex: ~@d cha: ~@d" (str *player*) (dex *player*) (cha *player*))
+   (log-to-string "str: ~@d dex: ~@d con: ~@d" (str *player*) (dex *player*) (con *player*))
+   (log-to-string "int: ~@d det: ~@d per: ~@d cha: ~@d"
+		  (intl *player*)
+		  (det *player*)
+		  (per *player*)
+		  (cha *player*))
    (log-to-string "def: ~2d atk: ~{~a~^ ~}" (def *player*)
 		  (car (get-attacks *player* :for-display t)))
    (log-to-string "health: ~d/~d" (health *player*) (max-health *player*))
@@ -1414,11 +1424,13 @@
   (decf (xp *player*) (xp-bound *player*))
   (incf (xp-bound *player*) (xp-bound *player*))
   (let ((health-increase (roll 10))
-	(stat (get-item-from-list '(dex str cha)
+	(stat (get-item-from-list '(dex str cha con det per int)
 					  :what "stat to increase" :exit-option nil)))
     (incf (max-health *player*) health-increase)
     (incf (health *player*) health-increase)
-    (eval `(incf (,stat *player*))))
+    (if (eq stat 'int)
+	(incf (intl *player*))
+	(incf (slot-value *player* stat))))
   (when *level-up-pending*
     (level-up)))
 
