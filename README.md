@@ -18,9 +18,40 @@ Contains functions and variables for dealing with color escape codes.
 
 This file contains the definitions for all classes used in the game.
 
+### display-object
+
+A base class for anything that can be displayed as a character.
+
+**display-char** the character to display. Defaults to `#\#` for no particular reason.
+
+**temp-char** if set to something other than `#\esc`, this character will be displayed by the `get-ascii` function instead of `display-char`.
+Defaults to `#\esc`.
+
+**name** the name of the object. Defaults to an empty string.
+
+**color** the color of the display character, where applicable. Defaults to white.
+
+### destructible-object
+
+A base class for anything that can be damaged and destroyed.
+
+**resist**, **immune**, and **vulnerable** impact how much damage the object takes when attacked. Default to nil.
+
+**health** the amount of damage the object can take before being destroyed. Defaults to 1.
+
+### stat-object
+
+A base class for anything with stats. Inherits from `destructible-object`.
+
+**def**, **str**, **dex**, **cha**, **con**, **det**, **per** all default to 0.
+
+**intl** defaults to 0. the initarg is `:int`.
+
 ### equipment
 
 A class for items and equipment that the player can find in the dungeon. Equipment should not be instantiated directly; instead use the `defequipment` macro.
+
+Inherits `display-object` and `stat-object`.
 
 **equip-slot** tells the game what slot to equip the item in. The value should be a symbol. Defaults to `'hand`.
 
@@ -29,19 +60,7 @@ A class for items and equipment that the player can find in the dungeon. Equipme
 **atk** the amount and type of damage done when the equipment is wielded in the hand slot. Attacks are lists where up to the first three values are numbers, then any number of damage types, then the `:status` key and any number of status objects.
 Examples: `(1 4 slashing)` is 1d4 slashing damage, `(1 bludgeoning)` is one bludgeoning damage, and `(2 4 1 piercing :status #<STATUS {10028D6B63}>)` is 2d4+1 piercing damage with a status effect. Defaults to `(1 bludgeoning)`.
 
-The next couple of slots increase the equipper's stats of the same name. They default to 0 or an empty list, as appropriate.
-
-**def**, **str**, **dex**, **health**, **resist**, **immune**, **vulnerable**
-
-**name** the name of the equipment. Defaults to an empty string.
-
-**description** a description for the equipment. No default value---if a description is not provided, one is generated from the name.
-
 **breakable** does it break when thrown? Defaults to nil.
-
-**color** display color when on the board as a pickup. Defaults to `'white`.
-
-**display-char** character to show when on the board as a pickup. Defaults to `*`.
 
 **throw-distance** the distance the item can be thrown. Defaults to 2.
 
@@ -58,20 +77,16 @@ in game.lisp for examples.
 
 **identifiedp** keeps the name of the class secret until identified. Defaults to t.
 
+**price** how much the item can be bought for in a shop. Defaults to 2.
+
 ### actor
 
 A class similar to the Sprite of 2d graphics. It keeps track of an object at a position.
 Actors should not be instantiated directly; instead, use the `defactor` macro.
 
+Inherits `destructible-object` and `display-object`.
+
 **pos** the position of the actor. A single cons cell, such as `(0 . 5)`.
-
-**display-char** the character to display.
-
-**color** the color to show the character in.
-
-**name** the name of the actor.
-
-**description** a description for the actor. Defaults to an empty string.
 
 **dynamicp** if t, the `update` function is called on the actor every action cycle. Defaults to nil.
 
@@ -83,28 +98,18 @@ Actors should not be instantiated directly; instead, use the `defactor` macro.
 
 **wallp** if t, the actor impacts how walls around it are displayed. Secret doors have it set to t. Defaults to nil.
 
-**resist**, **immune**, and **vulnerable** impact how much damage the actor takes when attacked.
-
 **hiddenp** if t, the actor is not displayed. Defaults to nil.
 
 **destructiblep** if t, the actor can be damaged and destroyed. Defaults to t.
-
-**health** the amount of damage the actor can take before being destroyed. Defaults to 1.
 
 **consumable** if t, the actor is destroyed when interacted with. Defaults to nil.
 
 ### combat-entity
 
-Inherits `actor`.
+Inherits `actor` and `stat-object`.
 Should not be instantiated directly.
 
 **equips** a hash table containing items equipped by the actor.
-
-**def** reduces incoming damage and increases chance to be hit.
-
-**str** adds to damage dealt.
-
-**dex** increases hit chance and reduces chance to be hit.
 
 ### player
 
