@@ -61,6 +61,19 @@
       (nth (random (length lst)) lst)
       lst))
 
+(defun pos-flatten (lst)
+  (if lst
+      (if (and (numberp (car lst)) (numberp (cdr lst)))
+	  (list lst)
+	  (append (pos-flatten (car lst)) (if (cdr lst)
+					      (pos-flatten (cdr lst)))))))
+
+(defun flatten (lst) ;; https://www.lee-mac.com/flatten.html
+  (if (atom lst)
+      (list lst)
+      (append (flatten (car lst)) (if (cdr lst)
+				      (flatten (cdr lst))))))
+
 (defun eval-weighted-list (list)
   (labels ((get-results (lst)
 	     (if (numberp (caar lst))
@@ -71,10 +84,5 @@
 				    (cadr pair)
 				    (get-results (cdr pair)))
 		       do (decf index (car pair)))
-		 (mapcar #'get-results lst)))
-	   (flatten (lst) ;; https://www.lee-mac.com/flatten.html
-	     (if (atom lst)
-		 (list lst)
-		 (append (flatten (car lst)) (if (cdr lst)
-						 (flatten (cdr lst)))))))
+		 (mapcar #'get-results lst))))
     (flatten (get-results list))))

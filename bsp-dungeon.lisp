@@ -15,20 +15,13 @@
 		 collect (loop for x below (car fill-size)
 			       collect (add-pos fill-offset (cons x y)))))))
 
-(defun flatten (lst)
-  (if lst
-      (if (and (numberp (car lst)) (numberp (cdr lst)))
-	  (list lst)
-	  (append (flatten (car lst)) (if (cdr lst)
-					  (flatten (cdr lst)))))))
-
 (defun connect (r1 r2)
   (let* ((rooms (append (car r1) (car r2)))
 	 (corridors (append (cdr r1) (cdr r2)))
-	 (region (flatten (append rooms corridors))))
+	 (region (pos-flatten (append rooms corridors))))
     (if (loop for r in rooms always r)
-	(let* ((region2 (flatten r2))
-	       (cp1 (randnth (flatten r1)))
+	(let* ((region2 (pos-flatten r2))
+	       (cp1 (randnth (pos-flatten r1)))
 	       (px (loop for point in region2
 			 with minx = 1000
 			 when (< (abs (- (car cp1) (car point))) minx)
@@ -105,8 +98,8 @@
 ;; a function for testing the boards
 (defun main (size depth)
   (let* ((board (generate-dungeon size depth))
-	 (rooms (flatten (car board)))
-	 (corridors (flatten (cdr board)))
+	 (rooms (pos-flatten (car board)))
+	 (corridors (pos-flatten (cdr board)))
 	 (corridor-endpoints (loop for corridor in (append (cdr board))
 				   collect (car corridor)
 				   collect (car (last corridor)))))

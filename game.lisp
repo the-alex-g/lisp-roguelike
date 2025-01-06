@@ -273,7 +273,7 @@
 			(damage a (roll (dmg b)))))
 
 ;; equip player
-(equip (make-sword) *player*)
+(equip (make-bow) *player*)
 (equip (make-leather-armor) *player*)
 
 ;; put some stuff in the inventory
@@ -333,14 +333,10 @@
 		       (t "burnt "))
 		 (call-next-method)))
 
-(defun ranged-attack (direction)
-  (loop for r from 1 to (1- (range (gethash 'hand (equips *player*))))
-	do (let ((d (find-solid-actor-at
-		     (add-pos (pos *player*)
-			      (mul-pos direction r)))))
-	     (when d
-	       (attack *player* d)
-	       (return nil)))))
+(defun ranged-attack ()
+  (let ((target (get-target-within-range (pos *player*) (range (gethash 'hand (equips *player*))))))
+    (when target
+      (attack *player* target))))
 
 ;; define actions
 (defaction #\a "move west" (move *player* +left+))
@@ -348,14 +344,14 @@
 (defaction #\w "move north" (move *player* +up+))
 (defaction #\s "move south" (move *player* +down+))
 (defaction #\A "attack without moving"
-    (let ((direction (get-direction :include-zero t)))
-      (when direction
-	(if (slot-exists-p (gethash 'hand (equips *player*)) 'range)
-	    (ranged-attack direction)
-	    (let ((actor (choose-actor-at (add-pos (pos *player*)
-						   direction))))
-	      (when actor
-		(attack *player* actor)))))))
+  (if (slot-exists-p (gethash 'hand (equips *player*)) 'range)
+      (ranged-attack)
+      (let ((direction (get-direction :include-zero t)))
+	(when direction
+	  (let ((actor (choose-actor-at (add-pos (pos *player*)
+						 direction))))
+	    (when actor
+	      (attack *player* actor)))))))
 (defaction #\D "drop an inventory item"
   (with-item-from-inventory
       (make-pickup item (pos *player*))

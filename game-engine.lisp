@@ -452,9 +452,12 @@
 
 (defgeneric get-ascii (obj)
   (:method ((obj display-object))
-    (if *in-terminal*
-	(apply-color (display-char obj) (color obj))
-	(display-char obj)))
+    (let ((c (if (eq (temp-char obj) #\esc)
+		 (display-char obj)
+		 (temp-char obj))))
+      (if *in-terminal*
+	  (apply-color c (color obj))
+	  c)))
   (:method ((obj pickup))
     (get-ascii (equipment obj))))
 
@@ -528,17 +531,10 @@
 		 (when f
 		   (push (funcall f pos shopkeeper) (goods shopkeeper)))))))
 
-(defun flatten (lst)
-  (if lst
-      (if (and (numberp (car lst)) (numberp (cdr lst)))
-	  (list lst)
-	  (append (flatten (car lst)) (if (cdr lst)
-					  (flatten (cdr lst)))))))
-
 (defun make-layer (dungeon depth)
   (let* ((rooms (car dungeon))
 	 (corridors (cdr dungeon))
-	 (dungeon-board (flatten (append rooms corridors)))
+	 (dungeon-board (pos-flatten (append rooms corridors)))
 	 (down-ladder-pos (car dungeon-board))
 	 (up-ladder-pos (randnth (cdr dungeon-board)))
 	 (shop-p nil)
@@ -922,7 +918,7 @@
 				 (what "object"))
   (let* ((temp (loop for x in lst
 		     when (funcall naming-function x)
-		       collect (funcall naming-function x) into a
+		       collect (log-to-string "~a" (funcall naming-function x)) into a
 		       and collect x into b
 		     finally (return (cons a b))))
 	 (name-list (car temp))
@@ -1430,6 +1426,28 @@
   (format t "~{~a~&~}" *log*)
   (when clear
     (setf *log* '())))
+
+(defun get-target-within-range (from range)
+  (let ((target-list
+	  (flatten
+	   (loop for y from (- (cdr from) range) to (+ (cdr from) range)
+		 with f = nil
+		 with i = 0
+		 do (setf f (loop for x from (- (car from) range) to (+ (car from) range)
+				  with actor = nil
+				  when (and (has-los from (cons x y) range)
+					    (not (equal (cons x y) from)))
+				    do (setf actor (find-solid-actor-at (cons x y)))
+				    and when (and actor (< i 10))
+				       collect actor
+				       and do (setf (temp-char actor) (code-char (+ 48 i)))
+				       and do (incf i)))
+		 when f collect f))))
+    (clear-terminal)
+    (print-board)
+    (loop for actor in target-list
+	  do (setf (temp-char actor) #\esc))
+    (get-item-from-list target-list :what "target" :naming-function #'name)))
 
 (defun level-up ()
   (print-to-screen "~%LEVEL UP!")

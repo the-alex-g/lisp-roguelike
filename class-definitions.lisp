@@ -1,5 +1,6 @@
 (defclass display-object ()
   ((display-char :accessor display-char :initarg :display-char :initform #\#)
+   (temp-char :accessor temp-char :initform #\esc)
    (name :initform "" :accessor name :initarg :name)
    (color :initform 'white :accessor color :initarg :color)))
 
