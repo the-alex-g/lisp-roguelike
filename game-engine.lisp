@@ -23,6 +23,7 @@
 (defparameter *treasure-spawn-table* (make-hash-table))
 (defparameter *trap-spawn-table* (make-hash-table))
 (defparameter *shop-table* (make-hash-table))
+(defparameter *kills* (make-hash-table :test 'equal))
 (defparameter *gold* 0)
 
 (defun game-date ()
@@ -666,6 +667,7 @@
 	(setf (static-actors) (remove obj (static-actors) :test 'equal))))
   (:method ((obj enemy))
     (setf (dynamic-actors) (remove obj (dynamic-actors) :test 'equal))
+    (incf (gethash (name obj) *kills* 0))
     (incf (xp *player*) (xp obj))
     (make-corpse obj))
   (:method ((obj equipment))
@@ -1443,11 +1445,13 @@
 				       and do (setf (temp-char actor) (code-char (+ 48 i)))
 				       and do (incf i)))
 		 when f collect f))))
-    (clear-terminal)
-    (print-board)
-    (loop for actor in target-list
-	  do (setf (temp-char actor) #\esc))
-    (get-item-from-list target-list :what "target" :naming-function #'name)))
+    (when (car target-list)
+      (clear-terminal)
+      (print-board)
+      (loop for actor in target-list
+	    when actor
+	      do (setf (temp-char actor) #\esc))
+      (get-item-from-list target-list :what "target" :naming-function #'name))))
 
 (defun level-up ()
   (print-to-screen "~%LEVEL UP!")
@@ -1464,6 +1468,12 @@
   (when *level-up-pending*
     (level-up)))
 
+(defun print-death-log ()
+  (print-to-screen "~%~a has died.~2%" (name *player*))
+  (print-to-screen "KILLS~%~{~a: ~d~%~}" (loop for k being the hash-keys of *kills*
+					       collect k
+					       collect (gethash k *kills*))))
+
 (defun game-loop (&optional cmd)
   (unless (equal cmd #\q)
     ;; only update if input was a valid command
@@ -1475,7 +1485,7 @@
     (when *level-up-pending*
       (level-up))
     (if (deadp *player*)
-	(print-to-screen "~%~a has died.~2%" (name *player*))
+	(print-death-log)
 	(game-loop (custom-read-char)))))
 
 (defun create-new-player ()
