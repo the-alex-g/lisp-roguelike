@@ -917,36 +917,48 @@
 ;; If the list items are not printable, pass a naming-function that gets a
 ;; printable name from the list item.
 (defun get-item-from-list (lst &key
-				 (naming-function (lambda (x) x))
+				 (naming-function (lambda (x) (log-to-string "~a" x)))
 				 (exit-option t)
 				 (what "object"))
-  (labels ((print-list (l i new-list)
-	     (if l
-		 (let ((n (funcall naming-function (car l))))
-		   (if n
-		       (progn (print-to-screen "~%~2t~d) ~a" i n)
-			      (print-list (cdr l) (1+ i) (cons (car l) new-list)))
-		       (print-list (cdr l) i new-list)))
-		 (reverse new-list)))
-	   (pick-item ()
-	     (fresh-line)
-	     (print-to-screen "Choose an ~a: " what)
-	     (let ((choice (if (<= (length lst) 10)
-			       (digit-char-p (custom-read-char))
-			       (parse-integer (read-line)))))
-	       (cond ((and choice (< choice (length lst)))
-		      (nth choice lst))
-		     ((and choice
-			   (= choice (length lst))
-			   exit-option)
-		      nil)
-		     (t
-		      (print-to-screen "~%That was an invalid choice")
-		      (pick-item))))))
-    (setf lst (print-list lst 0 nil))
-    (when exit-option
-      (print-to-screen "~%~2t~d) cancel" (length lst)))
-    (pick-item)))
+  (let* ((temp (loop for x in lst
+		     when (funcall naming-function x)
+		       collect (funcall naming-function x) into a
+		       and collect x into b
+		     finally (return (cons a b))))
+	 (name-list (car temp))
+	 (item-list (cdr temp))
+	 (tab-length (+ 7 (loop for item in name-list maximize (length item)))))
+    (labels ((print-list (from)
+	       (print-to-screen "~{~@?~}"
+				(loop for n in from
+				      with i = 0
+				      if (= 0 (mod i 2))
+					collect "~%~2t~d) ~a"
+					and collect i
+					and collect n
+					and do (incf i)
+				      else
+					collect "~vt~d) ~a"
+					and collect tab-length
+					and collect i
+					and collect n
+					and do (incf i))))
+	     (pick-item (from)
+	       (fresh-line)
+	       (print-to-screen "Choose an ~a: " what)
+	       (let ((choice (if (<= (length lst) 10)
+				 (digit-char-p (custom-read-char))
+				 (parse-integer (read-line)))))
+		 (if (and choice (< choice (length from)))
+		     (nth choice from)
+		     (progn (print-to-screen "~%That was an invalid choice")
+			    (pick-item from))))))
+      (print-list (if exit-option
+		      (append name-list '(cancel))
+		      name-list))
+      (pick-item (if exit-option
+		     (append item-list '(nil))
+		     item-list)))))
 
 (defun get-item-from-inventory ()
   (get-item-from-list
