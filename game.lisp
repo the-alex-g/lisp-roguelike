@@ -131,6 +131,11 @@
 	(log-to-string "~a (~d gold)" base-name (price (contents item)))
 	base-name)))
 
+(defmethod price ((item bottle))
+  (if (contents item)
+      (price (contents item))
+      (slot-value item 'price)))
+
 (defmethod throw-at ((item bottle) target)
   (when (contents item)
     (throw-at (contents item) target)))

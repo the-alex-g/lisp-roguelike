@@ -78,6 +78,9 @@
 		  (list (+ step d100) i)))
 	    list)))
 
+(defun distribute-items (&rest items)
+  (distribute-list items))
+
 (defun spawn-list (depth)
   (labels ((get-sections (a b c)
 	     (if a
@@ -156,13 +159,18 @@
     shop-list-value))
 
 (defun add-to-shop (rarity &rest functions)
-  (mapc (lambda (fxn)
-	  (push (lambda (pos shopkeeper)
-		  (let ((pickup (funcall fxn pos)))
-		    (setf (shopkeeper (equipment pickup)) shopkeeper)
-		    (equipment pickup)))
-		(gethash rarity *shop-table*)))
-	functions)
+  (labels ((foo (i)
+	     (cond ((functionp i)
+		    (push (lambda (pos shopkeeper)
+			    (let ((pickup (funcall i pos)))
+			      (setf (shopkeeper (equipment pickup)) shopkeeper)
+			      (equipment pickup)))
+			  (gethash rarity *shop-table*)))
+		   ((listp i)
+		    (mapc #'foo i))
+		   ((symbolp i)
+		    (foo (symbol-function i))))))
+    (mapc #'foo functions))
   (car functions))
 
 (defun add-to-spawn (list rarity depths function &rest more-functions)
@@ -310,7 +318,8 @@
 	       (append (loop for item being the hash-values of (equips obj)
 			     unless (and (eq (equip-slot item) 'hand)
 					 (not (weaponp item)))
-			       collect (,name item))))))))
+			       when (,name item)
+				 collect (,name item))))))))
 
 (define-damage-modifier-getter resistances resist)
 (define-damage-modifier-getter vulnerabilities vulnerable)
@@ -326,16 +335,18 @@
 (defun constructor (name)
   (read-from-string (format nil "make-~a" (symbol-name name))))
 
+(defun make-keyword (name)
+  (intern (symbol-name name) "KEYWORD"))
+
 ;; initialize helper functions for macros
 (labels ((build-slot (slt) ; creates slot information for new slots
 	     (list (if (listp slt)
 		       `(,(car slt) :accessor ,(car slt)
 				    :initform ,(cadr slt)
-				    :initarg ,(intern (symbol-name (car slt))
-						      "KEYWORD"))
+				    :initarg ,(make-keyword (car slt)))
 		       `(,slt :accessor ,slt
 			      :initform nil
-			      :initarg ,(intern (symbol-name slt) "KEYWORD")))))
+			      :initarg ,(make-keyword slt)))))
 	   (reinit-slots (args slotlist &key (slotname nil slotnamep))
 	     (if (> (length args) 0) ; cannot check for (car arg) because it might be nil
 		 (if slotnamep
@@ -556,7 +567,7 @@
     (setf (direction (make-ladder down-ladder-pos)) 1)
     (setf (direction (make-ladder up-ladder-pos)) -1)
     (mapc (lambda (r)
-	    (if (and (= 0 (random 8)) (not shop-p))
+	    (if (not shop-p);(and (= 0 (random 8)) (not shop-p))
 		(progn (setf shop-p t)
 		       (make-shop r (shop-list)))
 		(populate r (spawn-list depth))))
@@ -1097,13 +1108,28 @@
 								    (name i)
 								    (ash (price i) -1))))))
 		       (when item
-			 (if (>= (price item) 2)
-			     (progn (incf *gold* (ash (price item) -1))
-				    (remove-from-inventory item)
-				    (print-to-log "you sold ~a for ~d gold"
-						  (name item)
-						  (ash (price item) -1)))
-			     (print-to-log "you can't sell that")))))))))))
+			 (flet ((sell (i &key (print t))
+				  (let ((gold (ash (price i) -1)))
+				    (incf *gold* gold)
+				    (remove-from-inventory i)
+				    (when print
+				      (print-to-log "you sold ~a for ~d gold" (name i) gold))
+				    gold)))
+			   (if (>= (price item) 2)
+			       (if (= 1 (num-in-inventory item))
+				   (sell item)
+				   (progn (print-to-screen "~%do you want to sell all ~d ~as? (Y/n)"
+							   (num-in-inventory item)
+							   (name item))
+					  (if (eq (custom-read-char) #\n)
+					      (sell item)
+					      (print-to-log "you sold ~d ~as for ~d gold"
+							    (num-in-inventory item)
+							    (name item)
+							    (loop for i in *inventory*
+								  when (names-equal-p i item)
+								    sum (sell i :print nil))))))
+			       (print-to-log "you can't sell that"))))))))))))
 
 (defgeneric visiblep (obj)
   (:method :around (obj)
