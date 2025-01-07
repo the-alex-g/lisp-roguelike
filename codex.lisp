@@ -85,7 +85,9 @@
   :interact-action-only nil :solid nil :destructible nil :color 'red :hiddenp t)
 (add-to-spawn
  'trap 'common "1+"
- (defactor spike-trap #\! () :inherit trap)
+ (defactor spike-trap #\! () :inherit trap))
+(add-to-spawn
+ 'trap 'common "1+"
  (defactor dart-trap #\> () :one-use-p t :save-dc 15 :inherit trap))
 (defactor fire #\^ (burn-time (dmg 6)) :interact-action-only nil
   :solid nil :destructible nil
