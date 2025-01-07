@@ -22,20 +22,9 @@
     (if (loop for r in rooms always r)
 	(let* ((region2 (pos-flatten r2))
 	       (cp1 (randnth (pos-flatten r1)))
-	       (px (loop for point in region2
-			 with minx = 1000
-			 when (< (abs (- (car cp1) (car point))) minx)
-			   do (setf minx (car point))
-			 finally (return minx)))
-	       (py (loop for point in region2
-			 with miny = 1000
-			 when (and (eq (car point) px)
-				   (abs (- (cdr cp1) (cdr point))))
-			   do (setf miny (cdr point))
-			 finally (return miny)))
-	       (dx (- px (car cp1)))
-	       (dy (- py (cdr cp1)))
-	       (cp2 (cons px py)))
+	       (cp2 (get-closest-point-to cp1 region2))
+	       (dx (- (car cp2) (car cp1)))
+	       (dy (- (cdr cp2) (cdr cp1))))
 	  (flet ((region-member (point) (member point region :test 'equal)))
 	    (let ((new-corridor (append
 				 (unless (eq (cdr cp1) (cdr cp2))

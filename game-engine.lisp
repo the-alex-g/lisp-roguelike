@@ -288,6 +288,9 @@
 	  (dynamic-actors)
 	  (list *player*)))
 
+(defun region ()
+  (slot-value *current-layer* 'region))
+
 (defun board ()
   (slot-value *current-layer* 'board))
 
@@ -480,11 +483,19 @@
 	  (loop for q being the hash-values of (equips obj)
 		collect q)))
 
+(defun save-corpse (obj)
+  (with-open-file (stream "bones.txt" :if-does-not-exist :create
+				      :if-exists :append
+				      :direction :output)
+    (write-line (format nil "~a" (list *layer-index* (pos obj) (name obj))) stream)))
+
 (let ((old-make-corpse #'make-corpse))
   (defun make-default-corpse (obj)
     (let ((corpse (funcall old-make-corpse (pos obj))))
       (setf (corpse-type corpse) (name obj))
       (setf (loot corpse) (get-loot obj))
+      (if (= 0 (random 4))
+	  (save-corpse obj))
       corpse)))
 (fmakunbound 'make-corpse)
 
@@ -554,6 +565,7 @@
 		 'layer
 		 :up-ladder-pos up-ladder-pos
 		 :down-ladder-pos down-ladder-pos
+		 :region dungeon-board
 		 :board (loop for pos in dungeon-board
 			      with table = (make-hash-table :test #'equal)
 			      do (setf (gethash pos table) 'hidden)
@@ -1495,6 +1507,7 @@
     (level-up)))
 
 (defun print-death-log ()
+  (save-corpse *player*)
   (print-to-screen "~%~a has died.~2%" (name *player*))
   (print-to-screen "KILLS~%~{~a: ~d~%~}" (loop for k being the hash-keys of *kills*
 					       collect k
@@ -1541,6 +1554,16 @@
     (setf (color *player*) p-color)
     (setf (display-char *player*) p-char)))
 
+(defun load-bones ()
+  (with-open-file (stream "bones.txt" :if-does-not-exist nil)
+    (when stream
+      (loop for line = (read stream nil)
+	    while line do (progn
+			    (setf *current-layer* (nth (car line) *layers*))
+			    (let ((p (get-closest-point-to (cadr line) (region))))
+			      (setf (bone-type (make-bones p))
+				    (caddr line))))))))
+
 (defun create-dungeon (dungeon-depth)
   (mapcar (lambda (x)
 	    (make-layer (car x) (cdr x)))
@@ -1552,7 +1575,8 @@
 			       (depth (if (= i 0)
 					  3
 					  4)))
-			  (cons (generate-dungeon size depth) layer)))))
+			  (cons (generate-dungeon size depth) layer))))
+  (load-bones))
 
 (defun start ()
   (create-dungeon 3)

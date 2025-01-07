@@ -102,6 +102,7 @@
 
 (defclass layer ()
   ((board :initarg :board)
+   (region :initarg :region)
    (dynamic-actors :initform '())
    (actors :initform '())
    (up-ladder-pos :initarg :up-ladder-pos :accessor up-ladder-pos)
