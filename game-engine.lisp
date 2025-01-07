@@ -487,7 +487,9 @@
   (with-open-file (stream "bones.txt" :if-does-not-exist :create
 				      :if-exists :append
 				      :direction :output)
-    (write-line (format nil "~a" (list *layer-index* (pos obj) (name obj))) stream)))
+    (write-line (format nil "(progn (setf *current-layer* (nth ~d *layers*)) (setf (bone-type (make-bones (get-closest-point-to (quote ~a) (region)))) (quote ~a)))"
+			*layer-index* (pos obj) (name obj))
+		stream)))
 
 (let ((old-make-corpse #'make-corpse))
   (defun make-default-corpse (obj)
@@ -1558,11 +1560,7 @@
   (with-open-file (stream "bones.txt" :if-does-not-exist nil)
     (when stream
       (loop for line = (read stream nil)
-	    while line do (progn
-			    (setf *current-layer* (nth (car line) *layers*))
-			    (let ((p (get-closest-point-to (cadr line) (region))))
-			      (setf (bone-type (make-bones p))
-				    (caddr line))))))))
+	    while line do (eval line)))))
 
 (defun create-dungeon (dungeon-depth)
   (mapcar (lambda (x)

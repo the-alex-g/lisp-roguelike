@@ -88,15 +88,8 @@
     (flatten (get-results list))))
 
 (defun get-closest-point-to (point region)
-  (let* ((x (loop for p in region
-		  with minx = 1000
-		  when (< (abs (- (car point) (car p))) minx)
-		    do (setf minx (car p))
-		  finally (return minx)))
-	 (y (loop for p in region
-		  with miny = 1000
-		  when (and (eq (car p) x)
-			    (< (abs (- (cdr point) (cdr p))) miny))
-		    do (setf miny (cdr p))
-		  finally (return miny))))
-    (cons x y)))
+  (loop for p in region
+	with best-point = '(0 . 0)
+	when (< (distance p point) (distance point best-point))
+	  do (setf best-point p)
+	finally (return best-point)))
