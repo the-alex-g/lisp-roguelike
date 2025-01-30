@@ -42,7 +42,7 @@
 
 (defmethod get-ascii ((obj herb))
   (if *in-terminal*
-      (apply-color (display-char obj) 'uline (color obj))
+      (apply-color (display-char obj) (color obj) 'uline)
       (display-char obj)))
 
 (defmethod interact ((a player) (b glowing-mushroom-actor))

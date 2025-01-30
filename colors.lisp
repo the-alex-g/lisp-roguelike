@@ -18,10 +18,9 @@
     (if to-print (force-output))
     result))
 
-(defun apply-color (to color &rest colors)
-  (format nil "~c[~d~{;~d~}m~a~a"
+(defun apply-color (to &rest colors)
+  (format nil "~c[~{~d~^;~}m~a~a"
 	  #\esc
-	  (gethash color *styles*)
 	  (mapcar (lambda (c) (gethash c *styles*)) colors)
 	  to
 	  (apply-default-style nil)))

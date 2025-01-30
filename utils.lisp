@@ -1,3 +1,11 @@
+(defconstant +left+ '(-1 . 0))
+(defconstant +right+ '(1 . 0))
+(defconstant +up+ '(0 . -1))
+(defconstant +down+ '(0 . 1))
+(defconstant +zero+ '(0 . 0))
+(defconstant +directions+ '((-1 . 0) (1 . 0) (0 . -1) (0 . 1)))
+(defconstant +directions-with-zero+
+  '((-1 . 0) (1 . 0) (0 . -1) (0 . 1) (0 . 0)))
 (defparameter *log* '())
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))

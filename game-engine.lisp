@@ -3,14 +3,6 @@
 (defparameter *layer-index* 0)
 (defparameter *player-actions* 0)
 (defparameter *sight-distance* 6)
-(defconstant +left+ '(-1 . 0))
-(defconstant +right+ '(1 . 0))
-(defconstant +up+ '(0 . -1))
-(defconstant +down+ '(0 . 1))
-(defconstant +zero+ '(0 . 0))
-(defconstant +directions+ '((-1 . 0) (1 . 0) (0 . -1) (0 . 1)))
-(defconstant +directions-with-zero+
-  '((-1 . 0) (1 . 0) (0 . -1) (0 . 1) (0 . 0)))
 (defparameter *actions* (make-hash-table :test 'equal))
 (defparameter *action-descriptions* (make-hash-table))
 (defparameter *inventory* '())
@@ -556,51 +548,58 @@
 		 (when f
 		   (push (funcall f pos shopkeeper) (goods shopkeeper)))))))
 
+(defmacro with-layer-instance (region &body body)
+  `(let* ((up-ladder-pos (car ,region))
+	  (down-ladder-pos (randnth (cdr ,region)))
+	  (layer (make-instance 'layer
+				:up-ladder-pos up-ladder-pos
+				:down-ladder-pos down-ladder-pos
+				:region ,region
+				:board (loop for pos in ,region
+					     with table = (make-hash-table :test #'equal)
+					     do (setf (gethash pos table) 'hidden)
+					     finally (return table))
+				:board-size (loop for pos in ,region
+						  maximize (car pos) into max-x
+						  maximize (cdr pos) into max-y
+						  finally (return (cons max-x max-y))))))
+     (setf *current-layer* layer)
+     (setf (pos *player*) up-ladder-pos)
+     (setf (direction (make-ladder down-ladder-pos)) 1)
+     (setf (direction (make-ladder up-ladder-pos)) -1)
+     ,@body
+     (push layer *layers*)
+     layer))
+
+(defun make-cave-layer (cave depth)
+  (with-layer-instance cave
+    (populate cave (spawn-list depth))))
+
 (defun make-layer (dungeon depth)
   (let* ((rooms (car dungeon))
 	 (corridors (cdr dungeon))
 	 (dungeon-board (pos-flatten (append rooms corridors)))
-	 (down-ladder-pos (car dungeon-board))
-	 (up-ladder-pos (randnth (cdr dungeon-board)))
-	 (shop-p nil)
-	 (layer (make-instance
-		 'layer
-		 :up-ladder-pos up-ladder-pos
-		 :down-ladder-pos down-ladder-pos
-		 :region dungeon-board
-		 :board (loop for pos in dungeon-board
-			      with table = (make-hash-table :test #'equal)
-			      do (setf (gethash pos table) 'hidden)
-			      finally (return table))
-		 :board-size (loop for pos in dungeon-board
-				   maximize (car pos) into x
-				   maximize (cdr pos) into y
-				   finally (return (cons x y))))))
-    (setf *current-layer* layer)
-    (setf (pos *player*) up-ladder-pos)
-    (setf (direction (make-ladder down-ladder-pos)) 1)
-    (setf (direction (make-ladder up-ladder-pos)) -1)
-    (mapc (lambda (r)
-	    (if (not shop-p);(and (= 0 (random 8)) (not shop-p))
-		(progn (setf shop-p t)
-		       (make-shop r (shop-list)))
-		(populate r (spawn-list depth))))
-	  rooms)
-    ;; Create secret doors
-    (flet ((board-member (&rest points)
-	     (member (apply #'add-pos points) dungeon-board :test #'equal)))
-      (loop for pos in (loop for corridor in (append corridors)
-			     collect (car corridor)
-			     collect (car (last corridor)))
-	    when (= 0 (random 8))
-	      ;; make a secret door with the correct orientation
-	      do (setf (display-char (make-secret-door pos))
-		       (if (or (board-member pos +left+)
-			       (board-member pos +right+))
-			   #\|
-			   #\-))))
-    (push layer *layers*)
-    layer))
+	 (shop-p nil))
+    (with-layer-instance dungeon-board
+      (mapc (lambda (r)
+	      (if (and (= 0 (random 8)) (not shop-p))
+		  (progn (setf shop-p t)
+			 (make-shop r (shop-list)))
+		  (populate r (spawn-list depth))))
+	    rooms)
+      ;; Create secret doors
+      (flet ((board-member (&rest points)
+	       (member (apply #'add-pos points) dungeon-board :test #'equal)))
+	(loop for pos in (loop for corridor in (append corridors)
+			       collect (car corridor)
+			       collect (car (last corridor)))
+	      when (= 0 (random 8))
+		;; make a secret door with the correct orientation
+		do (setf (display-char (make-secret-door pos))
+			 (if (or (board-member pos +left+)
+				 (board-member pos +right+))
+			     #\|
+			     #\-)))))))
 
 (defun inventory-checkedout-p ()
   (loop for item in *inventory*
@@ -666,7 +665,8 @@
 
 (defgeneric identify (obj)
   (:method ((obj equipment))
-    (setf (identifiedp obj) t)))
+    (setf (identifiedp obj) t))
+  (:method (obj)))
 
 (defgeneric on-applied (obj)
   (:method ((obj status))
@@ -902,7 +902,9 @@
 			      (name a)
 			      (name d)
 			      (damage d (+ (cadr (assoc 'dmg attack)) (str a))
-				      :damage-types (cdr (assoc 'dmg-types attack))))))))
+				      :damage-types (cdr (assoc 'dmg-types attack)))))))
+  (:method :before ((a player) (d shopkeeper) &key rangedp)
+    (setf (enragedp d) t)))
 
 (defun get-player-lines ()
   (list
@@ -1077,7 +1079,6 @@
 					      '(sell checkout attack)
 					      '(sell checkout attack haggle)))))
 	  (cond ((eq choice 'attack)
-		 (setf (enragedp b) t)
 		 (attack a b))
 		((eq choice 'checkout)
 		 (let ((items-to-checkout ())
@@ -1199,6 +1200,18 @@
 	(progn (print-to-screen "~%invalid input")
 	       (get-number-input bound prompt)))))
 
+(defmacro with-input ((&key numberp (input-function #'custom-read-char)) &body body)
+  `(let* ,(if numberp
+	      `((raw ,(if (<= numberp 10)
+			'(custom-read-char)
+			'(read-line)))
+		(input ,(if (<= numberp 10)
+			   '(digit-char-p raw)
+			   '(parse-integer raw))))
+	      `((raw (funcall ,input-function))
+		(input raw)))
+     ,@body))
+
 (defgeneric find-actor-at (a &rest actors-to-ignore)
   (:method ((a list) &rest actors-to-ignore)
     (loop for actor in (actors)
@@ -1272,7 +1285,7 @@
 (defmacro for-each-adjacent-actor (pos &body body)
   (let ((p (gensym)))
     `(loop for ,p in (mapcar (lambda (x) (add-pos ,pos x))
-			     (list +right+ +left+ +down+ +up+ +zero+))
+			     +directions-with-zero+)
 	   do (loop for actor in (find-all-actors-at ,p)
 		    do (progn ,@body)))))
 
