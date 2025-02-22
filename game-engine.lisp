@@ -567,8 +567,8 @@
      (setf (pos *player*) up-ladder-pos)
      (setf (direction (make-ladder down-ladder-pos)) 1)
      (setf (direction (make-ladder up-ladder-pos)) -1)
-     ,@body
-     (push layer *layers*)
+     (unwind-protect (progn ,@body)
+       (push layer *layers*))
      layer))
 
 (defun make-cave-layer (cave depth)
