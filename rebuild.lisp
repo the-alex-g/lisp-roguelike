@@ -179,6 +179,16 @@
       (my-attack "missing" attack2 10)
       (my-attack "killing" attack3 0))))
 
+(defun test-vector-math ()
+  (flet ((test (test value function &rest args)
+	   (let ((result (apply function args)))
+	     (format t "(~a ~{~a~^ ~}) = ~a >>> ~:[FAIL~;PASS~]~%"
+		     function args result (funcall test result value)))))
+    (test #'equal '(1 . 1) 'vec+ '(1 . 0) '(0 . 1))
+    (test #'equal '(0 . 1) 'vec- '(1 . 1) '(1 . 0))
+    (test #'equal '(-1 . -1) 'vec- '(1 . 1))
+    (test #'= 5.0 'vec-length '(3 . 4))))
+
 (let ((memos (make-hash-table :test #'equal)))
   (labels ((calculate-los (to from)
 	     (let ((dx (- (car to) (car from)))
