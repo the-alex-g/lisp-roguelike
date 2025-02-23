@@ -49,8 +49,11 @@
 (defun (setf non-solid) (value pos)
   (setf (gethash pos *non-solid-actors*) value))
 
+(defun contents (pos)
+  (or (solid pos) (non-solid pos)))
+
 (defun emptyp (pos)
-  (not (or (solid pos) (non-solid pos))))
+  (not (contents pos)))
 
 (defgeneric wallp (obj)
   (:method (obj) nil)
@@ -236,6 +239,34 @@
 (defgeneric move-into (passive active)
   (:method (passive active))) ; default case: do nothing
 
+(defun move-into-pos (pos obj)
+  (move-into (solid pos) obj)
+  (move-into (non-solid pos) obj))
+
+(defun place (obj pos &key (solid t) (interact t))
+  (let ((already-checked '()))
+    (when interact
+      (move-into-pos pos obj))
+    (labels ((occupiedp (p)
+	       (if solid
+		   (solid p)
+		   (or (non-solid p)
+		       (wallp (solid p)))))
+	     (neighbors (p)
+	       (loop for direction in +directions+
+		     unless (member (vec+ p direction) already-checked)
+		       collect (vec+ p direction)))
+	     (iterate (frontier)
+	       (let ((current (car frontier)))
+		 (if (occupiedp current)
+		     (iterate (append (cdr frontier) (neighbors current)))
+		     current))))
+      (let ((position (iterate (list pos))))
+	(if solid
+	    (setf (solid position) obj)
+	    (setf (non-solid position) obj))
+	(setf (pos obj) position)))))
+
 (defun reposition (obj new-pos)
   (let ((collider (solid new-pos)))
     (if collider
@@ -267,7 +298,7 @@
 	do (format t "~{~a~}~%"
 		   (loop for x below (car *board-size*)
 			 collect (let* ((pos (cons x y))
-					(actor (solid pos)))
+					(actor (contents pos)))
 				   (cond ((and actor (visiblep actor))
 					  (display-char actor))
 					 ((visiblep pos) #\.)
