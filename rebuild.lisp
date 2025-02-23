@@ -56,6 +56,9 @@
 			 finally (return (cons x y))))
       (cons (- (car vector)) (- (cdr vector)))))
 
+(defun vec-length (vector)
+  (sqrt (+ (expt (car vector) 2) (expt (cdr vector) 2))))
+
 (defun apply-colors (char colors)
   (format nil "~c[~{~d~^;~}m~c~0@*~c[0;30m" #\esc (if (listp colors)
 						      colors
@@ -176,24 +179,36 @@
       (my-attack "missing" attack2 10)
       (my-attack "killing" attack3 0))))
 
-(defun has-los (to from distance)
-  (let ((dx (- (car to) (car from)))
-	(dy (- (cdr to) (cdr from))))
-    (labels ((get-pos-on-line (m)
-	       (cons (round (+ (car from) (* m dx)))
-		     (round (+ (cdr from) (* m dy)))))
-	     (pos-opaquep (m)
-	       (let* ((pos (get-pos-on-line m))
-		      (actor (gethash pos *board*)))
-		 (if actor
-		     (opaquep actor)
-		     nil))))
-      (and (or (< distance 0)
-	       (>= distance (+ (abs dx) (abs dy))))
-	   (loop for x below (abs dx)
-		 never (pos-opaquep (/ x (abs dx))))
-	   (loop for y below (abs dy)
-		 never (pos-opaquep (/ y (abs dy))))))))
+(let ((memos (make-hash-table :test #'equal)))
+  (labels ((calculate-los (to from)
+	     (let ((dx (- (car to) (car from)))
+		   (dy (- (cdr to) (cdr from))))
+	       (labels ((get-pos-on-line (m)
+			  (cons (round (+ (car from) (* m dx)))
+				(round (+ (cdr from) (* m dy)))))
+			(pos-opaquep (m)
+			  (let* ((pos (get-pos-on-line m))
+				 (actor (gethash pos *board*)))
+			    (if actor
+				(opaquep actor)
+				nil))))
+		 (and (loop for x below (abs dx)
+			    never (pos-opaquep (/ x (abs dx))))
+		      (loop for y below (abs dy)
+			    never (pos-opaquep (/ y (abs dy)))))))))
+    (defun has-los (to from distance)
+      (let* ((key (list to from))
+	     (memo (gethash key memos))
+	     (result (if memo
+			 (= memo 1) ; because memo is either 0 or 1
+			 (let ((new-val (calculate-los to from)))
+			   (setf (gethash key memos) (if new-val 1 0))
+			   new-val))))
+	(if result
+	    ;; check if point is within distance
+	    (or (< distance 0)
+		(>= distance (vec-length (vec- to from))))
+	    nil)))))
 
 (defun reposition (obj new-pos)
   (unless (gethash new-pos *board*)
