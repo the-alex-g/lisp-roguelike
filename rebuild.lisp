@@ -38,6 +38,24 @@
 (defparameter *player* (make-instance 'creature :health 10 :name "player" :pos '(5 . 5) :color 31))
 (defparameter *sight-distance* 10)
 
+(defgeneric wallp (obj)
+  (:method (obj) nil)
+  (:method ((obj wall)) t))
+
+(defun vec+ (&rest vectors)
+  (loop for v in vectors
+	sum (car v) into x
+	sum (cdr v) into y
+	finally (return (cons x y))))
+
+(defun vec- (vector &rest vectors)
+  (if vectors
+      (vec+ vector (loop for v in vectors
+			 sum (- (car v)) into x
+			 sum (- (cdr v)) into y
+			 finally (return (cons x y))))
+      (cons (- (car vector)) (- (cdr vector)))))
+
 (defun apply-colors (char colors)
   (format nil "~c[~{~d~^;~}m~c~0@*~c[0;30m" #\esc (if (listp colors)
 						      colors
@@ -120,11 +138,6 @@
 		 mod)))
     (calculate-damage-modifier 1 damage-types)))
 
-(defun attack (attack defender)
-  (if (>= (attack-to-hit attack) (evasion defender))
-      (damage defender attack)
-      (print-to-log "~a missed ~a" (attack-source attack) (name defender))))
-
 (defun damage (defender attack)
   (let* ((base-damage (max 1 (- (attack-dmg attack) (armor defender))))
 	 (mod-damage (round (* base-damage (damage-modifier defender (attack-types attack)))))
@@ -138,6 +151,11 @@
 		  (max 0 real-damage)
 		  (deadp defender)
 		  (death defender))))
+
+(defun attack (attack defender)
+  (if (>= (attack-to-hit attack) (evasion defender))
+      (damage defender attack)
+      (print-to-log "~a missed ~a" (attack-source attack) (name defender))))
 
 (defun test-combat ()
   (let ((enemy (make-instance 'creature :name "enemy" :health 10))
@@ -176,7 +194,15 @@
 		 never (pos-opaquep (/ x (abs dx))))
 	   (loop for y below (abs dy)
 		 never (pos-opaquep (/ y (abs dy))))))))
-			    
+
+(defun reposition (obj new-pos)
+  (unless (gethash new-pos *board*)
+    (remhash (pos obj) *board*)
+    (setf (gethash new-pos *board*) obj)
+    (setf (pos obj) new-pos)))
+
+(defun move (obj direction)
+  (reposition obj (vec+ (pos obj) direction)))
 
 (defgeneric visiblep (obj)
   (:method ((pos list))
@@ -190,24 +216,6 @@
 		 (if result (setf (persistently-visiblep obj) 1))
 		 result)))
 	  (t (visiblep (pos obj))))))
-
-(defgeneric wallp (obj)
-  (:method (obj) nil)
-  (:method ((obj wall)) t))
-
-(defun vec+ (&rest vectors)
-  (loop for v in vectors
-	sum (car v) into x
-	sum (cdr v) into y
-	finally (return (cons x y))))
-
-(defun vec- (vector &rest vectors)
-  (if vectors
-      (vec+ vector (loop for v in vectors
-			 sum (- (car v)) into x
-			 sum (- (cdr v)) into y
-			 finally (return (cons x y))))
-      (cons (- (car vector)) (- (cdr vector)))))
 
 (defun print-board ()
   (loop for y below (cdr *board-size*)
