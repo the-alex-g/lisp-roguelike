@@ -14,7 +14,6 @@
    (name :initform "" :initarg :name :accessor name)
    (color :initform 30 :initarg :color :accessor color)
    (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)
-   (solidp :initform nil :accessor solidp :initarg :solidp)
    (opaquep :initform nil :accessor opaquep :initarg :opaquep)
    (persistently-visiblep :initform nil :initarg :pvisiblep :accessor persistently-visiblep)))
 (defclass creature (actor)
@@ -29,14 +28,29 @@
    (vulnerablities :initform '() :initarg :vulnerable :accessor vulnerabilities)
    (absorbances :initform '() :initarg :absorb :accessor absorbances)))
 (defclass wall (actor)
-  ((solidp :initform t :allocation :class)
-   (opaquep :initform t :allocation :class)
+  ((opaquep :initform t :allocation :class)
    (persistently-visiblep :initform 0)))
 
-(defparameter *board* (make-hash-table :test #'equal))
+(defparameter *solid-actors* (make-hash-table :test #'equal))
+(defparameter *non-solid-actors* (make-hash-table :test #'equal))
 (defparameter *board-size* '(10 . 10))
 (defparameter *player* (make-instance 'creature :health 10 :name "player" :pos '(5 . 5) :color 31))
 (defparameter *sight-distance* 10)
+
+(defun solid (pos)
+  (gethash pos *solid-actors*))
+
+(defun (setf solid) (value pos)
+  (setf (gethash pos *solid-actors*) value))
+
+(defun non-solid (pos)
+  (gethash pos *non-solid-actors*))
+
+(defun (setf non-solid) (value pos)
+  (setf (gethash pos *non-solid-actors*) value))
+
+(defun emptyp (pos)
+  (not (or (solid pos) (non-solid pos))))
 
 (defgeneric wallp (obj)
   (:method (obj) nil)
@@ -72,8 +86,8 @@
 	(apply-colors (slot-value obj 'display-char) (color obj))))
   (:method ((obj wall))
     (when (eq (slot-value obj 'display-char) #\?)
-      (if (or (wallp (gethash (vec+ (pos obj) +left+) *board*))
-	      (wallp (gethash (vec+ (pos obj) +right+) *board*)))
+      (if (or (wallp (solid (vec+ (pos obj) +left+)))
+	      (wallp (solid (vec+ (pos obj) +right+))))
 	  (setf (display-char obj) #\-)
 	  (setf (display-char obj) #\|)))
     (call-next-method)))
@@ -198,7 +212,7 @@
 				(round (+ (cdr from) (* m dy)))))
 			(pos-opaquep (m)
 			  (let* ((pos (get-pos-on-line m))
-				 (actor (gethash pos *board*)))
+				 (actor (solid pos)))
 			    (if actor
 				(opaquep actor)
 				nil))))
@@ -207,24 +221,29 @@
 		      (loop for y below (abs dy)
 			    never (pos-opaquep (/ y (abs dy)))))))))
     (defun has-los (to from distance)
-      (let* ((key (list to from))
-	     (memo (gethash key memos))
-	     (result (if memo
-			 (= memo 1) ; because memo is either 0 or 1
-			 (let ((new-val (calculate-los to from)))
-			   (setf (gethash key memos) (if new-val 1 0))
-			   new-val))))
-	(if result
-	    ;; check if point is within distance
-	    (or (< distance 0)
-		(>= distance (vec-length (vec- to from))))
-	    nil)))))
+      (let ((key (list to from)))
+	(multiple-value-bind (memo memo-existsp) (gethash key memos)
+	     (if (if memo-existsp
+		     memo
+		     (let ((new-val (calculate-los to from)))
+		       (setf (gethash key memos) new-val)
+		       new-val))
+		 ;; check if point is within distance
+		 (or (< distance 0)
+		     (>= distance (vec-length (vec- to from))))
+		 nil))))))
+
+(defgeneric move-into (passive active)
+  (:method (passive active))) ; default case: do nothing
 
 (defun reposition (obj new-pos)
-  (unless (gethash new-pos *board*)
-    (remhash (pos obj) *board*)
-    (setf (gethash new-pos *board*) obj)
-    (setf (pos obj) new-pos)))
+  (let ((collider (solid new-pos)))
+    (if collider
+	(move-into collider obj)
+	(progn (remhash (pos obj) *solid-actors*)
+	       (setf (solid new-pos) obj)
+	       (setf (pos obj) new-pos)
+	       (move-into (non-solid new-pos) obj)))))
 
 (defun move (obj direction)
   (reposition obj (vec+ (pos obj) direction)))
@@ -238,26 +257,27 @@
 	   (if (= (persistently-visiblep obj) 1)
 	       t
 	       (let ((result (visiblep (pos obj))))
-		 (if result (setf (persistently-visiblep obj) 1))
+		 (when result
+		   (setf (persistently-visiblep obj) 1))
 		 result)))
 	  (t (visiblep (pos obj))))))
 
 (defun print-board ()
   (loop for y below (cdr *board-size*)
-	do (loop for x below (car *board-size*)
-		 do (let* ((pos (cons x y))
-			   (actor (gethash pos *board*)))
-		      (format t "~a" (cond ((and actor (visiblep actor))
-					    (display-char actor))
-					   ((visiblep pos) #\.)
-					   (t #\space)))))
-	do (terpri)))
+	do (format t "~{~a~}~%"
+		   (loop for x below (car *board-size*)
+			 collect (let* ((pos (cons x y))
+					(actor (solid pos)))
+				   (cond ((and actor (visiblep actor))
+					  (display-char actor))
+					 ((visiblep pos) #\.)
+					 (t #\space)))))))
 
 (loop for x below 10
-      do (setf (gethash (cons x 0) *board*) (make-instance 'wall :pos (cons x 0)))
-      do (setf (gethash (cons x 9) *board*) (make-instance 'wall :pos (cons x 9))))
+      do (setf (solid (cons x 0)) (make-instance 'wall :pos (cons x 0)))
+      do (setf (solid (cons x 9)) (make-instance 'wall :pos (cons x 9))))
 (loop for y below 10
-      do (setf (gethash (cons 0 y) *board*) (make-instance 'wall :pos (cons 0 y)))
-      do (setf (gethash (cons 9 y) *board*) (make-instance 'wall :pos (cons 9 y))))
+      do (setf (solid (cons 0 y)) (make-instance 'wall :pos (cons 0 y)))
+      do (setf (solid (cons 9 y)) (make-instance 'wall :pos (cons 9 y))))
 
-(setf (gethash (pos *player*) *board*) *player*)
+(setf (solid (pos *player*)) *player*)
