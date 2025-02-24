@@ -1,10 +1,8 @@
-;; THESE COULD BE CONSTANTS
-(defparameter +directions+ '((0 . 1) (1 . 0) (-1 . 0) (0 . -1)))
-(defparameter +zero+ '(0 . 0))
-(defparameter +left+ '(-1 . 0))
-(defparameter +right+ '(1 . 0))
-(defparameter +up+ '(0 . -1))
-(defparameter +down+ '(0 . 1))
+(load "~/quicklisp/setup.lisp")
+(ql:quickload :trivial-raw-io)
+
+(load "terminal.lisp")
+(load "utils.lisp")
 
 (defstruct attack dmg to-hit source types)
 (defstruct weapon dmg (to-hit 0) damage-types)
@@ -35,7 +33,14 @@
 (defparameter *non-solid-actors* (make-hash-table :test #'equal))
 (defparameter *board-size* '(10 . 10))
 (defparameter *player* (make-instance 'creature :health 10 :name "player" :pos '(5 . 5) :color 31))
-(defparameter *sight-distance* 10)
+(defparameter *sight-distance* 5)
+(defparameter *actions* (make-hash-table))
+(defparameter *action-descriptions* (make-hash-table))
+
+(defmacro defaction (key description &body body)
+  `(progn (setf (gethash ,key *action-descriptions*) ,description)
+	  (setf (gethash ,key *actions*) (lambda ()
+					   ,@body))))
 
 (defun solid (pos)
   (gethash pos *solid-actors*))
@@ -43,11 +48,17 @@
 (defun (setf solid) (value pos)
   (setf (gethash pos *solid-actors*) value))
 
+(defun remove-solid (pos)
+  (remhash pos *solid-actors*))
+
 (defun non-solid (pos)
   (gethash pos *non-solid-actors*))
 
 (defun (setf non-solid) (value pos)
   (setf (gethash pos *non-solid-actors*) value))
+
+(defun remove-non-solid (pos)
+  (remhash pos *non-solid-actors*))
 
 (defun contents (pos)
   (or (solid pos) (non-solid pos)))
@@ -55,31 +66,22 @@
 (defun emptyp (pos)
   (not (contents pos)))
 
+(defun remove-all (pos)
+  (remove-non-solid pos)
+  (remove-solid pos))
+
 (defgeneric wallp (obj)
   (:method (obj) nil)
   (:method ((obj wall)) t))
 
-(defun vec+ (&rest vectors)
-  (loop for v in vectors
-	sum (car v) into x
-	sum (cdr v) into y
-	finally (return (cons x y))))
-
-(defun vec- (vector &rest vectors)
-  (if vectors
-      (vec+ vector (loop for v in vectors
-			 sum (- (car v)) into x
-			 sum (- (cdr v)) into y
-			 finally (return (cons x y))))
-      (cons (- (car vector)) (- (cdr vector)))))
-
-(defun vec-length (vector)
-  (sqrt (+ (expt (car vector) 2) (expt (cdr vector) 2))))
+(defun apply-default-colors ()
+  (format t "~c[40;37m" #\esc))
 
 (defun apply-colors (char colors)
-  (format nil "~c[~{~d~^;~}m~c~0@*~c[0;30m" #\esc (if (listp colors)
-						      colors
-						      (list colors))
+  (format nil "~c[~{~d~^;~}m~c~0@*~c[40;37m"
+	  #\esc (if (listp colors)
+		    colors
+		    (list colors))
 	  char))
 
 (defgeneric display-char (obj)
@@ -129,9 +131,6 @@
 (defgeneric absorbp (obj type)
   (:method ((obj creature) type)
     (member type (absorbances obj))))
-
-(defun print-to-log (string &rest args)
-  (format t "~?~%" string args))
 
 (defun roll (num die &rest modifiers)
   (+ (loop repeat num
@@ -206,6 +205,10 @@
     (test #'equal '(-1 . -1) 'vec- '(1 . 1))
     (test #'= 5.0 'vec-length '(3 . 4))))
 
+(defun show-colors ()
+  (loop for code below 111
+	do (format t "~c[~dmCODE ~:*~d~0@*~c[0m~%" #\esc code)))
+
 (let ((memos (make-hash-table :test #'equal)))
   (labels ((calculate-los (to from)
 	     (let ((dx (- (car to) (car from)))
@@ -271,7 +274,7 @@
   (let ((collider (solid new-pos)))
     (if collider
 	(move-into collider obj)
-	(progn (remhash (pos obj) *solid-actors*)
+	(progn (remove-solid (pos obj))
 	       (setf (solid new-pos) obj)
 	       (setf (pos obj) new-pos)
 	       (move-into (non-solid new-pos) obj)))))
@@ -294,6 +297,7 @@
 	  (t (visiblep (pos obj))))))
 
 (defun print-board ()
+  (apply-default-colors)
   (loop for y below (cdr *board-size*)
 	do (format t "~{~a~}~%"
 		   (loop for x below (car *board-size*)
@@ -305,10 +309,40 @@
 					 (t #\space)))))))
 
 (loop for x below 10
-      do (setf (solid (cons x 0)) (make-instance 'wall :pos (cons x 0)))
-      do (setf (solid (cons x 9)) (make-instance 'wall :pos (cons x 9))))
+      do (place (make-instance 'wall) (cons x 0))
+      do (place (make-instance 'wall) (cons x 9)))
 (loop for y below 10
-      do (setf (solid (cons 0 y)) (make-instance 'wall :pos (cons 0 y)))
-      do (setf (solid (cons 9 y)) (make-instance 'wall :pos (cons 9 y))))
+      do (place (make-instance 'wall) (cons 0 y))
+      do (place (make-instance 'wall) (cons 9 y)))
 
-(setf (solid (pos *player*)) *player*)
+(place *player* '(5 . 5))
+
+(defun start ()
+  (labels ((process-round (input)
+	     (unless (eq input #\q)
+	       (let ((action (gethash input *actions*)))
+		 (when action
+		   (funcall (gethash input *actions*))))
+	       (clear-screen)
+	       (print-board)
+	       (print-log)
+	       (process-round (custom-read-char)))))
+    (process-round #\space))
+  (format t "~c[0m" #\esc))
+
+(defaction #\a "move left" (move *player* +left+))
+(defaction #\d "move right" (move *player* +right+))
+(defaction #\w "move up" (move *player* +up+))
+(defaction #\s "move down" (move *player* +down+))
+(defaction #\# "open a REPL"
+  (labels ((my-repl ()
+	     (fresh-line)
+	     (princ ">>> ")
+	     (force-output)
+	     (let ((input (read-from-string (read-line))))
+	       (unless (eq input 'q)
+		 (print (eval input))
+		 (my-repl)))))
+    (my-repl)))
+
+(start)

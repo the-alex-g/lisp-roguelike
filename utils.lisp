@@ -4,8 +4,6 @@
 (defconstant +down+ '(0 . 1))
 (defconstant +zero+ '(0 . 0))
 (defconstant +directions+ '((-1 . 0) (1 . 0) (0 . -1) (0 . 1)))
-(defconstant +directions-with-zero+
-  '((-1 . 0) (1 . 0) (0 . -1) (0 . 1) (0 . 0)))
 (defparameter *log* '())
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
@@ -37,32 +35,38 @@
 	       *log*
 	       (list (apply #'log-to-string control-string args)))))
 
+(defun print-log ()
+  (loop for item in *log*
+	do (format t "~a~%" item))
+  (setf *log* '()))
+
 (defun print-to-screen (control-string &rest args)
   (princ (apply #'log-to-string control-string args))
   (force-output))
 
 (defun square (number)
-  (* number number))
+  (expt number 2))
 
-(defun add-pos (&rest points)
-  (loop for p in points
-	sum (car p) into x
-	sum (cdr p) into y
+(defun vec+ (&rest vectors)
+  (loop for v in vectors
+	sum (car v) into x
+	sum (cdr v) into y
 	finally (return (cons x y))))
 
-(defun sub-pos (a b)
-  (cons (- (car a) (car b)) (- (cdr a) (cdr b))))
+(defun vec- (vector &rest vectors)
+  (if vectors
+      (vec+ vector (loop for v in vectors
+			 sum (- (car v)) into x
+			 sum (- (cdr v)) into y
+			 finally (return (cons x y))))
+      (cons (- (car vector)) (- (cdr vector)))))
 
-(defun mul-pos (a scalar)
-  (cons (* (car a) scalar) (* (cdr a) scalar)))
+(defun vec-length (vector)
+  (sqrt (+ (square (car vector))
+	   (square (cdr vector)))))
 
-(defun distance (p1 p2)
-  (sqrt (+ (square (- (car p2) (car p1)))
-	   (square (- (cdr p2) (cdr p1))))))
-
-;; generate a random number between 1 and d
-(defun roll (d)
-  (1+ (random (max 1 d))))
+(defun distance (a b)
+  (vec-length (vec- a b)))
 
 (defun randnth (lst)
   (if (listp lst)
