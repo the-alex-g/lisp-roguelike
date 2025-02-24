@@ -17,6 +17,8 @@
 (defclass creature (actor)
   ((dex :initform 0 :initarg :dex :accessor dex)
    (str :initform 0 :initarg :str :accessor str)
+   (spd :initform 1 :initarg :speed :accessor spd)
+   (energy :initform 0 :accessor energy)
    (health :initform 1 :initarg :health :reader health)
    (armor :initform 0 :initarg :armor :accessor armor)
    (evasion :initform 0 :initarg :evd :writer (setf evasion))
@@ -270,6 +272,34 @@
 	    (setf (non-solid position) obj))
 	(setf (pos obj) position)))))
 
+(defun find-path (from to)
+  (let ((came-from (make-hash-table :test #'equal)))
+    (setf (gethash from came-from) t)
+    (labels ((occupiedp (pos)
+	       (solid pos))
+	     (neighbors (pos)
+	       (loop for direction in +directions+
+		     unless (let ((cell-pos (vec+ pos direction)))
+			      (or (gethash cell-pos came-from)
+				  (occupiedp cell-pos)))
+		       collect (vec+ pos direction)))
+	     (iterate (frontier)
+	       (let ((current (car frontier)))
+		 (when current
+		   (if (equal current to)
+		       t
+		       (let ((neighbors (neighbors current)))
+			 (mapc (lambda (n) (setf (gethash n came-from) current))
+			       neighbors)
+			 (iterate (append (cdr frontier) neighbors)))))))
+	     (build-path (pos &optional (path '()))
+	       (if (equal pos from)
+		   path
+		   (build-path (gethash pos came-from) (cons pos path)))))
+      (if (iterate (list from))
+	  (build-path to)
+	  (list from)))))
+
 (defun reposition (obj new-pos)
   (let ((collider (solid new-pos)))
     (if collider
@@ -281,6 +311,19 @@
 
 (defun move (obj direction)
   (reposition obj (vec+ (pos obj) direction)))
+
+(defgeneric act (obj)
+  (:method ((obj creature))
+    (when (>= (energy obj) 1)
+      ;; do an action
+      (act obj))))
+
+(defgeneric update (obj)
+  (:method (obj))
+  (:method ((obj creature))
+    (incf (energy obj) (spd obj))
+    (act obj))
+  (:method ((obj (eql *player*)))))
 
 (defgeneric visiblep (obj)
   (:method ((pos list))
@@ -322,7 +365,11 @@
 	     (unless (eq input #\q)
 	       (let ((action (gethash input *actions*)))
 		 (when action
-		   (funcall (gethash input *actions*))))
+		   (funcall (gethash input *actions*))
+		   (loop for actor being the hash-keys of *solid-actors*
+			 do (update actor))
+		   (loop for actor being the hash-keys of *non-solid-actors*
+			 do (update actor))))
 	       (clear-screen)
 	       (print-board)
 	       (print-log)
