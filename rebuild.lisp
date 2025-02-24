@@ -11,9 +11,7 @@
    (pos :initform +zero+ :initarg :pos :accessor pos)
    (name :initform "" :initarg :name :accessor name)
    (color :initform 30 :initarg :color :accessor color)
-   (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)
-   (opaquep :initform nil :accessor opaquep :initarg :opaquep)
-   (persistently-visiblep :initform nil :initarg :pvisiblep :accessor persistently-visiblep)))
+   (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)))
 (defclass creature (actor)
   ((dex :initform 0 :initarg :dex :accessor dex)
    (str :initform 0 :initarg :str :accessor str)
@@ -27,15 +25,12 @@
    (immunities :initform '() :initarg :immune :accessor immunities)
    (vulnerablities :initform '() :initarg :vulnerable :accessor vulnerabilities)
    (absorbances :initform '() :initarg :absorb :accessor absorbances)))
-(defclass wall (actor)
-  ((opaquep :initform t :allocation :class)
-   (persistently-visiblep :initform 0)))
 
 (defparameter *solid-actors* (make-hash-table :test #'equal))
 (defparameter *non-solid-actors* (make-hash-table :test #'equal))
 (defparameter *board-size* '(10 . 10))
 (defparameter *player* (make-instance 'creature :health 10 :name "player" :pos '(5 . 5) :color 31))
-(defparameter *sight-distance* 5)
+(defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
 
@@ -74,7 +69,8 @@
 
 (defgeneric wallp (obj)
   (:method (obj) nil)
-  (:method ((obj wall)) t))
+  (:method ((obj symbol)) (eq obj 'wall))
+  (:method ((obj character)) t))
 
 (defun apply-default-colors ()
   (format t "~c[40;37m" #\esc))
@@ -91,13 +87,12 @@
     (if (eq (color obj) 30)
 	(slot-value obj 'display-char)
 	(apply-colors (slot-value obj 'display-char) (color obj))))
-  (:method ((obj wall))
-    (when (eq (slot-value obj 'display-char) #\?)
-      (if (or (wallp (solid (vec+ (pos obj) +left+)))
-	      (wallp (solid (vec+ (pos obj) +right+))))
-	  (setf (display-char obj) #\-)
-	  (setf (display-char obj) #\|)))
-    (call-next-method)))
+  (:method ((pos list))
+    (if (or (wallp (solid (vec+ pos +left+)))
+	    (wallp (solid (vec+ pos +right+))))
+	(setf (solid pos) #\-)
+	(setf (solid pos) #\|)))
+  (:method ((obj character)) obj))
 
 (defmethod (setf health) (value (obj creature))
   (if (> value 0)
@@ -222,7 +217,7 @@
 			  (let* ((pos (get-pos-on-line m))
 				 (actor (solid pos)))
 			    (if actor
-				(opaquep actor)
+				(wallp actor)
 				nil))))
 		 (and (loop for x below (abs dx)
 			    never (pos-opaquep (/ x (abs dx))))
@@ -323,16 +318,12 @@
 (defgeneric visiblep (obj)
   (:method ((pos list))
     (has-los pos (pos *player*) *sight-distance*))
+  (:method ((n symbol)) nil)
+  (:method ((c character)) t)
   (:method ((obj actor))
-    (cond ((hiddenp obj) nil)
-	  ((persistently-visiblep obj)
-	   (if (= (persistently-visiblep obj) 1)
-	       t
-	       (let ((result (visiblep (pos obj))))
-		 (when result
-		   (setf (persistently-visiblep obj) 1))
-		 result)))
-	  (t (visiblep (pos obj))))))
+    (if (hiddenp obj)
+	nil
+	(visiblep (pos obj)))))
 
 (defun print-board ()
   (apply-default-colors)
@@ -341,17 +332,20 @@
 		   (loop for x below (car *board-size*)
 			 collect (let* ((pos (cons x y))
 					(actor (contents pos)))
-				   (cond ((and actor (visiblep actor))
+				   (cond ((and (wallp actor)
+					       (or (visiblep pos)
+						   (visiblep actor)))
+					  (display-char pos))
+					 ((and actor (visiblep actor))
 					  (display-char actor))
 					 ((visiblep pos) #\.)
 					 (t #\space)))))))
 
-(loop for x below 10
-      do (place (make-instance 'wall) (cons x 0))
-      do (place (make-instance 'wall) (cons x 9)))
-(loop for y below 10
-      do (place (make-instance 'wall) (cons 0 y))
-      do (place (make-instance 'wall) (cons 9 y)))
+(loop for i below 10
+      do (setf (solid (cons i 0)) 'wall)
+      do (setf (solid (cons i 9)) 'wall)
+      do (setf (solid (cons 0 i)) 'wall)
+      do (setf (solid (cons 9 i)) 'wall))
 
 (place *player* '(5 . 5))
 
