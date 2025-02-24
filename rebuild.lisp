@@ -20,6 +20,7 @@
    (armor :initform 0 :initarg :armor :accessor armor)
    (evasion :initform 0 :initarg :evd :writer (setf evasion))
    max-health
+   (weapon :initform nil :initarg :weapon :accessor weapon)
    (resistances :initform '() :initarg :resist :accessor resistances)
    (immunities :initform '() :initarg :immune :accessor immunities)
    (vulnerablities :initform '() :initarg :vulnerable :accessor vulnerabilities)
@@ -238,6 +239,9 @@
 		 nil))))))
 
 (defgeneric move-into (passive active)
+  (:method ((passive creature) (active creature))
+    (if (weapon active)
+	(attack (get-attack active (weapon active)) passive)))
   (:method (passive active))) ; default case: do nothing
 
 (defun move-into-pos (pos obj)
@@ -355,7 +359,8 @@
       do (setf (solid (cons 9 i)) 'wall))
 
 (place *player* '(5 . 5))
-(place (make-instance 'enemy :display-char #\g :color 32) '(2 . 2))
+(setf (weapon *player*) (make-weapon :dmg '(1 6) :damage-types '(slashing)))
+(place (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :weapon (make-weapon :dmg '(1 4) :damage-types '(slashing))) '(2 . 2))
 
 (defun start ()
   (labels ((process-round (input)
