@@ -96,13 +96,23 @@
 	(setf (solid pos) #\|)))
   (:method ((obj character)) obj))
 
+(defgeneric corpse (obj)
+  (:method ((obj creature))
+    (make-instance 'actor :name (log-to-string "~a corpse" (name obj)) :display-char #\c)))
+
+(defgeneric kill (obj)
+  (:method ((obj enemy))
+    (remove-solid (pos obj))
+    (place (corpse obj) (pos obj) :solid nil)))
+
 (defmethod (setf health) (value (obj creature))
   (if (> value 0)
       (if (slot-boundp obj 'max-health)
 	  (setf (slot-value obj 'health) (min value (slot-value obj 'max-health)))
 	  (progn (setf (slot-value obj 'max-health) (health obj))
 		 (setf (slot-value obj 'health) value)))
-      (setf (slot-value obj 'health) 0)))
+      (progn (setf (slot-value obj 'health) 0)
+	     (kill obj))))
 
 (defmethod evasion ((obj creature))
   (+ 10 (dex obj) (slot-value obj 'evasion)))
