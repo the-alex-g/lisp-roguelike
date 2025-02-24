@@ -15,8 +15,7 @@
 (defclass creature (actor)
   ((dex :initform 0 :initarg :dex :accessor dex)
    (str :initform 0 :initarg :str :accessor str)
-   (spd :initform 1 :initarg :speed :accessor spd)
-   (energy :initform 0 :accessor energy)
+   (spd :initform 1 :initarg :spd :accessor spd)
    (health :initform 1 :initarg :health :reader health)
    (armor :initform 0 :initarg :armor :accessor armor)
    (evasion :initform 0 :initarg :evd :writer (setf evasion))
@@ -25,6 +24,8 @@
    (immunities :initform '() :initarg :immune :accessor immunities)
    (vulnerablities :initform '() :initarg :vulnerable :accessor vulnerabilities)
    (absorbances :initform '() :initarg :absorb :accessor absorbances)))
+(defclass enemy (creature)
+  ((energy :initform 0 :accessor energy)))
 
 (defparameter *solid-actors* (make-hash-table :test #'equal))
 (defparameter *non-solid-actors* (make-hash-table :test #'equal))
@@ -243,7 +244,8 @@
   (move-into (solid pos) obj)
   (move-into (non-solid pos) obj))
 
-(defmacro flood-fill (start (value-to-store exit-condition &key (solid t) (stop-for-occupied t))
+(defmacro flood-fill (start (value-to-store exit-condition
+			     &key (solid t) (stop-for-occupied t) (go-until nil))
 		      &body body)
   `(let ((cells (make-hash-table :test #'equal)))
      (setf (gethash ,start cells) t)
@@ -255,8 +257,10 @@
 		(loop for direction in +directions+
 		      unless (let ((cell-pos (vec+ pos direction)))
 			       (or (gethash cell-pos cells)
-				   (and (occupiedp cell-pos) ,stop-for-occupied)
-				   (wallp (solid cell-pos))))
+				   (wallp (solid cell-pos))
+				   (and (occupiedp cell-pos)
+					(not (equal cell-pos ,go-until))
+					,stop-for-occupied)))
 			collect (vec+ pos direction)))
 	      (iterate (frontier)
 		(when (car frontier)
@@ -281,9 +285,9 @@
 	      (setf (pos obj) result)))
 
 (defun find-path (from to)
-  (flood-fill from (current (if (equal current to) t))
+  (flood-fill from (current (if (equal current to) t) :go-until to)
 	      (if result
-		  (labels ((build-path (pos &optional (path '()))
+		  (labels ((build-path (pos &optional (path nil))
 			     (if (equal pos from)
 				 path
 				 (build-path (gethash pos cells) (cons pos path)))))
@@ -302,18 +306,21 @@
 (defun move (obj direction)
   (reposition obj (vec+ (pos obj) direction)))
 
+(defun step-towards (target obj)
+  (reposition obj (car (find-path (pos obj) (pos target)))))
+
 (defgeneric act (obj)
-  (:method ((obj creature))
+  (:method ((obj enemy))
     (when (>= (energy obj) 1)
-      ;; do an action
+      (step-towards *player* obj)
+      (decf (energy obj))
       (act obj))))
 
 (defgeneric update (obj)
   (:method (obj))
-  (:method ((obj creature))
-    (incf (energy obj) (spd obj))
-    (act obj))
-  (:method ((obj (eql *player*)))))
+  (:method ((obj enemy))
+    (incf (energy obj) (/ (spd obj) (spd *player*)))
+    (act obj)))
 
 (defgeneric visiblep (obj)
   (:method ((pos list))
@@ -348,16 +355,17 @@
       do (setf (solid (cons 9 i)) 'wall))
 
 (place *player* '(5 . 5))
+(place (make-instance 'enemy :display-char #\g :color 32) '(2 . 2))
 
 (defun start ()
   (labels ((process-round (input)
 	     (unless (eq input #\q)
 	       (let ((action (gethash input *actions*)))
 		 (when action
-		   (funcall (gethash input *actions*))
-		   (loop for actor being the hash-keys of *solid-actors*
+		   (funcall action)
+		   (loop for actor being the hash-values of *solid-actors*
 			 do (update actor))
-		   (loop for actor being the hash-keys of *non-solid-actors*
+		   (loop for actor being the hash-values of *non-solid-actors*
 			 do (update actor))))
 	       (clear-screen)
 	       (print-board)
@@ -370,6 +378,7 @@
 (defaction #\d "move right" (move *player* +right+))
 (defaction #\w "move up" (move *player* +up+))
 (defaction #\s "move down" (move *player* +down+))
+(defaction #\p "wait" t)
 (defaction #\# "open a REPL"
   (labels ((my-repl ()
 	     (fresh-line)
