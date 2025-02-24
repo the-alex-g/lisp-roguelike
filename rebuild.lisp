@@ -248,57 +248,52 @@
   (move-into (solid pos) obj)
   (move-into (non-solid pos) obj))
 
+(defmacro flood-fill (start (value-to-store exit-condition &key (solid t) (stop-for-occupied t))
+		      &body body)
+  `(let ((cells (make-hash-table :test #'equal)))
+     (setf (gethash ,start cells) t)
+     (labels ((occupiedp (pos)
+		,(if solid
+		     '(solid pos)
+		     '(or (non-solid pos) (wallp (solid pos)))))
+	      (neighbors (pos)
+		(loop for direction in +directions+
+		      unless (let ((cell-pos (vec+ pos direction)))
+			       (or (gethash cell-pos cells)
+				   (and (occupiedp cell-pos) ,stop-for-occupied)
+				   (wallp (solid cell-pos))))
+			collect (vec+ pos direction)))
+	      (iterate (frontier)
+		(when (car frontier)
+		  (let* ((current (car frontier))
+			 (neighbors (neighbors current))
+			 (exit-condition ,exit-condition))
+		    (if exit-condition
+			exit-condition
+			(progn
+			  (mapc (lambda (n) (setf (gethash n cells) ,value-to-store)) neighbors)
+			  (iterate (append (cdr frontier) neighbors))))))))
+       (let ((result (iterate (list ,start))))
+	 ,@body))))
+
 (defun place (obj pos &key (solid t) (interact t))
-  (let ((already-checked '()))
-    (when interact
-      (move-into-pos pos obj))
-    (labels ((occupiedp (p)
-	       (if solid
-		   (solid p)
-		   (or (non-solid p)
-		       (wallp (solid p)))))
-	     (neighbors (p)
-	       (loop for direction in +directions+
-		     unless (member (vec+ p direction) already-checked)
-		       collect (vec+ p direction)))
-	     (iterate (frontier)
-	       (let ((current (car frontier)))
-		 (if (occupiedp current)
-		     (iterate (append (cdr frontier) (neighbors current)))
-		     current))))
-      (let ((position (iterate (list pos))))
-	(if solid
-	    (setf (solid position) obj)
-	    (setf (non-solid position) obj))
-	(setf (pos obj) position)))))
+  (flood-fill pos (t (unless (occupiedp current) current) 
+		     :stop-for-occupied nil
+		     :solid solid)
+	      (if solid
+		  (setf (solid result) obj)
+		  (setf (non-solid result) obj))
+	      (setf (pos obj) result)))
 
 (defun find-path (from to)
-  (let ((came-from (make-hash-table :test #'equal)))
-    (setf (gethash from came-from) t)
-    (labels ((occupiedp (pos)
-	       (solid pos))
-	     (neighbors (pos)
-	       (loop for direction in +directions+
-		     unless (let ((cell-pos (vec+ pos direction)))
-			      (or (gethash cell-pos came-from)
-				  (occupiedp cell-pos)))
-		       collect (vec+ pos direction)))
-	     (iterate (frontier)
-	       (let ((current (car frontier)))
-		 (when current
-		   (if (equal current to)
-		       t
-		       (let ((neighbors (neighbors current)))
-			 (mapc (lambda (n) (setf (gethash n came-from) current))
-			       neighbors)
-			 (iterate (append (cdr frontier) neighbors)))))))
-	     (build-path (pos &optional (path '()))
-	       (if (equal pos from)
-		   path
-		   (build-path (gethash pos came-from) (cons pos path)))))
-      (if (iterate (list from))
-	  (build-path to)
-	  (list from)))))
+  (flood-fill from (current (if (equal current to) t))
+	      (if result
+		  (labels ((build-path (pos &optional (path '()))
+			     (if (equal pos from)
+				 path
+				 (build-path (gethash pos cells) (cons pos path)))))
+		    (build-path to))
+		  (list from))))
 
 (defun reposition (obj new-pos)
   (let ((collider (solid new-pos)))
