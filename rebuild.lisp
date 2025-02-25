@@ -35,6 +35,54 @@
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
+(defparameter *inventory* '())
+
+(defun names-equal-p (a b)
+  (string= (log-to-string "~a" (name a))
+	   (log-to-string "~a" (name b))))
+
+(defun short-inventory ()
+  (loop for item in *inventory*
+	with used-names = nil
+	with string-name = ""
+	do (setf string-name (log-to-string "~a" (name item)))
+	unless (member string-name used-names :test #'equal)
+	  collect (progn (push string-name used-names)
+			 item)))
+
+(defun remove-from-inventory (item)
+  (setf *inventory*
+	(remove item *inventory* :test (lambda (a b)
+					 (names-equal-p a b))
+				 :count 1)))
+
+(defun in-inventoryp (item)
+  (loop for i in *inventory*
+	  thereis (names-equal-p item i)))
+
+(defun num-in-inventory (item)
+  (loop for i in *inventory*
+	count (names-equal-p i item)))
+
+(defgeneric add-to-inventory (item)
+  (:method ((item equipment))
+    (if (in-inventoryp item)
+	(setf *inventory*
+	      ;; put the new item next to others with the same name
+	      (loop for i in *inventory*
+		    with needs-collecting = t
+		    when (and needs-collecting (names-equal-p item i))
+		      collect item
+		      and do (setf needs-collecting nil)
+		    collect i))
+	(setf *inventory* (append *inventory* (list item))))))
+
+(defun reorder-inventory ()
+  ;; recreate the inventory to group like items
+  (let ((old-inventory *inventory*))
+    (setf *inventory* nil)
+    (loop for item in old-inventory
+	  do (add-to-inventory item))))
 
 (defmacro defaction (key description &body body)
   `(progn (setf (gethash ,key *action-descriptions*) ,description)
@@ -372,6 +420,16 @@
 (setf (weapon *player*) (make-weapon :dmg '(1 6) :damage-types '(slashing)))
 (place (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :weapon (make-weapon :dmg '(1 4) :damage-types '(slashing))) '(2 . 2))
 
+(defun print-surroundings ()
+  (print-to-screen "~:[~;you see ~]~:*~{~:[~;a ~:*~a to the ~a~#[~;~; and ~:;, ~]~]~}"
+		   nil))
+
+(defun print-game ()
+  (clear-screen)
+  (print-board)
+  (print-surroundings)
+  (print-log))
+
 (defun start ()
   (labels ((process-round (input)
 	     (unless (eq input #\q)
@@ -382,9 +440,7 @@
 			 do (update actor))
 		   (loop for actor being the hash-values of *non-solid-actors*
 			 do (update actor))))
-	       (clear-screen)
-	       (print-board)
-	       (print-log)
+	       (print-game)
 	       (process-round (custom-read-char)))))
     (process-round #\space))
   (format t "~c[0m" #\esc))
