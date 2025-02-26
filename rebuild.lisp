@@ -41,9 +41,13 @@
 (defparameter *print-surroundings-mode* 'all)
 
 (defmacro defaction (key description &body body)
-  `(progn (setf (gethash ,key *action-descriptions*) ,description)
-	  (setf (gethash ,key *actions*) (lambda ()
-					   ,@body))))
+  `(progn
+     (when (gethash ,key *action-descriptions*)
+       (print-to-log "You're declaring the ~a action twice!" ,key))
+     (setf (gethash ,key *action-descriptions*) ,description)
+     (setf (gethash ,key *actions*) (lambda ()
+				      ,@body))))
+
 (defun solid (pos)
   (gethash pos *solid-actors*))
 
@@ -106,6 +110,7 @@
     (make-instance 'actor :name (log-to-string "~a corpse" (name obj)) :display-char #\c)))
 
 (defgeneric kill (obj)
+  (:method (obj))
   (:method ((obj enemy))
     (remove-solid (pos obj))
     (place (corpse obj) (pos obj) :solid nil)))
@@ -451,5 +456,9 @@
 		 (print (eval input))
 		 (my-repl)))))
     (my-repl)))
+(defaction #\h "help"
+  (loop for action being the hash-keys of *action-descriptions*
+	do (print-to-log "~c: ~a" action (gethash action *action-descriptions*)))
+  (print-to-log "q: quit"))
 
 (start)
