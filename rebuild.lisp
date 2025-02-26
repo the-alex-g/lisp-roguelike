@@ -1,7 +1,6 @@
 (load "~/quicklisp/setup.lisp")
 (ql:quickload :trivial-raw-io)
 
-(load "terminal.lisp")
 (load "utils.lisp")
 
 (defstruct attack dmg to-hit source types)
@@ -27,6 +26,10 @@
    (absorbances :initform '() :initarg :absorb :accessor absorbances)))
 (defclass enemy (creature)
   ((energy :initform 0 :accessor energy)))
+(defclass equipment (actor) ())
+
+(load "terminal.lisp")
+(load "inventory.lisp")
 
 (defparameter *solid-actors* (make-hash-table :test #'equal))
 (defparameter *non-solid-actors* (make-hash-table :test #'equal))
@@ -35,60 +38,11 @@
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
-(defparameter *inventory* '())
-
-(defun names-equal-p (a b)
-  (string= (log-to-string "~a" (name a))
-	   (log-to-string "~a" (name b))))
-
-(defun short-inventory ()
-  (loop for item in *inventory*
-	with used-names = nil
-	with string-name = ""
-	do (setf string-name (log-to-string "~a" (name item)))
-	unless (member string-name used-names :test #'equal)
-	  collect (progn (push string-name used-names)
-			 item)))
-
-(defun remove-from-inventory (item)
-  (setf *inventory*
-	(remove item *inventory* :test (lambda (a b)
-					 (names-equal-p a b))
-				 :count 1)))
-
-(defun in-inventoryp (item)
-  (loop for i in *inventory*
-	  thereis (names-equal-p item i)))
-
-(defun num-in-inventory (item)
-  (loop for i in *inventory*
-	count (names-equal-p i item)))
-
-(defgeneric add-to-inventory (item)
-  (:method ((item equipment))
-    (if (in-inventoryp item)
-	(setf *inventory*
-	      ;; put the new item next to others with the same name
-	      (loop for i in *inventory*
-		    with needs-collecting = t
-		    when (and needs-collecting (names-equal-p item i))
-		      collect item
-		      and do (setf needs-collecting nil)
-		    collect i))
-	(setf *inventory* (append *inventory* (list item))))))
-
-(defun reorder-inventory ()
-  ;; recreate the inventory to group like items
-  (let ((old-inventory *inventory*))
-    (setf *inventory* nil)
-    (loop for item in old-inventory
-	  do (add-to-inventory item))))
 
 (defmacro defaction (key description &body body)
   `(progn (setf (gethash ,key *action-descriptions*) ,description)
 	  (setf (gethash ,key *actions*) (lambda ()
 					   ,@body))))
-
 (defun solid (pos)
   (gethash pos *solid-actors*))
 
@@ -296,6 +250,18 @@
 		     (>= distance (vec-length (vec- to from))))
 		 nil))))))
 
+(defgeneric pickup (item)
+  (:method (item))
+  (:method :after ((item equipment))
+    (remove-non-solid (pos item))
+    (add-to-inventory item)
+    (print-to-log "you picked up a ~a" (name item))))
+
+(defgeneric interact (object actor)
+  (:method (object actor))
+  (:method ((item equipment) (actor (eql *player*)))
+    (pickup item)))
+
 (defgeneric move-into (passive active)
   (:method ((passive creature) (active creature))
     (if (weapon active)
@@ -312,9 +278,9 @@
   `(let ((cells (make-hash-table :test #'equal)))
      (setf (gethash ,start cells) t)
      (labels ((occupiedp (pos)
-		,(if solid
-		     '(solid pos)
-		     '(or (non-solid pos) (wallp (solid pos)))))
+		(if ,solid
+		    (solid pos)
+		    (or (non-solid pos) (wallp (solid pos)))))
 	      (neighbors (pos)
 		(loop for direction in +directions+
 		      unless (let ((cell-pos (vec+ pos direction)))
@@ -419,6 +385,7 @@
 (place *player* '(5 . 5))
 (setf (weapon *player*) (make-weapon :dmg '(1 6) :damage-types '(slashing)))
 (place (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :weapon (make-weapon :dmg '(1 4) :damage-types '(slashing))) '(2 . 2))
+(place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 
 (defun print-surroundings ()
   (print-to-screen "~:[~;you see ~]~:*~{~:[~;a ~:*~a to the ~a~#[~;~; and ~:;, ~]~]~}"
@@ -450,6 +417,14 @@
 (defaction #\w "move up" (move *player* +up+))
 (defaction #\s "move down" (move *player* +down+))
 (defaction #\p "wait" t)
+(defaction #\i "interact"
+  (interact (non-solid (pos *player*)) *player*))
+(defaction #\v "print inventory"
+  (print-inventory))
+(defaction #\D "drop an item"
+  (with-item-from-inventory
+      (remove-from-inventory item)
+    (place item (pos *player*) :solid nil)))
 (defaction #\# "open a REPL"
   (labels ((my-repl ()
 	     (fresh-line)

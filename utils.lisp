@@ -105,3 +105,56 @@
 	when (< (distance p point) (distance point best-point))
 	  do (setf best-point p)
 	finally (return best-point)))
+
+;; Return an item, chosen by the player, from the given list
+;; If the list items are not printable, pass a naming-function that gets a
+;; printable name from the list item.
+(defun get-item-from-list (lst &key
+				 (naming-function (lambda (x) (log-to-string "~a" x)))
+				 (exit-option t)
+				 (what "object"))
+  (let* ((temp (loop for x in lst
+		     when (funcall naming-function x)
+		       collect (log-to-string "~a" (funcall naming-function x)) into a
+		       and collect x into b
+		     finally (return (cons a b))))
+	 (name-list (car temp))
+	 (item-list (cdr temp))
+	 (tab-length (+ 7 (loop for item in name-list maximize (length item)))))
+    (labels ((print-list (from)
+	       (print-to-screen "~{~@?~}"
+				(loop for n in from
+				      with i = 0
+				      if (= 0 (mod i 2))
+					collect "~%~2t~d) ~a"
+					and collect i
+					and collect n
+					and do (incf i)
+				      else
+					collect "~vt~d) ~a"
+					and collect tab-length
+					and collect i
+					and collect n
+					and do (incf i))))
+	     (pick-item (from)
+	       (fresh-line)
+	       (print-to-screen "Choose an ~a: " what)
+	       (let* ((raw (if (<= (length lst) 10)
+			       (custom-read-char)
+			       (read-line)))
+		      (index (if (<= (length lst) 10)
+				 (digit-char-p raw)
+				 (parse-integer raw))))
+		 (cond ((or (eq raw #\q) (string= raw "q"))
+			nil)
+		       ((and index (< index (length from)))
+			(nth index from))
+		       (t
+			(print-to-screen "~%That was an invalid choice")
+			(pick-item from))))))
+      (print-list (if exit-option
+		      (append name-list '(cancel))
+		      name-list))
+      (pick-item (if exit-option
+		     (append item-list '(nil))
+		     item-list)))))
