@@ -4,7 +4,6 @@
 (load "utils.lisp")
 
 (defstruct attack dmg to-hit source types)
-(defstruct weapon dmg (to-hit 0) damage-types)
 (defclass actor ()
   ((display-char :initform #\? :initarg :display-char :writer (setf display-char))
    (pos :initform +zero+ :initarg :pos :accessor pos)
@@ -26,7 +25,8 @@
    (absorbances :initform '() :initarg :absorb :accessor absorbances)))
 (defclass enemy (creature)
   ((energy :initform 0 :accessor energy)))
-(defclass equipment (actor) ())
+(defclass equipment (actor)
+  ((attack :initform '(1 3 0 0 bludgeoning) :initarg :attack :accessor attack)))
 
 (load "terminal.lisp")
 (load "inventory.lisp")
@@ -157,11 +157,16 @@
      (loop for m in modifiers
 	   sum m)))
 
-(defun get-attack (attacker weapon)
-  (make-attack :dmg (+ (apply #'roll (weapon-dmg weapon)) (str attacker) )
-	       :to-hit (+ (random 20) 1 (weapon-to-hit weapon) (dex attacker))
-	       :source (name attacker)
-	       :types (weapon-damage-types weapon)))
+(flet ((generate-attack (attacker num die dmg-bonus to-hit &rest types)
+	 (make-attack :dmg (roll num die (str attacker) dmg-bonus)
+		      :to-hit (roll 1 20 to-hit (dex attacker))
+		      :source (name attacker)
+		      :types types)))
+  (defgeneric get-attack (attacker weapon)
+    (:method ((attacker creature) (weapon equipment))
+      (apply #'generate-attack attacker (attack weapon)))
+    (:method ((attacker creature) (weapon list))
+      (apply #'generate-attack attacker weapon))))
 
 (defun damage-modifier (defender damage-types)
   (labels ((calculate-damage-modifier (mod types)
@@ -391,8 +396,8 @@
       do (setf (solid (cons 9 i)) 'wall))
 
 (place *player* '(5 . 5))
-(setf (weapon *player*) (make-weapon :dmg '(1 6) :damage-types '(slashing)))
-(place (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :weapon (make-weapon :dmg '(1 4) :damage-types '(slashing))) '(2 . 2))
+(setf (weapon *player*) '(1 6 0 0 slashing))
+(place (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :weapon '(1 4 0 0 piercing)) '(2 . 2))
 (place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 
 (defun print-surroundings ()
