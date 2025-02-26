@@ -38,6 +38,7 @@
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
+(defparameter *print-surroundings-mode* 'all)
 
 (defmacro defaction (key description &body body)
   `(progn (setf (gethash ,key *action-descriptions*) ,description)
@@ -75,6 +76,8 @@
   (:method (obj) nil)
   (:method ((obj symbol)) (eq obj 'wall))
   (:method ((obj character)) t))
+
+(defmethod name ((obj character)) "wall")
 
 (defun apply-default-colors ()
   (format t "~c[40;37m" #\esc))
@@ -388,8 +391,21 @@
 (place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 
 (defun print-surroundings ()
-  (print-to-screen "~:[~;you see ~]~:*~{~:[~;a ~:*~a to the ~a~#[~;~; and ~:;, ~]~]~}"
-		   nil))
+  (flet ((printp (obj)
+	   (not (or (eq *print-surroundings-mode* 'none)
+		    (not obj)
+		    ;; things that are walls but not characters (secret doors) should be printed
+		    (and (characterp obj) (eq *print-surroundings-mode* 'non-walls))))))
+    (print-to-screen "~:[~;you see ~]~:*~{~:[~;a ~:*~a ~a~#[~;~; and ~:;, ~]~]~}~%"
+		     (append
+		      (loop for direction in +directions+
+			    when (printp (contents (vec+ (pos *player*) direction)))
+		    	      collect (name (contents (vec+ (pos *player*) direction)))
+			      and collect (concatenate 'string "to the "
+						       (gethash direction +direction-names+)))
+		      (let ((obj (non-solid (pos *player*))))
+			(when (printp obj)
+			  (list (name obj) "in your space")))))))
 
 (defun print-game ()
   (clear-screen)

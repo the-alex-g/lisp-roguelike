@@ -3,10 +3,16 @@
 (defparameter +up+ '(0 . -1))
 (defparameter +down+ '(0 . 1))
 (defparameter +zero+ '(0 . 0))
-(defparameter +directions+ (list +down+ +right+ +up+ +left+))
+(defparameter +directions+ (list +up+ +right+ +down+ +left+))
+(defparameter +direction-names+ (make-hash-table :test #'equal))
 (defparameter *log* '())
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
+
+(setf (gethash +left+ +direction-names+) "west")
+(setf (gethash +right+ +direction-names+) "east")
+(setf (gethash +down+ +direction-names+) "south")
+(setf (gethash +up+ +direction-names+) "north")
 
 (setf *random-state* (make-random-state t))
 
