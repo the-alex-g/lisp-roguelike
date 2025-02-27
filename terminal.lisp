@@ -2,7 +2,10 @@
   (format t "~c[~{~d~^;~}~c" #\esc args code))
 
 (defun position-cursor (x y)
-  (escape-code #\H x y))
+  (escape-code #\H y x))
+
+(defun position-cursor-list (pos)
+  (position-cursor (1+ (car pos)) (1+ (cdr pos))))
 
 (defun move-cursor-vertical (lines)
   (if (> lines 0)

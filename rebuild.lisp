@@ -86,7 +86,6 @@
 							 (+ size (size item-to-replace)))
 				   nil)))))
 		(let ((items-to-unequip (get-items-to-unequip)))
-		  (print items-to-unequip)
 		  (when items-to-unequip
 		    (mapc (lambda (i) (unequip i *player*)) items-to-unequip)
 		    (equip-item)
@@ -336,6 +335,7 @@
   (loop for code below 111
 	do (format t "~c[~dmCODE ~:*~d~0@*~c[0m~%" #\esc code)))
 
+;;; memoized has-los function
 (let ((memos (make-hash-table :test #'equal)))
   (labels ((calculate-los (to from)
 	     (let ((dx (- (car to) (car from)))
@@ -388,10 +388,6 @@
 	  do (attack (get-attack active weapon) passive)))
   (:method (passive active))) ; default case: do nothing
 
-(defun move-into-pos (pos obj)
-  (move-into (solid pos) obj)
-  (move-into (non-solid pos) obj))
-
 (defun reposition (obj new-pos)
   (let ((collider (solid new-pos)))
     (if collider
@@ -401,8 +397,14 @@
 	       (setf (pos obj) new-pos)
 	       (move-into (non-solid new-pos) obj)))))
 
-(defun move (obj direction)
-  (reposition obj (vec+ (pos obj) direction)))
+(defgeneric move (obj direction)
+  (:method ((obj actor) direction)
+    (reposition obj (vec+ (pos obj) direction)))
+  (:method ((pos list) direction)
+    (let ((newpos (vec+ pos direction)))
+      (if (wallp (solid newpos))
+	  pos
+	  newpos))))
 
 (defun step-towards (target obj)
   (reposition obj (car (find-path (pos obj) (pos target)))))
@@ -419,6 +421,112 @@
   (:method ((obj enemy))
     (incf (energy obj) (/ (spd obj) (spd *player*)))
     (act obj)))
+
+(defun choose-target (initial-mode range &key (can-switch-p t))
+  (let ((target-position (pos *player*))
+	(target-list
+	  (apply #'append
+		 (loop for y from (- range) to range
+		       collect (loop for x from (- range) to range
+				     with pos = +zero+
+				     do (setf pos (vec+ (cons x y)
+							(pos *player*)))
+				     when (and (has-los pos (pos *player*) range)
+					       (<= (distance (pos *player*) pos)
+						   range)
+					       (solid pos)
+					       (not (wallp (solid pos)))
+					       (not (equal (solid pos) *player*)))
+				       collect (solid pos))))))
+    (if (or target-list
+	    (eq initial-mode 'free-form))
+	(labels ((two-key-targeting ()
+		   (let ((i 0))
+		     (if (and target-list
+			      (<= (length target-list) 10))
+			 (progn (with-cursor-saved
+				    (mapc (lambda (obj)
+					    (position-cursor-list (pos obj))
+					    (escape-code #\m (color obj))
+					    (print-to-screen "~d" i)
+					    (incf i))
+					  target-list))
+				(labels ((undraw-numbers ()
+					   (with-cursor-saved
+					       (mapc (lambda (obj)
+						       (position-cursor-list (pos obj))
+						       (print-to-screen (display-char obj)))
+						     target-list)))
+					 (get-target ()
+					   (let* ((input (custom-read-char))
+						  (value (digit-char-p input)))
+					     (cond (value
+						    (if (< value i)
+							(progn (undraw-numbers)
+							       (nth value target-list))
+							(get-target)))
+						   ((and (eq input #\S)
+							 can-switch-p)
+						    (undraw-numbers)
+						    (free-form-targeting))
+						   ((eq input #\q)
+						    (undraw-numbers)
+						    nil)
+						   (t
+						    (get-target))))))
+				  (get-target)))
+			 (free-form-targeting))))
+		 (free-form-targeting ()
+		   (labels ((draw-cursor ()
+			      (with-cursor-saved
+				  (position-cursor-list target-position)
+				(with-color (31 5)
+				  (print-to-screen "X"))))
+			    (undraw-cursor ()
+			      (with-cursor-saved
+				  (position-cursor-list target-position)
+				(if (contents target-position)
+				    (print-to-screen "~a" (display-char (contents target-position)))
+				    (print-to-screen "."))))
+			    (move-cursor (direction)
+			      (when (<= (distance (vec+ target-position direction) (pos *player*))
+					range)
+				(undraw-cursor)
+				(setf target-position (move target-position direction))))
+			    (input-loop ()
+			      (draw-cursor)
+			      (let ((input (custom-read-char)))
+				(cond ((eq input #\a)
+				       (move-cursor +left+)
+				       (input-loop))
+				      ((eq input #\d)
+				       (move-cursor +right+)
+				       (input-loop))
+				      ((eq input #\w)
+				       (move-cursor +up+)
+				       (input-loop))
+				      ((eq input #\s)
+				       (move-cursor +down+)
+				       (input-loop))
+				      ((and (eq input #\S)
+					    can-switch-p)
+				       (undraw-cursor)
+				       (two-key-targeting))
+				      ((eq input #\newline)
+				       (undraw-cursor)
+				       (or (contents target-position)
+					   target-position))
+				      ((eq input #\q)
+				       (undraw-cursor)
+				       nil)
+				      (t
+				       (input-loop))))))
+		     (input-loop))))
+	  (if (eq initial-mode 'two-key)
+	      (two-key-targeting)
+	      (free-form-targeting)))
+	(progn (print-to-log "there are no targets in range")
+	       nil))))
 
 (defgeneric visiblep (obj)
   (:method ((pos list))
