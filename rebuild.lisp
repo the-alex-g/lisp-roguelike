@@ -18,7 +18,8 @@
    (armor :initform 0 :initarg :armor :accessor armor)
    (evasion :initform 0 :initarg :evd :writer (setf evasion))
    max-health
-   (weapon :initform nil :initarg :weapon :accessor weapon)
+   (equipment :initform (make-hash-table) :accessor equipment)
+   (slot-nums :initform '((hand 2) (misc 3) (body 1)) :initarg :slot-nums :accessor slot-nums)
    (resistances :initform '() :initarg :resist :accessor resistances)
    (immunities :initform '() :initarg :immune :accessor immunities)
    (vulnerablities :initform '() :initarg :vulnerable :accessor vulnerabilities)
@@ -26,7 +27,9 @@
 (defclass enemy (creature)
   ((energy :initform 0 :accessor energy)))
 (defclass equipment (actor)
-  ((attack :initform '(1 3 0 0 bludgeoning) :initarg :attack :accessor attack)))
+  ((attack :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
+   (size :initform 1 :initarg :size :accessor size)
+   (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))
 
 (load "terminal.lisp")
 (load "inventory.lisp")
@@ -39,6 +42,55 @@
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
 (defparameter *print-surroundings-mode* 'all)
+
+(defgeneric unequip (item actor)
+  (:method (item actor))
+  (:method :after ((item equipment) (actor (eql *player*)))
+    (declare (ignore actor))
+    (add-to-inventory item))
+  (:method :after ((item equipment) (actor creature))
+    (setf (gethash (equip-slot item) (equipment actor))
+	  (remove item (gethash (equip-slot item) (equipment actor)) :test #'equal))))
+
+(defgeneric equip (item actor)
+  (:method (item actor))
+  (:method :around ((item equipment) (actor (eql *player*)))
+    (let ((result (call-next-method)))
+      (when result
+	(remove-from-inventory item))
+      result))
+  (:method :around ((item equipment) (actor creature))
+    (let* ((current-equips (gethash (equip-slot item) (equipment actor)))
+	   (equips-size (loop for i in current-equips
+			      sum (size i)))
+	   (max-equips (cadr (assoc (equip-slot item) (slot-nums actor)))))
+      (flet ((equip-item ()
+	       (push item (gethash (equip-slot item) (equipment actor)))
+	       (when (next-method-p)
+		 (call-next-method))
+	       t))
+	(when max-equips
+	  (if (<= (+ equips-size (size item)) max-equips)
+	      (equip-item)
+	      (labels ((get-items-to-unequip (&optional item-list (size 0))
+			 (if (>= size (size item))
+			     item-list
+			     (let ((item-to-replace (get-item-from-list (gethash (equip-slot item)
+										 (equipment actor))
+									:naming-function #'name
+									:ignoring item-list
+									:test #'equal
+									:what "item to replace")))
+			       (if item-to-replace
+				   (get-items-to-unequip (cons item-to-replace item-list)
+							 (+ size (size item-to-replace)))
+				   nil)))))
+		(let ((items-to-unequip (get-items-to-unequip)))
+		  (print items-to-unequip)
+		  (when items-to-unequip
+		    (mapc (lambda (i) (unequip i *player*)) items-to-unequip)
+		    (equip-item)
+		    items-to-unequip)))))))))
 
 (defmacro defaction (key description &body body)
   `(progn
@@ -105,9 +157,66 @@
 	(setf (solid pos) #\|)))
   (:method ((obj character)) obj))
 
+(defmacro flood-fill (start (value-to-store exit-condition
+			     &key (solid t) (stop-for-occupied t) (go-until nil))
+		      &body body)
+  `(let ((cells (make-hash-table :test #'equal)))
+     (setf (gethash ,start cells) t)
+     (labels ((occupiedp (pos)
+		(if ,solid
+		    (solid pos)
+		    (or (non-solid pos) (wallp (solid pos)))))
+	      (neighbors (pos)
+		(loop for direction in +directions+
+		      unless (let ((cell-pos (vec+ pos direction)))
+			       (or (gethash cell-pos cells)
+				   (wallp (solid cell-pos))
+				   (and (occupiedp cell-pos)
+					(not (equal cell-pos ,go-until))
+					,stop-for-occupied)))
+			collect (vec+ pos direction)))
+	      (iterate (frontier)
+		(when (car frontier)
+		  (let* ((current (car frontier))
+			 (neighbors (neighbors current))
+			 (exit-condition ,exit-condition))
+		    (if exit-condition
+			exit-condition
+			(progn
+			  (mapc (lambda (n) (setf (gethash n cells) ,value-to-store)) neighbors)
+			  (iterate (append (cdr frontier) neighbors))))))))
+       (let ((result (iterate (list ,start))))
+	 ,@body))))
+
+(defun find-path (from to)
+  (flood-fill from (current (if (equal current to) t) :go-until to)
+	      (if result
+		  (labels ((build-path (pos &optional (path nil))
+			     (if (equal pos from)
+				 path
+				 (build-path (gethash pos cells) (cons pos path)))))
+		    (build-path to))
+		  (list from))))
+
+(defun place (obj pos &key (solid t) (interact t))
+  (flood-fill pos (t (unless (occupiedp current) current) 
+		     :stop-for-occupied nil
+		     :solid solid)
+	      (if solid
+		  (setf (solid result) obj)
+		  (setf (non-solid result) obj))
+	      (setf (pos obj) result)))
+
 (defgeneric corpse (obj)
   (:method ((obj creature))
     (make-instance 'actor :name (log-to-string "~a corpse" (name obj)) :display-char #\c)))
+
+(defmethod evasion ((obj creature))
+  (+ 10 (dex obj) (slot-value obj 'evasion)))
+
+(defgeneric deadp (obj)
+  (:method ((obj creature))
+    (= (health obj) 0)))
 
 (defgeneric kill (obj)
   (:method (obj))
@@ -123,14 +232,7 @@
 		 (setf (slot-value obj 'health) value)))
       (progn (setf (slot-value obj 'health) 0)
 	     (kill obj))))
-
-(defmethod evasion ((obj creature))
-  (+ 10 (dex obj) (slot-value obj 'evasion)))
-
-(defgeneric deadp (obj)
-  (:method ((obj creature))
-    (= (health obj) 0)))
-
+  
 (defgeneric death (obj)
   (:method ((obj creature))
     "killing it"))
@@ -164,7 +266,7 @@
 		      :types types)))
   (defgeneric get-attack (attacker weapon)
     (:method ((attacker creature) (weapon equipment))
-      (apply #'generate-attack attacker (attack weapon)))
+      (apply #'generate-attack attacker (atk weapon)))
     (:method ((attacker creature) (weapon list))
       (apply #'generate-attack attacker weapon))))
 
@@ -196,9 +298,10 @@
 		  (death defender))))
 
 (defun attack (attack defender)
-  (if (>= (attack-to-hit attack) (evasion defender))
-      (damage defender attack)
-      (print-to-log "~a missed ~a" (attack-source attack) (name defender))))
+  (unless (deadp defender)
+    (if (>= (attack-to-hit attack) (evasion defender))
+	(damage defender attack)
+	(print-to-log "~a missed ~a" (attack-source attack) (name defender)))))
 
 (defun test-combat ()
   (let ((enemy (make-instance 'creature :name "enemy" :health 10))
@@ -275,65 +378,19 @@
   (:method ((item equipment) (actor (eql *player*)))
     (pickup item)))
 
+(defgeneric weapons (obj)
+  (:method ((obj creature))
+    (gethash 'hand (equipment obj))))
+
 (defgeneric move-into (passive active)
   (:method ((passive creature) (active creature))
-    (if (weapon active)
-	(attack (get-attack active (weapon active)) passive)))
+    (loop for weapon in (weapons active)
+	  do (attack (get-attack active weapon) passive)))
   (:method (passive active))) ; default case: do nothing
 
 (defun move-into-pos (pos obj)
   (move-into (solid pos) obj)
   (move-into (non-solid pos) obj))
-
-(defmacro flood-fill (start (value-to-store exit-condition
-			     &key (solid t) (stop-for-occupied t) (go-until nil))
-		      &body body)
-  `(let ((cells (make-hash-table :test #'equal)))
-     (setf (gethash ,start cells) t)
-     (labels ((occupiedp (pos)
-		(if ,solid
-		    (solid pos)
-		    (or (non-solid pos) (wallp (solid pos)))))
-	      (neighbors (pos)
-		(loop for direction in +directions+
-		      unless (let ((cell-pos (vec+ pos direction)))
-			       (or (gethash cell-pos cells)
-				   (wallp (solid cell-pos))
-				   (and (occupiedp cell-pos)
-					(not (equal cell-pos ,go-until))
-					,stop-for-occupied)))
-			collect (vec+ pos direction)))
-	      (iterate (frontier)
-		(when (car frontier)
-		  (let* ((current (car frontier))
-			 (neighbors (neighbors current))
-			 (exit-condition ,exit-condition))
-		    (if exit-condition
-			exit-condition
-			(progn
-			  (mapc (lambda (n) (setf (gethash n cells) ,value-to-store)) neighbors)
-			  (iterate (append (cdr frontier) neighbors))))))))
-       (let ((result (iterate (list ,start))))
-	 ,@body))))
-
-(defun place (obj pos &key (solid t) (interact t))
-  (flood-fill pos (t (unless (occupiedp current) current) 
-		     :stop-for-occupied nil
-		     :solid solid)
-	      (if solid
-		  (setf (solid result) obj)
-		  (setf (non-solid result) obj))
-	      (setf (pos obj) result)))
-
-(defun find-path (from to)
-  (flood-fill from (current (if (equal current to) t) :go-until to)
-	      (if result
-		  (labels ((build-path (pos &optional (path nil))
-			     (if (equal pos from)
-				 path
-				 (build-path (gethash pos cells) (cons pos path)))))
-		    (build-path to))
-		  (list from))))
 
 (defun reposition (obj new-pos)
   (let ((collider (solid new-pos)))
@@ -396,8 +453,10 @@
       do (setf (solid (cons 9 i)) 'wall))
 
 (place *player* '(5 . 5))
-(setf (weapon *player*) '(1 6 0 0 slashing))
-(place (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :weapon '(1 4 0 0 piercing)) '(2 . 2))
+(equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword") *player*)
+(add-to-inventory (make-instance 'equipment :name "branch"))
+(add-to-inventory (make-instance 'equipment :name "big stick" :size 2))
+(place (make-instance 'enemy :display-char #\g :color 32 :name "goblin") '(2 . 2))
 (place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 
 (defun print-surroundings ()
@@ -451,6 +510,25 @@
   (with-item-from-inventory
       (remove-from-inventory item)
     (place item (pos *player*) :solid nil)))
+(defaction #\e "equip an item"
+  (with-item-from-inventory
+    (let ((result (equip item *player*)))
+      (cond ((listp result)
+	     (print-to-log "you equipped ~a instead of ~{~a~#[~; and ~:;, ~]~}"
+			   (name item) (mapcar #'name result)))
+	    (result
+	     (print-to-log "you equipped ~a" (name item)))))))
+(defaction #\u "unequip an item"
+  (let ((item-list (apply #'append (loop for i-list being the hash-values of (equipment *player*)
+					 collect i-list))))
+    (if item-list
+	(let ((item (get-item-from-list
+		     item-list
+		     :naming-function (lambda (i) (log-to-string "~a (~a)" (name i) (equip-slot i)))
+		     :what "item to unequip")))
+	  (unequip item *player*)
+	  (print-to-log "you have unequipped ~a" (name item)))
+	(print-to-log "you have nothing equipped"))))
 (defaction #\# "open a REPL"
   (labels ((my-repl ()
 	     (fresh-line)

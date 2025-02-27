@@ -117,12 +117,15 @@
 ;; printable name from the list item.
 (defun get-item-from-list (lst &key
 				 (naming-function (lambda (x) (log-to-string "~a" x)))
+				 (ignoring nil)
+				 (test #'eq)
 				 (exit-option t)
 				 (what "object"))
   (let* ((temp (loop for x in lst
 		     when (funcall naming-function x)
-		       collect (log-to-string "~a" (funcall naming-function x)) into a
-		       and collect x into b
+		       unless (member x ignoring :test test)
+			 collect (log-to-string "~a" (funcall naming-function x)) into a
+			 and collect x into b
 		     finally (return (cons a b))))
 	 (name-list (car temp))
 	 (item-list (cdr temp))
