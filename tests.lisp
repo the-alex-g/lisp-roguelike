@@ -1,5 +1,10 @@
 (load "rebuild.lisp")
 
+(defmacro with-clean-board (&body body)
+  `(let ((*solid-actors* (make-hash-table :test #'equal))
+	 (*non-solid-actors* (make-hash-table :test #'equal)))
+     ,@body))
+
 (defun print-test (string passedp &rest args)
   (format t "~&~:[FAIL~;PASS~]: ~?" passedp string args))
 
@@ -82,43 +87,68 @@
 
 (defun test-movement ()
   (flag "TESTING MOVEMENT AND POSITIONING")
-  (let ((*solid-actors* (make-hash-table :test #'equal))
-	(*non-solid-actors* (make-hash-table :test #'equal))
-	(actor (make-instance 'creature :name 'actor))
-	(obstacle (make-instance 'actor :name 'obstacle))
-	(item-1 (make-instance 'equipment :name 'item-1))
-	(item-2 (make-instance 'equipment :name 'item-2)))
-    (flet ((test (pos solid non-solid)
-	     (let* ((sld (solid pos))
-		    (non-sld (non-solid pos))
-		    (sld-name (when sld (name sld)))
-		    (non-sld-name (when non-sld (name non-sld))))
-	       (print-test "(solid ~a) = ~a"
-			   (eq sld-name solid) pos sld-name)
-	       (print-test "(non-solid ~a) = ~a"
-			   (eq non-sld-name non-solid) pos non-sld-name)
-	       (when sld
-		 (print-test "(pos ~a) = ~a"
-			     (equal pos (pos sld)) sld-name (pos sld)))
-	       (when non-sld
-		 (print-test "(pos ~a) = ~a"
-			     (equal pos (pos non-sld)) non-sld-name (pos non-sld))))))
-      (place actor +zero+)
-      (test +zero+ 'actor nil)
-      (place item-1 +zero+ :solid nil)
-      (test +zero+ 'actor 'item-1)
-      (move actor +right+)
-      (test +right+ 'actor nil)
-      (test +zero+ nil 'item-1)
-      (place item-2 +zero+ :solid nil)
-      (test (car +directions+) nil 'item-2)
-      (place obstacle '(2 . 0))
-      (move actor +right+)
-      (test +right+ 'actor nil)
-      (test '(2 . 0) 'obstacle nil))))
+  (with-clean-board
+      (let ((actor (make-instance 'creature :name 'actor))
+	    (obstacle (make-instance 'actor :name 'obstacle))
+	    (item-1 (make-instance 'equipment :name 'item-1))
+	    (item-2 (make-instance 'equipment :name 'item-2)))
+	(flet ((test (pos solid non-solid)
+		 (let* ((sld (solid pos))
+			(non-sld (non-solid pos))
+			(sld-name (when sld (name sld)))
+			(non-sld-name (when non-sld (name non-sld))))
+		   (print-test "(solid ~a) = ~a"
+			       (eq sld-name solid) pos sld-name)
+		   (print-test "(non-solid ~a) = ~a"
+			       (eq non-sld-name non-solid) pos non-sld-name)
+		   (when sld
+		     (print-test "(pos ~a) = ~a"
+				 (equal pos (pos sld)) sld-name (pos sld)))
+		   (when non-sld
+		     (print-test "(pos ~a) = ~a"
+				 (equal pos (pos non-sld)) non-sld-name (pos non-sld))))))
+	  (place actor +zero+)
+	  (test +zero+ 'actor nil)
+	  (place item-1 +zero+ :solid nil)
+	  (test +zero+ 'actor 'item-1)
+	  (move actor +right+)
+	  (test +right+ 'actor nil)
+	  (test +zero+ nil 'item-1)
+	  (place item-2 +zero+ :solid nil)
+	  (test (car +directions+) nil 'item-2)
+	  (place obstacle '(2 . 0))
+	  (move actor +right+)
+	  (test +right+ 'actor nil)
+	  (test '(2 . 0) 'obstacle nil)))))
+
+(defun test-throw ()
+  (flag "testing throwing")
+  (with-clean-board
+    (let ((*player* (make-instance 'creature :name 'actor))
+	  (*inventory* nil)
+	  (item (make-instance 'equipment :name 'item)))
+      (flet ((test-inventory (value)
+	       (let ((inventory-names (mapcar #'name *inventory*)))
+		 (print-test "*inventory* = ~a" (equal inventory-names value) inventory-names)))
+	     (test-board (pos value solid)
+	       (let* ((obj (if solid
+			       (solid pos)
+			       (non-solid pos)))
+		      (obj-name (when obj (name obj))))
+		 (print-test "(~:[non-solid~;solid~] ~a) = ~a"
+			     (eq obj-name value) solid pos obj-name))))
+	(add-to-inventory item)
+	(test-inventory '(item))
+	(place *player* +zero+)
+	(test-board +zero+ 'actor t)
+	(throw-at +right+ item *player*)
+	(test-inventory nil)
+	(test-board +right+ 'item nil)
+	(test-board +right+ nil t)))))
 
 (defun test ()
   (test-combat)
   (test-vector-math)
   (test-equipment)
-  (test-movement))
+  (test-movement)
+  (test-throw))

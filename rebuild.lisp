@@ -28,6 +28,8 @@
   ((energy :initform 0 :accessor energy)))
 (defclass equipment (actor)
   ((attack :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
+   (range :initform 1 :initarg :range :accessor range)
+
    (size :initform 1 :initarg :size :accessor size)
    (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))
 
@@ -197,7 +199,7 @@
 		    (build-path to))
 		  (list from))))
 
-(defun place (obj pos &key (solid t) (interact t))
+(defun place (obj pos &key (solid t))
   (flood-fill pos (t (unless (occupiedp current) current) 
 		     :stop-for-occupied nil
 		     :solid solid)
@@ -499,6 +501,19 @@
 	(progn (print-to-log "there are no targets in range")
 	       nil))))
 
+(defgeneric throw-at (target obj thrower)
+  (:method :before (target (item equipment) thrower) ;; FIXME thrower should be typed as player
+    (declare (ignore target)
+	     (ignore thrower))
+    (remove-from-inventory item))
+  (:method (target obj thrower))
+  (:method ((target creature) (item equipment) (thrower creature))
+    (attack target (get-attack item thrower)))
+  (:method :after ((target actor) (item equipment) thrower)
+    (place item (pos target) :solid nil))
+  (:method :after ((target list) (item equipment) thrower)
+    (place item target :solid nil)))
+
 (defgeneric visiblep (obj)
   (:method ((pos list))
     (has-los pos (pos *player*) *sight-distance*))
@@ -533,8 +548,6 @@
 
 (place *player* '(5 . 5))
 (equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword") *player*)
-(add-to-inventory (make-instance 'equipment :name "branch"))
-(add-to-inventory (make-instance 'equipment :name "big stick" :size 2))
 (place (make-instance 'enemy :display-char #\g :color 32 :name "goblin") '(2 . 2))
 (place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 
@@ -608,6 +621,14 @@
 	  (unequip item *player*)
 	  (print-to-log "you have unequipped ~a" (name item)))
 	(print-to-log "you have nothing equipped"))))
+(defaction #\t "throw an item"
+  (with-item-from-inventory
+    (let ((target (choose-target 'free-form
+				 (if (= (size item) 1)
+				     3
+				     1))))
+      (when target
+	(throw-at target item *player*)))))
 (defaction #\# "open a REPL"
   (labels ((my-repl ()
 	     (fresh-line)
