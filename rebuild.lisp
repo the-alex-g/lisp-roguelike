@@ -29,7 +29,6 @@
 (defclass equipment (actor)
   ((attack :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
    (range :initform 1 :initarg :range :accessor range)
-
    (size :initform 1 :initarg :size :accessor size)
    (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))
 
@@ -382,10 +381,26 @@
 (defun step-towards (target obj)
   (reposition obj (car (find-path (pos obj) (pos target)))))
 
+(defun flee-direction (source obj)
+  (vec- (pos obj) (car (find-path (pos obj) (pos source)))))
+
+(defun flee (source obj)
+  (move obj (flee-direction source obj)))
+
 (defgeneric act (obj)
   (:method ((obj enemy))
     (when (>= (energy obj) 1)
-      (step-towards *player* obj)
+      (when (has-los (pos obj) (pos *player*) -1)
+	(let ((primary (car (weapons obj))))
+	  (cond ((and (<= (distance (pos obj) (pos *player*))
+			  (/ (range primary) 2))
+		      (not (solid (vec+ (pos obj) (flee-direction *player* obj)))))
+		 (flee *player* obj))
+		((<= (distance (pos obj) (pos *player*))
+		     (range primary))
+		 (attack (get-attack obj primary) *player*))
+		(t
+		 (step-towards *player* obj)))))
       (decf (energy obj))
       (act obj))))
 
@@ -548,7 +563,9 @@
 
 (place *player* '(5 . 5))
 (equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword") *player*)
-(place (make-instance 'enemy :display-char #\g :color 32 :name "goblin") '(2 . 2))
+(let ((foe (make-instance 'enemy :display-char #\g :color 32 :name "goblin")))
+  (equip (make-instance 'equipment :atk '(1 4 0 0 piercing) :name 'bow :range 4) foe)
+  (place foe '(2 . 2)))
 (place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 
 (defun print-surroundings ()
@@ -631,8 +648,7 @@
 	(throw-at target item *player*)))))
 (defaction #\# "open a REPL"
   (labels ((my-repl ()
-	     (fresh-line)
-	     (princ ">>> ")
+	     (format t "~&>>> ")
 	     (force-output)
 	     (let ((input (read-from-string (read-line))))
 	       (unless (eq input 'q)
@@ -644,4 +660,4 @@
 	do (print-to-log "~c: ~a" action (gethash action *action-descriptions*)))
   (print-to-log "q: quit"))
 
-;;(start)
+(start)
