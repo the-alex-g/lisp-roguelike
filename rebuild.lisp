@@ -30,6 +30,7 @@
   ((attack :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
    (range :initform 1 :initarg :range :accessor range)
    (size :initform 1 :initarg :size :accessor size)
+   (weaponp :initform nil :initarg :weaponp :accessor weaponp)
    (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))
 
 (load "terminal.lisp")
@@ -259,15 +260,24 @@
      (loop for m in modifiers
 	   sum m)))
 
+(defgeneric weapons (obj)
+  (:method ((obj creature))
+    (let ((held-items (gethash 'hand (equipment obj))))
+      (if (<= (length held-items) 1)
+	  held-items
+	  (loop for equipment in held-items
+		when (weaponp equipment)
+		  collect equipment)))))
+
 (flet ((generate-attack (attacker num die dmg-bonus to-hit &rest types)
 	 (make-attack :dmg (roll num die (str attacker) dmg-bonus)
 		      :to-hit (roll 1 20 to-hit (dex attacker))
 		      :source (name attacker)
 		      :types types)))
-  (defgeneric get-attack (attacker weapon)
-    (:method ((attacker creature) (weapon equipment))
+  (defgeneric get-attack (weapon attacker)
+    (:method ((weapon equipment) (attacker creature))
       (apply #'generate-attack attacker (atk weapon)))
-    (:method ((attacker creature) (weapon list))
+    (:method ((weapon list) (attacker creature))
       (apply #'generate-attack attacker weapon))))
 
 (defun damage-modifier (defender damage-types)
@@ -297,8 +307,17 @@
 		  (deadp defender)
 		  (death defender))))
 
-(defun attack (attack defender)
-  (unless (deadp defender)
+(defgeneric attack (defender attacker)
+  (:method :around ((defender creature) attacker)
+    (unless (deadp defender)
+      (call-next-method)))
+  (:method ((defender creature) (attacker creature))
+    ;; one attack per equipped hand item
+    (mapc (lambda (weapon)
+	    (when (<= (distance (pos defender) (pos attacker)) (range weapon))
+	      (attack defender (get-attack weapon attacker))))
+	  (weapons attacker)))
+  (:method ((defender creature) (attack attack))
     (if (>= (attack-to-hit attack) (evasion defender))
 	(damage defender attack)
 	(print-to-log "~a missed ~a" (attack-source attack) (name defender)))))
@@ -350,14 +369,9 @@
   (:method ((item equipment) (actor (eql *player*)))
     (pickup item)))
 
-(defgeneric weapons (obj)
-  (:method ((obj creature))
-    (gethash 'hand (equipment obj))))
-
 (defgeneric move-into (passive active)
   (:method ((passive creature) (active creature))
-    (loop for weapon in (weapons active)
-	  do (attack (get-attack active weapon) passive)))
+    (attack passive active))
   (:method (passive active))) ; default case: do nothing
 
 (defun reposition (obj new-pos)
@@ -398,7 +412,7 @@
 		 (flee *player* obj))
 		((<= (distance (pos obj) (pos *player*))
 		     (range primary))
-		 (attack (get-attack obj primary) *player*))
+		 (attack *player* obj))
 		(t
 		 (step-towards *player* obj)))))
       (decf (energy obj))
@@ -562,9 +576,9 @@
       do (setf (solid (cons 9 i)) 'wall))
 
 (place *player* '(5 . 5))
-(equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword") *player*)
-(let ((foe (make-instance 'enemy :display-char #\g :color 32 :name "goblin")))
-  (equip (make-instance 'equipment :atk '(1 4 0 0 piercing) :name 'bow :range 4) foe)
+(equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword" :weaponp t) *player*)
+(let ((foe (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :health 10)))
+  (equip (make-instance 'equipment :atk '(1 4 0 0 piercing) :name 'bow :range 4 :weaponp t) foe)
   (place foe '(2 . 2)))
 (place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 
@@ -646,6 +660,10 @@
 				     1))))
       (when target
 	(throw-at target item *player*)))))
+(defaction #\A "attack"
+  (let ((target (choose-target 'two-key (range (car (weapons *player*))))))
+    (when (and target (not (listp target)))
+      (attack target *player*))))
 (defaction #\# "open a REPL"
   (labels ((my-repl ()
 	     (format t "~&>>> ")

@@ -19,7 +19,7 @@
 	(attack3 (make-attack :dmg 10 :to-hit 10 :source "player" :types '(bludgeoning))))
     (flet ((my-attack (text atk val)
 	     (format t "~&~:(~a~)" text)
-	     (attack atk enemy)
+	     (attack enemy atk)
 	     (print-test "health remaining: ~d" 
 			 (= (health enemy) val)
 			 (health enemy))))
