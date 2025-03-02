@@ -665,12 +665,23 @@
     (when (and target (not (listp target)))
       (attack target *player*))))
 (defaction #\# "open a REPL"
-  (labels ((my-repl ()
+  (labels ((read-and-eval (previous-input)
+	     (let ((input (if previous-input
+			      (concatenate 'string
+					   previous-input
+					   " "
+					   (read-line))
+			      (read-line))))
+	       (if (string= "q" input)
+		   'exit-repl
+		   (handler-case (eval (read-from-string input))
+		     (end-of-file () (read-and-eval input))))))
+	   (my-repl ()
 	     (format t "~&>>> ")
 	     (force-output)
-	     (let ((input (read-from-string (read-line))))
-	       (unless (eq input 'q)
-		 (print (eval input))
+	     (let ((result (read-and-eval nil)))
+	       (unless (eq result 'exit-repl)
+		 (print result)
 		 (my-repl)))))
     (my-repl)))
 (defaction #\h "help"
