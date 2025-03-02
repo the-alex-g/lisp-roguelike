@@ -87,7 +87,7 @@
 				   nil)))))
 		(let ((items-to-unequip (get-items-to-unequip)))
 		  (when items-to-unequip
-		    (mapc (lambda (i) (unequip i *player*)) items-to-unequip)
+		    (mapc (lambda (i) (unequip i actor)) items-to-unequip)
 		    (equip-item)
 		    items-to-unequip)))))))))
 
@@ -301,35 +301,6 @@
     (if (>= (attack-to-hit attack) (evasion defender))
 	(damage defender attack)
 	(print-to-log "~a missed ~a" (attack-source attack) (name defender)))))
-
-(defun test-combat ()
-  (let ((enemy (make-instance 'creature :name "enemy" :health 10))
-	(attack1 (make-attack :dmg 5 :to-hit 10 :source "player" :types '(slashing)))
-	(attack2 (make-attack :dmg 5 :to-hit 5 :source "player" :types '(slashing)))
-	(attack3 (make-attack :dmg 10 :to-hit 10 :source "player" :types '(bludgeoning))))
-    (flet ((my-attack (text atk val)
-	     (print-to-log "~:@(~a~)" text)
-	     (attack atk enemy)
-	     (print-to-log "health remaining: ~d    ~:[FAIL~;PASS~]" (health enemy)
-			   (= (health enemy) val))))
-      (my-attack "basic attack" attack1 5)
-      (setf (resistances enemy) '(slashing))
-      (my-attack "resistances" attack1 3)
-      (setf (absorbances enemy) '(slashing))
-      (my-attack "absorbance" attack1 8)
-      (my-attack "health overflow" attack1 10)
-      (my-attack "missing" attack2 10)
-      (my-attack "killing" attack3 0))))
-
-(defun test-vector-math ()
-  (flet ((test (test value function &rest args)
-	   (let ((result (apply function args)))
-	     (format t "(~a ~{~a~^ ~}) = ~a >>> ~:[FAIL~;PASS~]~%"
-		     function args result (funcall test result value)))))
-    (test #'equal '(1 . 1) 'vec+ '(1 . 0) '(0 . 1))
-    (test #'equal '(0 . 1) 'vec- '(1 . 1) '(1 . 0))
-    (test #'equal '(-1 . -1) 'vec- '(1 . 1))
-    (test #'= 5.0 'vec-length '(3 . 4))))
 
 (defun show-colors ()
   (loop for code below 111
@@ -652,4 +623,4 @@
 	do (print-to-log "~c: ~a" action (gethash action *action-descriptions*)))
   (print-to-log "q: quit"))
 
-(start)
+;;(start)

@@ -8,6 +8,7 @@
 (defparameter *log* '())
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
+(defparameter *fake-input* nil)
 
 (setf (gethash +left+ +direction-names+) "west")
 (setf (gethash +right+ +direction-names+) "east")
@@ -18,9 +19,15 @@
 
 (defun custom-read-char ()
   (force-output)
-  (if *in-terminal*
-      (trivial-raw-io:read-char)
-      (read-char)))
+  (if *fake-input*
+      *fake-input*
+      (if *in-terminal*
+	  (trivial-raw-io:read-char)
+	  (read-char))))
+
+(defmacro with-fake-input (input &body body)
+  `(let ((*fake-input* ,input))
+     ,@body))
 
 (defun log-to-string (control-string &rest args)
   (labels ((convert-to-string (item)
