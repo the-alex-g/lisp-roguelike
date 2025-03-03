@@ -394,8 +394,6 @@
     (pickup item)))
 
 (defgeneric move-into (passive active)
-  (:method :after (a (b (eql *player*)))
-    (print-to-log "you moved into ~a" (name a)))
   (:method ((passive creature) (active creature))
     (attack passive active))
   (:method (passive active))) ; default case: do nothing
@@ -711,7 +709,7 @@
 (place *player* (car (initialize-board)))
 (equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword" :weaponp t) *player*)
 (let ((foe (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :health 10)))
-  (equip (make-instance 'equipment :atk '(1 4 0 0 piercing) :name 'bow :range 4 :weaponp t) foe)
+  (equip (make-instance 'equipment :atk '(1 4 0 0 piercing) :name 'dagger :range 1 :weaponp t) foe)
   (place foe '(2 . 2)))
 (place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 

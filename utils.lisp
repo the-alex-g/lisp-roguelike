@@ -83,7 +83,7 @@
 	   (square (cdr vector)))))
 
 (defun distance (a b)
-  (vec-length (vec- a b)))
+  (floor (vec-length (vec- a b))))
 
 (defun randnth (lst)
   (if (listp lst)
