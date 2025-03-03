@@ -35,15 +35,16 @@
 
 (load "terminal.lisp")
 (load "inventory.lisp")
+(load "bsp-dungeon.lisp")
 
 (defparameter *solid-actors* (make-hash-table :test #'equal))
 (defparameter *non-solid-actors* (make-hash-table :test #'equal))
-(defparameter *board-size* '(10 . 10))
+(defparameter *board-size* '(60 . 20))
 (defparameter *player* (make-instance 'creature :health 10 :name "player" :pos '(5 . 5) :color 31))
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
-(defparameter *print-surroundings-mode* 'all)
+(defparameter *print-surroundings-mode* 'non-walls)
 
 (defgeneric unequip (item actor)
   (:method (item actor))
@@ -131,10 +132,12 @@
 
 (defgeneric wallp (obj)
   (:method (obj) nil)
+  (:method ((obj list)) (wallp (solid obj)))
   (:method ((obj symbol)) (eq obj 'wall))
   (:method ((obj character)) t))
 
 (defmethod name ((obj character)) "wall")
+(defmethod name ((obj symbol)) obj)
 
 (defun apply-default-colors ()
   (format t "~c[40;37m" #\esc))
@@ -152,10 +155,10 @@
 	(slot-value obj 'display-char)
 	(apply-colors (slot-value obj 'display-char) (color obj))))
   (:method ((pos list))
-    (if (or (wallp (solid (vec+ pos +left+)))
-	    (wallp (solid (vec+ pos +right+))))
-	(setf (solid pos) #\-)
-	(setf (solid pos) #\|)))
+    (if (and (wallp (vec+ pos +up+))
+	     (wallp (vec+ pos +down+)))
+	(setf (solid pos) #\|)
+	(setf (solid pos) #\-)))
   (:method ((obj character)) obj))
 
 (defmacro flood-fill (start (value-to-store exit-condition
@@ -207,6 +210,20 @@
 		  (setf (solid result) obj)
 		  (setf (non-solid result) obj))
 	      (setf (pos obj) result)))
+
+(defun initialize-board ()
+  (let* ((dungeon (generate-dungeon '(60 . 20) 3))
+	 (cells (pos-flatten dungeon)))
+    (loop for x below 60
+	  do (loop for y below 20
+		   ;; cell is not on board
+		   unless (member (cons x y) cells :test #'equal)
+		     ;; cell is next to board
+		     when (loop for direction in +directions+
+				  thereis (member (vec+ (cons x y) direction) cells :test #'equal))
+		       ;; put a wall down
+		       do (setf (solid (cons x y)) 'wall)))))
+    
 
 (defgeneric corpse (obj)
   (:method ((obj creature))
@@ -555,12 +572,14 @@
 
 (defun print-board ()
   (apply-default-colors)
-  (loop for y below (cdr *board-size*)
+  (loop for y from -1 to (1+ (cdr *board-size*))
 	do (format t "~{~a~}~%"
-		   (loop for x below (car *board-size*)
+		   (loop for x from -1 to (1+ (car *board-size*))
 			 collect (let* ((pos (cons x y))
 					(actor (contents pos)))
-				   (cond ((and (wallp actor)
+				   (cond ((characterp actor)
+					  actor)
+					 ((and (wallp actor)
 					       (or (visiblep pos)
 						   (visiblep actor)))
 					  (display-char pos))
@@ -568,19 +587,6 @@
 					  (display-char actor))
 					 ((visiblep pos) #\.)
 					 (t #\space)))))))
-
-(loop for i below 10
-      do (setf (solid (cons i 0)) 'wall)
-      do (setf (solid (cons i 9)) 'wall)
-      do (setf (solid (cons 0 i)) 'wall)
-      do (setf (solid (cons 9 i)) 'wall))
-
-(place *player* '(5 . 5))
-(equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword" :weaponp t) *player*)
-(let ((foe (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :health 10)))
-  (equip (make-instance 'equipment :atk '(1 4 0 0 piercing) :name 'bow :range 4 :weaponp t) foe)
-  (place foe '(2 . 2)))
-(place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 
 (defun print-surroundings ()
   (flet ((printp (obj)
@@ -620,11 +626,15 @@
     (process-round #\space))
   (format t "~c[0m" #\esc))
 
-(defaction #\a "move left" (move *player* +left+))
-(defaction #\d "move right" (move *player* +right+))
-(defaction #\w "move up" (move *player* +up+))
-(defaction #\s "move down" (move *player* +down+))
-(defaction #\p "wait" t)
+(defaction #\l "move left" (move *player* +left+))
+(defaction #\' "move right" (move *player* +right+))
+(defaction #\p "move up" (move *player* +up+))
+(defaction #\; "move down" (move *player* +down+))
+(defaction #\[ "move up-right" (move *player* '(1 . -1)))
+(defaction #\o "move up-left" (move *player* '(-1 . -1)))
+(defaction #\/ "move down-right" (move *player* '(1 . 1)))
+(defaction #\. "move down-left" (move *player* '(-1 . 1)))
+(defaction #\P "wait" t)
 (defaction #\i "interact"
   (interact (non-solid (pos *player*)) *player*))
 (defaction #\v "print inventory"
@@ -688,5 +698,13 @@
   (loop for action being the hash-keys of *action-descriptions*
 	do (print-to-log "~c: ~a" action (gethash action *action-descriptions*)))
   (print-to-log "q: quit"))
+
+(initialize-board)
+(place *player* '(5 . 5))
+(equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword" :weaponp t) *player*)
+(let ((foe (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :health 10)))
+  (equip (make-instance 'equipment :atk '(1 4 0 0 piercing) :name 'bow :range 4 :weaponp t) foe)
+  (place foe '(2 . 2)))
+(place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
 
 (start)

@@ -3,7 +3,8 @@
 (defparameter +up+ '(0 . -1))
 (defparameter +down+ '(0 . 1))
 (defparameter +zero+ '(0 . 0))
-(defparameter +directions+ (list +up+ +right+ +down+ +left+))
+(defparameter +directions+ (list +up+ +right+ +down+ +left+
+				 '(1 . 1) '(1 . -1) '(-1 . 1) '(-1 . -1)))
 (defparameter +direction-names+ (make-hash-table :test #'equal))
 (defparameter *log* '())
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
@@ -74,6 +75,9 @@
 			 finally (return (cons x y))))
       (cons (- (car vector)) (- (cdr vector)))))
 
+(defun vec* (vector scalar)
+  (cons (* (car vector) scalar) (* (cdr vector) scalar)))
+
 (defun vec-length (vector)
   (sqrt (+ (square (car vector))
 	   (square (cdr vector)))))
@@ -114,8 +118,9 @@
 
 (defun get-closest-point-to (point region)
   (loop for p in region
-	with best-point = '(0 . 0)
-	when (< (distance p point) (distance point best-point))
+	with best-point = nil
+	when (or (not best-point)
+		 (< (distance p point) (distance point best-point)))
 	  do (setf best-point p)
 	finally (return best-point)))
 
