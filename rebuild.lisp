@@ -94,13 +94,19 @@
 		    (equip-item)
 		    items-to-unequip)))))))))
 
-(defmacro defaction (key description &body body)
-  `(progn
-     (when (gethash ,key *action-descriptions*)
-       (print-to-log "You're declaring the ~a action twice!" ,key))
-     (setf (gethash ,key *action-descriptions*) ,description)
-     (setf (gethash ,key *actions*) (lambda ()
-				      ,@body))))
+(defmacro defaction ((&rest keys) description &body body)
+  (let ((key (gensym))
+	(key-list (gensym)))
+    `(let ((,key-list (if (listp ',keys)
+			  ',keys
+			  '(,keys))))
+       (loop for ,key in ,key-list
+	     when (gethash ,key *action-descriptions*)
+	       do (print-to-log "You're declaring the ~a action twice!" ,key)
+	     do (setf (gethash ,key *actions*) (lambda () ,@body)))
+       (setf (gethash (format nil "~{~c~#[~; or ~;, ~]~}" ,key-list)
+		      *action-descriptions*)
+	     ,description))))
 
 (defun solid (pos)
   (gethash pos *solid-actors*))
@@ -213,10 +219,10 @@
       (setf (pos obj) result))))
 
 (defun initialize-board ()
-  (let* ((dungeon (generate-dungeon '(60 . 20) 3))
+  (let* ((dungeon (generate-dungeon '(60 . 20) 4))
 	 (cells (pos-flatten dungeon)))
-    (loop for x below 60
-	  do (loop for y below 20
+    (loop for x from -1 to 61
+	  do (loop for y from -1 to 21
 		   ;; cell is not on board
 		   unless (member (cons x y) cells :test #'equal)
 		     ;; cell is next to board
@@ -388,6 +394,8 @@
     (pickup item)))
 
 (defgeneric move-into (passive active)
+  (:method :after (a (b (eql *player*)))
+    (print-to-log "you moved into ~a" (name a)))
   (:method ((passive creature) (active creature))
     (attack passive active))
   (:method (passive active))) ; default case: do nothing
@@ -627,14 +635,14 @@
     (process-round #\space))
   (format t "~c[0m" #\esc))
 
-(defaction #\l "move left" (move *player* +left+))
-(defaction #\' "move right" (move *player* +right+))
-(defaction #\p "move up" (move *player* +up+))
-(defaction #\; "move down" (move *player* +down+))
-(defaction #\[ "move up-right" (move *player* '(1 . -1)))
-(defaction #\o "move up-left" (move *player* '(-1 . -1)))
-(defaction #\/ "move down-right" (move *player* '(1 . 1)))
-(defaction #\. "move down-left" (move *player* '(-1 . 1)))
+(defaction (#\4 #\l) "move left" (move *player* +left+))
+(defaction (#\6 #\') "move right" (move *player* +right+))
+(defaction (#\8 #\p) "move up" (move *player* +up+))
+(defaction (#\2 #\. #\;) "move down" (move *player* +down+))
+(defaction (#\9 #\[) "move up-right" (move *player* '(1 . -1)))
+(defaction (#\7 #\o) "move up-left" (move *player* '(-1 . -1)))
+(defaction (#\3 #\/) "move down-right" (move *player* '(1 . 1)))
+(defaction (#\1 #\,) "move down-left" (move *player* '(-1 . 1)))
 (defaction #\P "wait" t)
 (defaction #\i "interact"
   (interact (non-solid (pos *player*)) *player*))
@@ -697,11 +705,10 @@
     (my-repl)))
 (defaction #\h "help"
   (loop for action being the hash-keys of *action-descriptions*
-	do (print-to-log "~c: ~a" action (gethash action *action-descriptions*)))
+	do (print-to-log "~a: ~a" action (gethash action *action-descriptions*)))
   (print-to-log "q: quit"))
 
-(initialize-board)
-(place *player* '(5 . 5))
+(place *player* (car (initialize-board)))
 (equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword" :weaponp t) *player*)
 (let ((foe (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :health 10)))
   (equip (make-instance 'equipment :atk '(1 4 0 0 piercing) :name 'bow :range 4 :weaponp t) foe)
