@@ -206,10 +206,11 @@
   (flood-fill pos (t (unless (occupiedp current) current) 
 		     :stop-for-occupied nil
 		     :solid solid)
-	      (if solid
-		  (setf (solid result) obj)
-		  (setf (non-solid result) obj))
-	      (setf (pos obj) result)))
+    (when result
+      (if solid
+	  (setf (solid result) obj)
+	  (setf (non-solid result) obj))
+      (setf (pos obj) result))))
 
 (defun initialize-board ()
   (let* ((dungeon (generate-dungeon '(60 . 20) 3))
@@ -222,8 +223,8 @@
 		     when (loop for direction in +directions+
 				  thereis (member (vec+ (cons x y) direction) cells :test #'equal))
 		       ;; put a wall down
-		       do (setf (solid (cons x y)) 'wall)))))
-    
+		       do (setf (solid (cons x y)) 'wall)))
+    cells))
 
 (defgeneric corpse (obj)
   (:method ((obj creature))

@@ -1,5 +1,3 @@
-(load "rebuild.lisp")
-
 (defmacro with-clean-board (&body body)
   `(let ((*solid-actors* (make-hash-table :test #'equal))
 	 (*non-solid-actors* (make-hash-table :test #'equal)))
