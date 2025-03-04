@@ -399,6 +399,9 @@
 (defun has-status-p (obj status-name)
   (member status-name (mapcar #'name (statuses obj))))
 
+(defstatus frightened)
+(defstatus brave)
+
 (defgeneric act (obj)
   (:method (obj))
   (:method :around ((obj status))
@@ -425,9 +428,8 @@
 		    (not bravep))
 	       (let ((morale-roll (roll 3 6)))
 		 (if (>= (morale obj) morale-roll)
-		     (apply-to obj (make-instance 'status :name 'brave :duration morale-roll))
-		     (apply-to obj (make-instance 'status :name 'frightened
-							  :duration morale-roll)))))
+		     (apply-to obj (make-brave-status morale-roll))
+		     (apply-to obj (make-frightened-status morale-roll)))))
 	      (afraidp
 	       (flee *player* obj))
 	      ((and (<= (distance (pos obj) (pos *player*))

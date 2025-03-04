@@ -23,8 +23,8 @@
       arg
       (list arg)))
 
-(defun constructor (name)
-  (read-from-string (format nil "make-~a" (symbol-name name))))
+(defun constructor (&rest items)
+  (read-from-string (format nil "make~{-~a~}" (mapcar #'symbol-name items))))
 
 (defun make-keyword (name)
   (intern (symbol-name name) "KEYWORD"))

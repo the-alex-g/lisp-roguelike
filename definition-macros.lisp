@@ -33,9 +33,7 @@
   ;; define new monster class and matching constructor function
   (defmacro defenemy (name display-char new-slots
 		      &rest keys
-		      &key
-			(inherit 'enemy)
-			equips
+		      &key (inherit 'enemy) equips
 		      &allow-other-keys)
     ;; remove :inherit from key list to prevent odd behavior
     (remf keys :inherit)
@@ -47,10 +45,10 @@
 					,@(reinit-slots keys nil)))
        ;; define constructor for new class
        (defun ,(constructor name) (pos)
-	 (let ((new-enemy (make-instance (quote ,name)
+	 (let ((new-enemy (make-instance ',name
 					 :pos pos
 					 :display-char ,display-char
-					 :name (quote ,name))))
+					 :name ',name)))
 	   (place new-enemy pos)
 	   (mapc (lambda (i)
 		   (equip i new-enemy))
@@ -65,14 +63,14 @@
 		      &allow-other-keys)
     (remf keys :inherit)
     (remf keys :name)
-    `(progn (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
-					     ,@(reinit-slots keys nil)
-					     ,(if name-overriden-p
-						  `(name :initform ,name-override)
-						  `(name :initform (quote ,name)))
-					     (display-char :initform ,display-char)))
+    `(progn (defclass ,name (,inherit) (,@(mapcan #'build-slot new-slots)
+					,@(reinit-slots keys nil)
+					,(if name-overriden-p
+					     `(name :initform ,name-override)
+					     `(name :initform ',name))
+					(display-char :initform ,display-char)))
 	    (defun ,(constructor name) (pos)
-	      (let ((new-actor (make-instance (quote ,name))))
+	      (let ((new-actor (make-instance ',name)))
 		(place new-actor pos :solid ,solidp)
 		new-actor))))
   
@@ -90,7 +88,15 @@
 				    ,@(reinit-slots keys nil)
 ;					(identifiedp :initform ,identifiedp
 ;						      :allocation :class)
-				    (name :initform (quote ,name))))
+				    (name :initform ',name)))
        ;; define constructor function
        (defun ,(constructor name) ()
-	 (make-instance (quote ,name))))))
+	 (make-instance ',name)))))
+
+(defmacro defstatus (name &key (duration 3) (speed 1))
+  `(progn
+     (defclass ,name (status)
+       ((spd :initform ,speed)
+	(name :initform ',name)))
+     (defun ,(constructor name 'status) (&optional (duration ,duration))
+       (make-instance ',name :duration duration))))
