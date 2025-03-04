@@ -18,6 +18,11 @@
 
 (setf *random-state* (make-random-state t))
 
+(defun ensure-list (arg)
+  (if (listp arg)
+      arg
+      (list arg)))
+
 (defun custom-read-char ()
   (force-output)
   (if *fake-input*

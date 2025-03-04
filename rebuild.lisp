@@ -3,7 +3,7 @@
 
 (load "utils.lisp")
 
-(defstruct attack dmg to-hit source types)
+(defstruct attack dmg to-hit source types statuses)
 (defclass actor ()
   ((display-char :initform #\? :initarg :display-char :writer (setf display-char))
    (pos :initform +zero+ :initarg :pos :accessor pos)
@@ -20,6 +20,7 @@
    max-health
    (equipment :initform (make-hash-table) :accessor equipment)
    (slot-nums :initform '((hand 2) (misc 3) (body 1)) :initarg :slot-nums :accessor slot-nums)
+   (statuses :initform nil :accessor statuses)
    (resistances :initform '() :initarg :resist :accessor resistances)
    (immunities :initform '() :initarg :immune :accessor immunities)
    (vulnerablities :initform '() :initarg :vulnerable :accessor vulnerabilities)
@@ -32,6 +33,12 @@
    (size :initform 1 :initarg :size :accessor size)
    (weaponp :initform nil :initarg :weaponp :accessor weaponp)
    (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))
+(defclass status ()
+  ((energy :initform 0 :accessor energy)
+   (spd :initform 1 :initarg :spd :accessor spd)
+   (target :initform nil :accessor target)
+   (name :initform 'status :accessor name :initarg :name)
+   (duration :initform 3 :initarg :duration :accessor duration)))
 
 (load "terminal.lisp")
 (load "inventory.lisp")
@@ -97,9 +104,7 @@
 (defmacro defaction ((&rest keys) description &body body)
   (let ((key (gensym))
 	(key-list (gensym)))
-    `(let ((,key-list (if (listp ',keys)
-			  ',keys
-			  '(,keys))))
+    `(let ((,key-list (ensure-list ',keys)))
        (loop for ,key in ,key-list
 	     when (gethash ,key *action-descriptions*)
 	       do (print-to-log "You're declaring the ~a action twice!" ,key)
@@ -136,6 +141,13 @@
   (remove-non-solid pos)
   (remove-solid pos))
 
+(defgeneric remove-status (status)
+  (:method :after ((status status))
+    (setf (statuses (target status))
+	  (remove status
+		  (statuses (target status)))))
+  (:method (status)))
+
 (defgeneric wallp (obj)
   (:method (obj) nil)
   (:method ((obj list)) (wallp (solid obj)))
@@ -150,9 +162,7 @@
 
 (defun apply-colors (char colors)
   (format nil "~c[~{~d~^;~}m~c~0@*~c[40;37m"
-	  #\esc (if (listp colors)
-		    colors
-		    (list colors))
+	  #\esc (ensure-list colors)
 	  char))
 
 (defgeneric display-char (obj)
@@ -278,6 +288,12 @@
   (:method ((obj creature) type)
     (member type (absorbances obj))))
 
+(defgeneric apply-to (subj obj)
+  (:method :before ((subj creature) (obj status))
+    (setf (target obj) subj)
+    (push obj (statuses subj)))
+  (:method (subj obj)))
+
 (defun roll (num die &rest modifiers)
   (+ (loop repeat num
 	   sum (1+ (random die)))
@@ -293,11 +309,12 @@
 		when (weaponp equipment)
 		  collect equipment)))))
 
-(flet ((generate-attack (attacker num die dmg-bonus to-hit &rest types)
+(flet ((generate-attack (attacker num die dmg-bonus to-hit types statuses)
 	 (make-attack :dmg (roll num die (str attacker) dmg-bonus)
 		      :to-hit (roll 1 20 to-hit (dex attacker))
 		      :source (name attacker)
-		      :types types)))
+		      :types (ensure-list types)
+		      :statuses (ensure-list statuses))))
   (defgeneric get-attack (weapon attacker)
     (:method ((weapon equipment) (attacker creature))
       (apply #'generate-attack attacker (atk weapon)))
@@ -324,6 +341,8 @@
 			    ((< mod-damage 0) mod-damage)
 			    (t (max 1 mod-damage)))))
     (decf (health defender) real-damage)
+    (loop for status in (attack-statuses attack)
+	  do (apply-to defender status))
     (print-to-log "~a hit ~a for ~d damage~:[~;, ~a~]"
 		  (attack-source attack)
 		  (name defender)
@@ -426,24 +445,41 @@
   (move obj (flee-direction source obj)))
 
 (defgeneric act (obj)
-  (:method ((obj enemy))
+  (:method (obj))
+  (:method :around ((obj status))
+    (if (> (duration obj) 0)
+	(when (>= (energy obj) 1)
+	  (decf (energy obj))
+	  (when (next-method-p)
+	    (call-next-method))
+	  (decf (duration obj))
+	  (act obj))
+	(remove-status obj)))
+  (:method :around ((obj enemy))
     (when (>= (energy obj) 1)
-      (when (has-los (pos obj) (pos *player*) -1)
-	(let ((primary (car (weapons obj))))
-	  (cond ((and (<= (distance (pos obj) (pos *player*))
-			  (/ (range primary) 2))
-		      (not (solid (vec+ (pos obj) (flee-direction *player* obj)))))
-		 (flee *player* obj))
-		((<= (distance (pos obj) (pos *player*))
-		     (range primary))
-		 (attack *player* obj))
-		(t
-		 (step-towards *player* obj)))))
       (decf (energy obj))
-      (act obj))))
+      (call-next-method)
+      (act obj)))
+  (:method ((obj enemy))
+    (when (has-los (pos obj) (pos *player*) -1)
+      (let ((primary (car (weapons obj))))
+	(cond ((and (<= (distance (pos obj) (pos *player*))
+			(/ (range primary) 2))
+		    (not (solid (vec+ (pos obj) (flee-direction *player* obj)))))
+	       (flee *player* obj))
+	      ((<= (distance (pos obj) (pos *player*))
+		   (range primary))
+	       (attack *player* obj))
+	      (t
+	       (step-towards *player* obj)))))))
 
 (defgeneric update (obj)
   (:method (obj))
+  (:method ((obj status))
+    (incf (energy obj) (/ (spd obj) (spd *player*)))
+    (act obj))
+  (:method :before ((obj creature))
+    (mapc #'update (statuses obj)))
   (:method ((obj enemy))
     (incf (energy obj) (/ (spd obj) (spd *player*)))
     (act obj)))

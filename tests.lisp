@@ -12,9 +12,11 @@
 (defun test-combat ()
   (flag "TESTING COMBAT")
   (let ((enemy (make-instance 'creature :name "enemy" :health 10))
-	(attack1 (make-attack :dmg 5 :to-hit 10 :source "player" :types '(slashing)))
-	(attack2 (make-attack :dmg 5 :to-hit 5 :source "player" :types '(slashing)))
-	(attack3 (make-attack :dmg 10 :to-hit 10 :source "player" :types '(bludgeoning))))
+	(attack1 (make-attack :dmg 5 :to-hit 10 :types '(slashing)))
+	(attack2 (make-attack :dmg 5 :to-hit 5 :types '(slashing)))
+	(attack3 (make-attack :dmg 10 :to-hit 10 :types '(bludgeoning)))
+	(status-attack (make-attack :dmg 0 :to-hit 10
+				    :statuses (list (make-instance 'status)))))
     (flet ((my-attack (text atk val)
 	     (format t "~&~:(~a~)" text)
 	     (attack enemy atk)
@@ -28,6 +30,9 @@
       (my-attack "absorbance" attack1 8)
       (my-attack "health overflow" attack1 10)
       (my-attack "missing" attack2 10)
+      (my-attack "status" status-attack 9)
+      (print-test "target has one status"
+		  (= (length (statuses enemy)) 1))
       (my-attack "killing" attack3 0))))
 
 (defun test-vector-math ()
@@ -144,9 +149,26 @@
 	(test-board +right+ 'item nil)
 	(test-board +right+ nil t)))))
 
+(defun test-status ()
+  (flag "testing status")
+  (let ((*player* (make-instance 'creature :name 'player))
+	(status (make-instance 'status)))
+    (apply-to *player* status)
+    (print-test "player has one status"
+		(equal (statuses *player*) (list status)))
+    (loop for x below 3
+	  do (update *player*)
+	  do (print-test "status duration = ~d"
+			 (= (duration status) (- 2 x))
+			 (duration status)))
+    (print-test "player statuses = ~a"
+		(not (statuses *player*))
+		(statuses *player*))))
+
 (defun test ()
   (test-combat)
   (test-vector-math)
   (test-equipment)
   (test-movement)
+  (test-status)
   (test-throw))
