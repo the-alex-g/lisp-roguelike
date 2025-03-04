@@ -1,122 +1,42 @@
-(defclass display-object ()
-  ((display-char :accessor display-char :initarg :display-char :initform #\#)
-   (temp-char :accessor temp-char :initform #\esc)
-   (name :initform "" :accessor name :initarg :name)
-   (color :initform 'white :accessor color :initarg :color)))
+(defstruct attack dmg to-hit source types statuses)
 
-(defclass destructible-object ()
-  ((resist :initform nil :initarg :resist)
-   (immune :initform nil :initarg :immune)
-   (vulnerable :initform nil :initarg :vulnerable)
-   (health :initform 1 :initarg :health :accessor health)))
+(defclass actor ()
+  ((display-char :initform #\? :initarg :display-char :writer (setf display-char))
+   (pos :initform +zero+ :initarg :pos :accessor pos)
+   (name :initform "" :initarg :name :accessor name)
+   (color :initform 30 :initarg :color :accessor color)
+   (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)))
 
-(defclass stat-object (destructible-object)
-  ((def :initform 0 :accessor def :initarg :def)
-   (str :initform 0 :accessor str :initarg :str)
-   (cha :initform 0 :accessor cha :initarg :cha)
-   (con :initform 0 :accessor con :initarg :con)
-   (det :initform 0 :accessor det :initarg :det)
-   (intl :initform 0 :accessor intl :initarg :int)
-   (per :initform 0 :accessor per :initarg :per)
-   (dex :initform 0 :accessor dex :initarg :dex)))
+(defclass creature (actor)
+  ((dex :initform 0 :initarg :dex :accessor dex)
+   (str :initform 0 :initarg :str :accessor str)
+   (spd :initform 1 :initarg :spd :accessor spd)
+   (health :initform 1 :initarg :health :reader health)
+   (armor :initform 0 :initarg :armor :accessor armor)
+   (evasion :initform 0 :initarg :evd :writer (setf evasion))
+   (max-health :initform 10 :reader max-health)
+   (equipment :initform (make-hash-table) :accessor equipment)
+   (slot-nums :initform '((hand 2) (misc 3) (body 1)) :initarg :slot-nums :accessor slot-nums)
+   (statuses :initform nil :accessor statuses)
+   (resistances :initform '() :initarg :resist :accessor resistances)
+   (immunities :initform '() :initarg :immune :accessor immunities)
+   (vulnerablities :initform '() :initarg :vulnerable :accessor vulnerabilities)
+   (absorbances :initform '() :initarg :absorb :accessor absorbances)))
 
-(defclass equipment (display-object stat-object)
-  ((atk :initform '(1 bludgeoning) :accessor atk :initarg :atk)
-   (weaponp :initform nil :accessor weaponp :initarg :weaponp)
-   (price :initform 2 :accessor price :initarg :price)
-   (breakable :initform nil :accessor breakable :initarg :breakable)
-   (throw-distance :initform 2
-		   :accessor throw-distance :initarg :throw-distance)
-   (burn-time :initform 0 :accessor burn-time :initarg :burn-time)
-   (consumable :initform nil :accessor consumable :initarg :consumable)
-   (secretp :initform nil :accessor secretp :initarg :secretp)
-   (identifiedp :initform t :accessor identifiedp :allocation :class)
-   (container :initform nil :accessor container)
-   (fake-name :accessor fake-name :initarg :fake-name)
-   (equip-slot :initform 'hand :accessor equip-slot :initarg :equip-slot)
-   (shopkeeper :initform nil :accessor shopkeeper)
-   ;; set new initforms
-   (display-char :initform #\*)
-   (health :initform 0)))
+(defclass enemy (creature)
+  ((energy :initform 0 :accessor energy)
+   (morale :initform 6 :accessor morale :initarg :morale)))
 
-(defclass actor (destructible-object display-object)
-  ((pos
-    :initarg :pos
-    :accessor pos)
-   (dynamicp :initform nil :initarg :dynamicp :accessor dynamicp)
-   (solid
-    :initform t
-    :initarg :solid
-    :accessor solid)
-   (interact-action-only
-    :initform nil
-    :initarg :interact-action-only
-    :accessor interact-action-only)
-   (persistent-visiblity-p
-    :initform nil
-    :initarg :persistent-visiblity-p
-    :accessor persistent-visiblity-p)
-   (wallp :initform nil :initarg :wallp :accessor wallp)
-   (hiddenp
-    :initform nil
-    :initarg :hiddenp
-    :accessor hiddenp)
-   (destructible :initform t
-		 :initarg :destructible
-		 :accessor destructible)
-   (consumable
-    :initform nil
-    :initarg :consumable
-    :accessor consumable)))
-
-(defclass combat-entity (actor stat-object)
-  ((equips :initform (make-hash-table) :accessor equips :initarg :equips)))
-
-(defclass player (combat-entity)
-  ((heal-clock :initform 10
-	       :reader heal-clock)
-   (starvingp :initform nil
-	      :accessor starvingp)
-   (hunger :initform 80
-	   :accessor hunger)
-   (xp :initform 0 :reader xp)
-   (max-health :initform 10 :accessor max-health)
-   (xp-bound :initform 10 :accessor xp-bound)))
-
-(defclass enemy (combat-entity)
-  ((spd ;; speed of 1 is the same as the player
-        ;; speed of 2 is half as fast as the player
-    :initform 1.2
-    :initarg :spd
-    :accessor spd)
-   (atk :initform '(1 bludgeoning) :initarg :atk :accessor atk)
-   (dynamicp :initform t)
-   (xp :initform 1 :initarg :xp :accessor xp)
-   (loot
-    :initform '()
-    :initarg :loot
-    :accessor loot)
-   (enabled
-    :initform nil
-    :accessor enabled)))
-
-(defclass layer ()
-  ((board :initarg :board)
-   (region :initarg :region)
-   (dynamic-actors :initform '())
-   (actors :initform '())
-   (up-ladder-pos :initarg :up-ladder-pos :accessor up-ladder-pos)
-   (down-ladder-pos :initarg :down-ladder-pos :accessor down-ladder-pos)
-   (board-size :initarg :board-size)))
+(defclass equipment (actor)
+  ((atk :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
+   (range :initform 1 :initarg :range :accessor range)
+   (size :initform 1 :initarg :size :accessor size)
+   (weaponp :initform nil :initarg :weaponp :accessor weaponp)
+   (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))
 
 (defclass status ()
-  ((duration :accessor duration :initarg :duration)
-   (on-applied)
-   (on-update)
-   (on-removed)
-   (target :initform nil :accessor target)))
-
-(defclass pickup (actor)
-  ((consumable :initform t)
-   (solid :initform nil)
-   (equipment :initarg :equipment :accessor equipment)))
+  ((energy :initform 0 :accessor energy)
+   (spd :initform 1 :initarg :spd :accessor spd)
+   (target :initform nil :accessor target)
+   (name :initform 'status :accessor name :initarg :name)
+   (duration :initform 3 :initarg :duration :accessor duration)))

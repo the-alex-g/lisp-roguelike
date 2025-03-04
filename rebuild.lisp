@@ -2,45 +2,8 @@
 (ql:quickload :trivial-raw-io)
 
 (load "utils.lisp")
-
-(defstruct attack dmg to-hit source types statuses)
-(defclass actor ()
-  ((display-char :initform #\? :initarg :display-char :writer (setf display-char))
-   (pos :initform +zero+ :initarg :pos :accessor pos)
-   (name :initform "" :initarg :name :accessor name)
-   (color :initform 30 :initarg :color :accessor color)
-   (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)))
-(defclass creature (actor)
-  ((dex :initform 0 :initarg :dex :accessor dex)
-   (str :initform 0 :initarg :str :accessor str)
-   (spd :initform 1 :initarg :spd :accessor spd)
-   (health :initform 1 :initarg :health :reader health)
-   (armor :initform 0 :initarg :armor :accessor armor)
-   (evasion :initform 0 :initarg :evd :writer (setf evasion))
-   (max-health :initform 10 :reader max-health)
-   (equipment :initform (make-hash-table) :accessor equipment)
-   (slot-nums :initform '((hand 2) (misc 3) (body 1)) :initarg :slot-nums :accessor slot-nums)
-   (statuses :initform nil :accessor statuses)
-   (resistances :initform '() :initarg :resist :accessor resistances)
-   (immunities :initform '() :initarg :immune :accessor immunities)
-   (vulnerablities :initform '() :initarg :vulnerable :accessor vulnerabilities)
-   (absorbances :initform '() :initarg :absorb :accessor absorbances)))
-(defclass enemy (creature)
-  ((energy :initform 0 :accessor energy)
-   (morale :initform 6 :accessor morale :initarg :morale)))
-(defclass equipment (actor)
-  ((attack :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
-   (range :initform 1 :initarg :range :accessor range)
-   (size :initform 1 :initarg :size :accessor size)
-   (weaponp :initform nil :initarg :weaponp :accessor weaponp)
-   (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))
-(defclass status ()
-  ((energy :initform 0 :accessor energy)
-   (spd :initform 1 :initarg :spd :accessor spd)
-   (target :initform nil :accessor target)
-   (name :initform 'status :accessor name :initarg :name)
-   (duration :initform 3 :initarg :duration :accessor duration)))
-
+(load "class-definitions.lisp")
+(load "definition-macros.lisp")
 (load "terminal.lisp")
 (load "inventory.lisp")
 (load "bsp-dungeon.lisp")
@@ -101,18 +64,6 @@
 		    (mapc (lambda (i) (unequip i actor)) items-to-unequip)
 		    (equip-item)
 		    items-to-unequip)))))))))
-
-(defmacro defaction ((&rest keys) description &body body)
-  (let ((key (gensym))
-	(key-list (gensym)))
-    `(let ((,key-list (ensure-list ',keys)))
-       (loop for ,key in ,key-list
-	     when (gethash ,key *action-descriptions*)
-	       do (print-to-log "You're declaring the ~a action twice!" ,key)
-	     do (setf (gethash ,key *actions*) (lambda () ,@body)))
-       (setf (gethash (format nil "~{~c~#[~; or ~;, ~]~}" ,key-list)
-		      *action-descriptions*)
-	     ,description))))
 
 (defun solid (pos)
   (gethash pos *solid-actors*))
@@ -685,84 +636,15 @@
     (process-round #\space))
   (format t "~c[0m" #\esc))
 
-(defaction (#\4 #\l) "move left" (move *player* +left+))
-(defaction (#\6 #\') "move right" (move *player* +right+))
-(defaction (#\8 #\p) "move up" (move *player* +up+))
-(defaction (#\2 #\. #\;) "move down" (move *player* +down+))
-(defaction (#\9 #\[) "move up-right" (move *player* '(1 . -1)))
-(defaction (#\7 #\o) "move up-left" (move *player* '(-1 . -1)))
-(defaction (#\3 #\/) "move down-right" (move *player* '(1 . 1)))
-(defaction (#\1 #\,) "move down-left" (move *player* '(-1 . 1)))
-(defaction #\P "wait" t)
-(defaction #\i "interact"
-  (interact (non-solid (pos *player*)) *player*))
-(defaction #\v "print inventory"
-  (print-inventory))
-(defaction #\D "drop an item"
-  (with-item-from-inventory
-      (remove-from-inventory item)
-    (place item (pos *player*) :solid nil)))
-(defaction #\e "equip an item"
-  (with-item-from-inventory
-    (let ((result (equip item *player*)))
-      (cond ((listp result)
-	     (print-to-log "you equipped ~a instead of ~{~a~#[~; and ~:;, ~]~}"
-			   (name item) (mapcar #'name result)))
-	    (result
-	     (print-to-log "you equipped ~a" (name item)))))))
-(defaction #\u "unequip an item"
-  (let ((item-list (apply #'append (loop for i-list being the hash-values of (equipment *player*)
-					 collect i-list))))
-    (if item-list
-	(let ((item (get-item-from-list
-		     item-list
-		     :naming-function (lambda (i) (log-to-string "~a (~a)" (name i) (equip-slot i)))
-		     :what "item to unequip")))
-	  (unequip item *player*)
-	  (print-to-log "you have unequipped ~a" (name item)))
-	(print-to-log "you have nothing equipped"))))
-(defaction #\t "throw an item"
-  (with-item-from-inventory
-    (let ((target (choose-target 'free-form
-				 (if (= (size item) 1)
-				     3
-				     1))))
-      (when target
-	(throw-at target item *player*)))))
-(defaction #\A "attack"
-  (let ((target (choose-target 'two-key (range (car (weapons *player*))))))
-    (when (and target (not (listp target)))
-      (attack target *player*))))
-(defaction #\# "open a REPL"
-  (labels ((read-and-eval (previous-input)
-	     (let ((input (if previous-input
-			      (concatenate 'string
-					   previous-input
-					   " "
-					   (read-line))
-			      (read-line))))
-	       (if (string= "q" input)
-		   'exit-repl
-		   (handler-case (eval (read-from-string input))
-		     (end-of-file () (read-and-eval input))))))
-	   (my-repl ()
-	     (format t "~&>>> ")
-	     (force-output)
-	     (let ((result (read-and-eval nil)))
-	       (unless (eq result 'exit-repl)
-		 (print result)
-		 (my-repl)))))
-    (my-repl)))
-(defaction #\h "help"
-  (loop for action being the hash-keys of *action-descriptions*
-	do (print-to-log "~a: ~a" action (gethash action *action-descriptions*)))
-  (print-to-log "q: quit"))
-
 (place *player* (car (initialize-board)))
-(equip (make-instance 'equipment :atk '(1 6 0 0 slashing) :name "sword" :weaponp t) *player*)
-(let ((foe (make-instance 'enemy :display-char #\g :color 32 :name "goblin" :health 10)))
-  (equip (make-instance 'equipment :atk '(1 4 0 0 piercing) :name 'dagger :range 1 :weaponp t) foe)
-  (place foe '(2 . 2)))
-(place (make-instance 'equipment :name "cheese") '(4 . 6) :solid nil)
+(defequipment sword () :atk '(1 6 0 0 slashing) :weaponp t)
+(equip (make-sword) *player*)
+(defequipment dagger () :atk '(1 4 0 0 piercing) :weaponp t)
+(defenemy goblin #\g () :color 32 :health 10 :equips (make-dagger))
+(make-goblin '(2 . 2))
+(defequipment cheese ())
+(place (make-cheese) '(4 . 6) :solid nil)
+
+(load "action-definitions.lisp")
 
 (start)

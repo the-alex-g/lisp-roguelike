@@ -23,6 +23,12 @@
       arg
       (list arg)))
 
+(defun constructor (name)
+  (read-from-string (format nil "make-~a" (symbol-name name))))
+
+(defun make-keyword (name)
+  (intern (symbol-name name) "KEYWORD"))
+
 (defun custom-read-char ()
   (force-output)
   (if *fake-input*
