@@ -2,6 +2,7 @@
 
 (defclass actor ()
   ((display-char :initform #\? :initarg :display-char :writer (setf display-char))
+   (illumination :initform 0 :initarg :illumination :reader illumination)
    (pos :initform +zero+ :initarg :pos :accessor pos)
    (name :initform "" :initarg :name :accessor name)
    (color :initform 30 :initarg :color :accessor color)

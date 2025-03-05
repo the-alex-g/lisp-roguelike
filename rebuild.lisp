@@ -10,8 +10,9 @@
 
 (defparameter *solid-actors* (make-hash-table :test #'equal))
 (defparameter *non-solid-actors* (make-hash-table :test #'equal))
+(defparameter *glowing-actors* nil)
 (defparameter *board-size* '(60 . 20))
-(defparameter *player* (make-instance 'creature :health 10 :name "player" :pos '(5 . 5) :color 31))
+(defparameter *player* (make-instance 'creature :health 10 :name "player" :pos '(5 . 5) :color 31 :illumination 5))
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
@@ -65,6 +66,12 @@
 		    (equip-item)
 		    items-to-unequip)))))))))
 
+(defun add-glowing (actor)
+  (push actor *glowing-actors*))
+
+(defun remove-glowing (actor)
+  (setf *glowing-actors* (remove actor *glowing-actors*)))
+
 (defun solid (pos)
   (gethash pos *solid-actors*))
 
@@ -82,16 +89,9 @@
 
 (defun remove-non-solid (pos)
   (remhash pos *non-solid-actors*))
-
+    
 (defun contents (pos)
   (or (solid pos) (non-solid pos)))
-
-(defun emptyp (pos)
-  (not (contents pos)))
-
-(defun remove-all (pos)
-  (remove-non-solid pos)
-  (remove-solid pos))
 
 (defgeneric remove-status (status)
   (:method :after ((status status))
@@ -178,7 +178,9 @@
       (if solid
 	  (setf (solid result) obj)
 	  (setf (non-solid result) obj))
-      (setf (pos obj) result))))
+      (setf (pos obj) result)))
+  (when (> (illumination obj) 0)
+    (add-glowing obj)))
 
 (defun initialize-board ()
   (let* ((dungeon (generate-dungeon '(60 . 20) 4))
@@ -207,8 +209,10 @@
 
 (defgeneric kill (obj)
   (:method (obj))
-  (:method ((obj enemy))
+  (:method :before ((obj creature))
     (remove-solid (pos obj))
+    (remove-glowing obj))
+  (:method ((obj enemy))
     (place (corpse obj) (pos obj) :solid nil)))
 
 (defmethod (setf health) (value (obj creature))
@@ -219,6 +223,16 @@
 		 (setf (slot-value obj 'health) value)))
       (progn (setf (slot-value obj 'health) 0)
 	     (kill obj))))
+
+(defmethod (setf illumination) (value (obj actor))
+  (let ((current-value (illumination obj)))
+    (when (and (<= current-value 0)
+	       (> value 0))
+      (add-glowing obj))
+    (when (and (> current-value 0)
+	       (<= value 0))
+      (remove-glowing obj)))
+  (setf (slot-value obj 'illumination) value))
   
 (defgeneric death (obj)
   (:method ((obj creature))
@@ -339,23 +353,21 @@
 			    never (pos-opaquep (/ x (abs dx))))
 		      (loop for y below (abs dy)
 			    never (pos-opaquep (/ y (abs dy)))))))))
-    (defun has-los (to from distance)
+    (defun has-los (to from)
       (let ((key (list to from)))
 	(multiple-value-bind (memo memo-existsp) (gethash key memos)
-	     (if (if memo-existsp
-		     memo
-		     (let ((new-val (calculate-los to from)))
-		       (setf (gethash key memos) new-val)
-		       new-val))
-		 ;; check if point is within distance
-		 (or (< distance 0)
-		     (>= distance (vec-length (vec- to from))))
-		 nil))))))
+	  (if memo-existsp
+	      memo
+	      (let ((new-val (calculate-los to from)))
+		(setf (gethash key memos) new-val)
+		new-val)))))))
 
 (defgeneric pickup (item)
   (:method (item))
   (:method :after ((item equipment))
     (remove-non-solid (pos item))
+    (when (> (illumination item) 0)
+      (remove-glowing item))
     (add-to-inventory item)
     (print-to-log "you picked up a ~a" (name item))))
 
@@ -424,7 +436,7 @@
       (call-next-method)
       (act obj)))
   (:method ((obj enemy))
-    (when (has-los (pos obj) (pos *player*) -1)
+    (when (visiblep (pos *player*) (pos obj))
       (let ((primary (car (weapons obj)))
 	    (bravep (has-status-p obj 'brave))
 	    (afraidp (has-status-p obj 'frightened)))
@@ -467,7 +479,7 @@
 				     with pos = +zero+
 				     do (setf pos (vec+ (cons x y)
 							(pos *player*)))
-				     when (and (has-los pos (pos *player*) range)
+				     when (and (visiblep pos (pos *player*))
 					       (<= (distance (pos *player*) pos)
 						   range)
 					       (solid pos)
@@ -577,15 +589,21 @@
   (:method :after ((target list) (item equipment) thrower)
     (place item target :solid nil)))
 
-(defgeneric visiblep (obj)
-  (:method ((pos list))
-    (has-los pos (pos *player*) *sight-distance*))
-  (:method ((n symbol)) nil)
-  (:method ((c character)) t)
-  (:method ((obj actor))
+(defun illuminatedp (pos)
+  (loop for light-source in *glowing-actors*
+	  thereis (<= (distance pos (pos light-source))
+		      (illumination light-source))))
+
+(defgeneric visiblep (pos from)
+  (:method ((pos list) (from list))
+    (and (has-los pos from)
+	 (illuminatedp pos)))
+  (:method ((n symbol) from) nil)
+  (:method ((c character) from) t)
+  (:method ((obj actor) from)
     (if (hiddenp obj)
 	nil
-	(visiblep (pos obj)))))
+	(visiblep (pos obj) from))))
 
 (defun print-board ()
   (apply-default-colors)
@@ -597,12 +615,12 @@
 				   (cond ((characterp actor)
 					  actor)
 					 ((and (wallp actor)
-					       (or (visiblep pos)
-						   (visiblep actor)))
+					       (or (visiblep pos (pos *player*))
+						   (visiblep actor (pos *player*))))
 					  (display-char pos))
-					 ((and actor (visiblep actor))
+					 ((and actor (visiblep actor (pos *player*)))
 					  (display-char actor))
-					 ((visiblep pos) #\.)
+					 ((visiblep pos (pos *player*)) #\.)
 					 (t #\space)))))))
 
 (defun print-surroundings ()
