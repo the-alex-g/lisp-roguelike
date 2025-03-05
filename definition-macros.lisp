@@ -96,7 +96,6 @@
 (defmacro defstatus (name &key (duration 3) (speed 1))
   `(progn
      (defclass ,name (status)
-       ((spd :initform ,speed)
-	(name :initform ',name)))
-     (defun ,(constructor name 'status) (&optional (duration ,duration))
-       (make-instance ',name :duration duration))))
+       ((spd :initform ,speed)))
+     (defun ,(constructor name 'status) (&key (duration ,duration) (name ',name))
+       (make-instance ',name :duration duration :name name))))

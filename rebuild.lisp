@@ -369,14 +369,25 @@
     (attack passive active))
   (:method (passive active))) ; default case: do nothing
 
-(defun reposition (obj new-pos)
-  (let ((collider (solid new-pos)))
-    (if collider
-	(move-into collider obj)
-	(progn (remove-solid (pos obj))
-	       (setf (solid new-pos) obj)
-	       (setf (pos obj) new-pos)
-	       (move-into (non-solid new-pos) obj)))))
+(defun has-status-p (obj status-name)
+  (member status-name (mapcar #'type-of (statuses obj))))
+
+(defstatus frightened)
+(defstatus brave)
+(defstatus immobilized)
+
+(defgeneric reposition (obj new-pos)
+  (:method :around ((obj creature) new-pos)
+    (unless (has-status-p obj 'immobilized)
+      (call-next-method)))
+  (:method ((obj actor) new-pos)
+    (let ((collider (solid new-pos)))
+      (if collider
+	  (move-into collider obj)
+	  (progn (remove-solid (pos obj))
+		 (setf (solid new-pos) obj)
+		 (setf (pos obj) new-pos)
+		 (move-into (non-solid new-pos) obj))))))
 
 (defgeneric move (obj direction)
   (:method ((obj actor) direction)
@@ -396,23 +407,17 @@
 (defun flee (source obj)
   (move obj (flee-direction source obj)))
 
-(defun has-status-p (obj status-name)
-  (member status-name (mapcar #'name (statuses obj))))
-
-(defstatus frightened)
-(defstatus brave)
-
 (defgeneric act (obj)
   (:method (obj))
   (:method :around ((obj status))
-    (if (> (duration obj) 0)
+    (if (= (duration obj) 0) ;; = 0 so that a status with negative duration is permanent
+	(remove-status obj)
 	(when (>= (energy obj) 1)
 	  (decf (energy obj))
 	  (when (next-method-p)
 	    (call-next-method))
 	  (decf (duration obj))
-	  (act obj))
-	(remove-status obj)))
+	  (act obj))))
   (:method :around ((obj enemy))
     (when (>= (energy obj) 1)
       (decf (energy obj))
@@ -428,8 +433,8 @@
 		    (not bravep))
 	       (let ((morale-roll (roll 3 6)))
 		 (if (>= (morale obj) morale-roll)
-		     (apply-to obj (make-brave-status morale-roll))
-		     (apply-to obj (make-frightened-status morale-roll)))))
+		     (apply-to obj (make-brave-status :duration morale-roll))
+		     (apply-to obj (make-frightened-status :duration morale-roll)))))
 	      (afraidp
 	       (flee *player* obj))
 	      ((and (<= (distance (pos obj) (pos *player*))
