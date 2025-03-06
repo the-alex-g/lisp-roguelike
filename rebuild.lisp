@@ -591,7 +591,7 @@
 
 (defun illuminatedp (pos)
   (loop for light-source in *glowing-actors*
-	  thereis (<= (distance pos (pos light-source))
+	  thereis (<= (distance pos (pos light-source) :exactp t)
 		      (illumination light-source))))
 
 (defgeneric visiblep (pos from)

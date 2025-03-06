@@ -93,8 +93,10 @@
   (sqrt (+ (square (car vector))
 	   (square (cdr vector)))))
 
-(defun distance (a b)
-  (floor (vec-length (vec- a b))))
+(defun distance (a b &key (exactp nil))
+  (if exactp
+      (vec-length (vec- a b))
+      (floor (vec-length (vec- a b)))))
 
 (defun randnth (lst)
   (if (listp lst)
