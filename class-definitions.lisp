@@ -28,6 +28,10 @@
    (vulnerablities :initform '() :initarg :vulnerable :accessor vulnerabilities)
    (absorbances :initform '() :initarg :absorb :accessor absorbances)))
 
+(defclass player (creature)
+  ((hunger :initform 100 :reader hunger)
+   (max-hunger :initform 100 :accessor max-hunger)))
+
 (defclass enemy (creature)
   ((energy :initform 0 :accessor energy)
    (morale :initform 6 :accessor morale :initarg :morale)))

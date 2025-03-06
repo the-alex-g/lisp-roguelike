@@ -12,7 +12,7 @@
 (defparameter *non-solid-actors* (make-hash-table :test #'equal))
 (defparameter *glowing-actors* nil)
 (defparameter *board-size* '(60 . 20))
-(defparameter *player* (make-instance 'creature :health 10 :name "player" :pos '(5 . 5) :color 31 :illumination 5))
+(defparameter *player* (make-instance 'player :health 10 :name "player" :pos '(5 . 5) :color 31 :illumination 5))
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
@@ -229,6 +229,15 @@
     (incf (slot-value obj 'max-health)
 	  dhealth)
     (incf (health obj) dhealth)))
+
+(defmethod (setf hunger) (value (obj player))
+  (cond ((> value (max-hunger obj))
+	 (setf (slot-value obj 'hunger) (max-hunger obj)))
+	((< value 0)
+	 (setf (slot-value obj 'hunger) 20)
+	 (decf (health obj)))
+	(t
+	 (setf (slot-value obj 'hunger) value))))
 
 (defmethod (setf illumination) (value (obj actor))
   (let ((current-value (illumination obj)))
@@ -477,6 +486,8 @@
     (act obj))
   (:method :before ((obj creature))
     (mapc #'update (statuses obj)))
+  (:method ((obj player))
+    (decf (hunger obj)))
   (:method ((obj enemy))
     (incf (energy obj) (/ (spd obj) (spd *player*)))
     (act obj)))
@@ -633,7 +644,10 @@
 		 (weapons *player*))
 	 (log-to-string "HEALTH ~d/~d"
 			(health *player*)
-			(max-health *player*)))))
+			(max-health *player*))
+	 (log-to-string "FOOD ~d/~d"
+			(hunger *player*)
+			(max-hunger *player*)))))
 
 (defun print-board ()
   (apply-default-colors)
@@ -681,19 +695,21 @@
   (print-log))
 
 (defun start ()
+  (print-game)
   (labels ((process-round (input)
 	     (unless (eq input #\q)
 	       (let ((action (gethash input *actions*)))
 		 (when action
 		   (funcall action)
+		   (update *player*)
 		   (loop for actor being the hash-values of *solid-actors*
 			 do (update actor))
 		   (loop for actor being the hash-values of *non-solid-actors*
 			 do (update actor))))
 	       (print-game)
-	       (process-round (custom-read-char)))))
-    (process-round #\space))
-  (format t "~c[0m" #\esc))
+	       (not (deadp *player*)))))
+    (loop while (process-round (custom-read-char))))
+  (format t "~a has died.~c[0m~%~%" (name *player*) #\esc))
 
 (place *player* (car (initialize-board)))
 (defequipment sword () :atk '(1 6 0 0 slashing) :weaponp t)
