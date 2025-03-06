@@ -112,10 +112,10 @@
 (defun apply-default-colors ()
   (format t "~c[40;37m" #\esc))
 
-(defun apply-colors (char colors)
-  (format nil "~c[~{~d~^;~}m~c~0@*~c[40;37m"
+(defun apply-colors (arg colors)
+  (format nil "~c[~{~d~^;~}m~a~0@*~c[40;37m"
 	  #\esc (ensure-list colors)
-	  char))
+	  arg))
 
 (defgeneric display-char (obj)
   (:method ((obj actor))
@@ -224,6 +224,12 @@
       (progn (setf (slot-value obj 'health) 0)
 	     (kill obj))))
 
+(defmethod (setf con) (value (obj creature))
+  (let ((dhealth (* (- value (con obj)) (ash (hd obj) -2))))
+    (incf (slot-value obj 'max-health)
+	  dhealth)
+    (incf (health obj) dhealth)))
+
 (defmethod (setf illumination) (value (obj actor))
   (let ((current-value (illumination obj)))
     (when (and (<= current-value 0)
@@ -266,14 +272,19 @@
      (loop for m in modifiers
 	   sum m)))
 
+(defequipment fist () :atk '(1 3 -1 0 bludgeoning) :weaponp t)
+
 (defgeneric weapons (obj)
   (:method ((obj creature))
     (let ((held-items (gethash 'hand (equipment obj))))
-      (if (<= (length held-items) 1)
-	  held-items
-	  (loop for equipment in held-items
-		when (weaponp equipment)
-		  collect equipment)))))
+      (cond ((= (length held-items) 1)
+	     held-items)
+	    ((= (length held-items) 0)
+	     (list (make-fist)))
+	    (t
+	     (loop for equipment in held-items
+		   when (weaponp equipment)
+		     collect equipment))))))
 
 (flet ((generate-attack (attacker num die &optional dmg-bonus to-hit types statuses)
 	 (make-attack :dmg (roll num die (str attacker) dmg-bonus)
@@ -605,23 +616,46 @@
 	nil
 	(visiblep (pos obj) from))))
 
+(defun get-player-lines ()
+  (flatten
+   (list (log-to-string "STR ~@d  DEX ~@d  CON ~@d"
+			(str *player*) (dex *player*) (con *player*))
+	 (log-to-string "INT ~@d  PER ~@d  CHA ~@d"
+			(intl *player*) (per *player*) (cha *player*))
+	 (mapcar (lambda (weapon)
+		   (let ((atk (atk weapon)))
+		     (setf (nth 4 atk) (ensure-list (nth 4 atk)))
+		     (apply #'log-to-string
+			    "~@:(~a~): ~dd~d~[~:;~:*~@d~]~5@*~{ ~a~} damage~
+                             ~4@*~[~:;~:*, ~@d to hit~]"
+			    (name weapon)
+			    atk)))
+		 (weapons *player*))
+	 (log-to-string "HEALTH ~d/~d"
+			(health *player*)
+			(max-health *player*)))))
+
 (defun print-board ()
   (apply-default-colors)
-  (loop for y from -1 to (1+ (cdr *board-size*))
-	do (format t "~{~a~}~%"
-		   (loop for x from -1 to (1+ (car *board-size*))
-			 collect (let* ((pos (cons x y))
-					(actor (contents pos)))
-				   (cond ((characterp actor)
-					  actor)
-					 ((and (wallp actor)
-					       (or (visiblep pos (pos *player*))
-						   (visiblep actor (pos *player*))))
-					  (display-char pos))
-					 ((and actor (visiblep actor (pos *player*)))
-					  (display-char actor))
-					 ((visiblep pos (pos *player*)) #\.)
-					 (t #\space)))))))
+  (let ((player-lines (get-player-lines)))
+    (loop for y from -1 to (1+ (cdr *board-size*))
+	  do (format t "~{~a~}~a~%"
+		     (loop for x from -1 to (1+ (car *board-size*))
+			   collect (let* ((pos (cons x y))
+					  (actor (contents pos)))
+				     (cond ((characterp actor)
+					    actor)
+					   ((and (wallp actor)
+						 (or (visiblep pos (pos *player*))
+						     (visiblep actor (pos *player*))))
+					    (display-char pos))
+					   ((and actor (visiblep actor (pos *player*)))
+					    (display-char actor))
+					   ((visiblep pos (pos *player*)) #\.)
+					   (t #\space))))
+		     (if (nth (1+ y) player-lines)
+			 (nth (1+ y) player-lines)
+			 "")))))
 
 (defun print-surroundings ()
   (flet ((printp (obj)
