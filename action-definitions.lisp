@@ -1,18 +1,18 @@
-(defaction (#\4 #\l) "move left" (move *player* +left+))
+(defaction (#\4 #\h) "move left" (move *player* +left+))
 
-(defaction (#\6 #\') "move right" (move *player* +right+))
+(defaction (#\6 #\l) "move right" (move *player* +right+))
 
-(defaction (#\8 #\p) "move up" (move *player* +up+))
+(defaction (#\8 #\k) "move up" (move *player* +up+))
 
-(defaction (#\2 #\. #\;) "move down" (move *player* +down+))
+(defaction (#\2 #\j) "move down" (move *player* +down+))
 
-(defaction (#\9 #\[) "move up-right" (move *player* '(1 . -1)))
+(defaction (#\9 #\u) "move up-right" (move *player* '(1 . -1)))
 
-(defaction (#\7 #\o) "move up-left" (move *player* '(-1 . -1)))
+(defaction (#\7 #\y) "move up-left" (move *player* '(-1 . -1)))
 
-(defaction (#\3 #\/) "move down-right" (move *player* '(1 . 1)))
+(defaction (#\3 #\n) "move down-right" (move *player* '(1 . 1)))
 
-(defaction (#\1 #\,) "move down-left" (move *player* '(-1 . 1)))
+(defaction (#\1 #\b) "move down-left" (move *player* '(-1 . 1)))
 
 (defaction #\P "wait" t)
 
@@ -36,7 +36,7 @@
 	    (result
 	     (print-to-log "you equipped ~a" (name item)))))))
 
-(defaction #\u "unequip an item"
+(defaction #\U "unequip an item"
   (let ((item-list (apply #'append (loop for i-list being the hash-values of (equipment *player*)
 					 collect i-list))))
     (if item-list
@@ -83,7 +83,7 @@
 		 (my-repl)))))
     (my-repl)))
 
-(defaction #\h "help"
+(defaction #\H "help"
   (loop for action being the hash-keys of *action-descriptions*
 	do (print-to-log "~a: ~a" action (gethash action *action-descriptions*)))
   (print-to-log "q: quit"))
