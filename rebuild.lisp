@@ -4,6 +4,7 @@
 (load "utils.lisp")
 (load "class-definitions.lisp")
 (load "definition-macros.lisp")
+(load "new-codex.lisp")
 (load "terminal.lisp")
 (load "inventory.lisp")
 (load "bsp-dungeon.lisp")
@@ -182,7 +183,22 @@
   (when (> (illumination obj) 0)
     (add-glowing obj)))
 
+(defun get-spawn-list ()
+  '((50 ((75 make-goblin)
+	 (25 make-kobold)))
+    (50 make-food-pickup)))
+
+(defun spawn-object (pos)
+  (funcall (car (eval-weighted-list (get-spawn-list))) pos))
+
+(defun populate-dungeon (region sparseness)
+  (loop for cell in region
+	when (= (random sparseness) 0)
+	  do (spawn-object cell)))
+
 (defun initialize-board ()
+  (setf *solid-actors* (make-hash-table :test #'equal))
+  (setf *non-solid-actors* (make-hash-table :test #'equal))
   (let* ((dungeon (generate-dungeon '(60 . 20) 4))
 	 (cells (pos-flatten dungeon)))
     (loop for x from -1 to 61
@@ -194,6 +210,7 @@
 				  thereis (member (vec+ (cons x y) direction) cells :test #'equal))
 		       ;; put a wall down
 		       do (setf (solid (cons x y)) 'wall)))
+    (populate-dungeon cells 8)
     cells))
 
 (defgeneric corpse (obj)
@@ -712,13 +729,7 @@
   (format t "~a has died.~c[0m~%~%" (name *player*) #\esc))
 
 (place *player* (car (initialize-board)))
-(defequipment sword () :atk '(1 6 0 0 slashing) :weaponp t)
 (equip (make-sword) *player*)
-(defequipment dagger () :atk '(1 4 0 0 piercing) :weaponp t)
-(defenemy goblin #\g () :color 32 :health 10 :equips (make-dagger))
-(make-goblin '(2 . 2))
-(defequipment cheese ())
-(place (make-cheese) '(4 . 6) :solid nil)
 
 (load "action-definitions.lisp")
 

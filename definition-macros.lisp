@@ -53,6 +53,8 @@
 	   (mapc (lambda (i)
 		   (equip i new-enemy))
 		 (ensure-list ,equips))
+	   (setf (slot-value new-enemy 'max-health)
+		 (health new-enemy))
 	   new-enemy))))
 
   ;; define class and constructor function for actor
@@ -78,20 +80,19 @@
   (defmacro defequipment (name new-slots
 			  &rest keys
 			  &key (inherit 'equipment)
-;			    (identifiedp t)
 			  &allow-other-keys)
     (remf keys :inherit)
-;    (remf keys :identifiedp)
     `(progn
        ;; define equipment class
        (defclass ,name (,inherit) (,@(mapcan #'build-slot new-slots)
 				    ,@(reinit-slots keys nil)
-;					(identifiedp :initform ,identifiedp
-;						      :allocation :class)
 				    (name :initform ',name)))
        ;; define constructor function
        (defun ,(constructor name) ()
-	 (make-instance ',name)))))
+	 (make-instance ',name))
+
+       (defun ,(constructor name 'pickup) (pos)
+	 (place (,(constructor name)) pos :solid nil)))))
 
 (defmacro defstatus (name &key (duration 3) (speed 1))
   `(progn

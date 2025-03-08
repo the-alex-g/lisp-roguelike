@@ -116,11 +116,11 @@
       (append (flatten (car lst)) (if (cdr lst)
 				      (flatten (cdr lst))))))
 
-(defun eval-weighted-list (list)
+(defun eval-weighted-list (list &optional (weight 100))
   (labels ((get-results (lst)
 	     (if (numberp (caar lst))
 		 (loop for pair in lst
-		       with index = (random 100)
+		       with index = (random weight)
 		       when (< index (car pair))
 			 return (if (atom (cadr pair))
 				    (cadr pair)
