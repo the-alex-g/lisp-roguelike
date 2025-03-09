@@ -413,6 +413,20 @@
   (:method ((item equipment) (actor (eql *player*)))
     (pickup item)))
 
+(defgeneric eat (item actor)
+  (:method (item (actor player))
+    (declare (ignore item actor))
+    (print-to-log "you can't eat that")
+    nil)
+  (:method :around ((item equipment) (actor player))
+    (when (call-next-method)
+      (remove-from-inventory item)))
+  (:method ((item food) (actor player))
+    (incf (hunger actor) (sustenance item))
+    (print-to-log "you ate ~a and recovered ~d hunger"
+		  (name item)
+		  (sustenance item))))
+
 (defgeneric move-into (passive active)
   (:method ((passive player) (active enemy))
     (attack passive active))
@@ -452,8 +466,11 @@
 (defun step-towards (target obj)
   (reposition obj (car (find-path (pos obj) (pos target)))))
 
-(defun flee-direction (source obj)
-  (vec- (pos obj) (car (find-path (pos obj) (pos source)))))
+(defgeneric flee-direction (source obj)
+  (:method ((source list) (pos list))
+    (vec- pos (car (find-path pos source))))
+  (:method ((source actor) (obj actor))
+    (flee-direction (pos source) (pos obj))))
 
 (defun flee (source obj)
   (move obj (flee-direction source obj)))
@@ -480,7 +497,8 @@
     (unless (equal (pos obj) (target-pos obj))
       (let ((primary (car (weapons obj)))
 	    (bravep (has-status-p obj 'brave))
-	    (afraidp (has-status-p obj 'frightened)))
+	    (afraidp (has-status-p obj 'frightened))
+	    (can-flee (not (solid (vec+ (pos obj) (flee-direction (target-pos obj) (pos obj)))))))
 	(cond ((and (<= (health obj) (/ (max-health obj) 2))
 		    (not afraidp)
 		    (not bravep))
@@ -488,11 +506,9 @@
 		 (if (>= (morale obj) morale-roll)
 		     (apply-to obj (make-brave-status :duration morale-roll))
 		     (apply-to obj (make-frightened-status :duration morale-roll)))))
-	      (afraidp
-	       (flee *player* obj))
-	      ((and (<= (distance (pos obj) (pos *player*))
-			(/ (range primary) 2))
-		    (not (solid (vec+ (pos obj) (flee-direction *player* obj)))))
+	      ((and can-flee
+		    (or (<= (distance (pos obj) (pos *player*)) (/ (range primary) 2))
+			afraidp))
 	       (flee *player* obj))
 	      ((<= (distance (pos obj) (pos *player*))
 		   (range primary))
@@ -722,7 +738,6 @@
 	       (let ((action (gethash input *actions*)))
 		 (when action
 		   (funcall action)
-		   (update *player*)
 		   (loop for actor being the hash-values of *solid-actors*
 			 do (update actor))
 		   (loop for actor being the hash-values of *non-solid-actors*

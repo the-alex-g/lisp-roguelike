@@ -48,6 +48,10 @@
 	  (print-to-log "you have unequipped ~a" (name item)))
 	(print-to-log "you have nothing equipped"))))
 
+(defaction #\E "eat"
+  (with-item-from-inventory
+      (eat item *player*)))
+
 (defaction #\t "throw an item"
   (with-item-from-inventory
     (let ((target (choose-target 'free-form
