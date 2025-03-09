@@ -9,15 +9,33 @@
 (load "inventory.lisp")
 (load "bsp-dungeon.lisp")
 
-(defparameter *solid-actors* (make-hash-table :test #'equal))
-(defparameter *non-solid-actors* (make-hash-table :test #'equal))
-(defparameter *glowing-actors* nil)
 (defparameter *board-size* '(60 . 20))
 (defparameter *player* (make-instance 'player :health 10 :name "player" :color 31 :illumination 5))
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
 (defparameter *print-surroundings-mode* 'none)
+(defparameter *layers* '())
+(defparameter *current-layer* (make-layer))
+(defparameter *current-depth* 0)
+			
+(defun solid-actors ()
+  (layer-solid-actors *current-layer*))
+
+(defun non-solid-actors ()
+  (layer-non-solid-actors *current-layer*))
+
+(defun glowing-actors ()
+  (layer-glowing-actors *current-layer*))
+
+(defun (setf solid-actors) (value)
+  (setf (layer-solid-actors *current-layer*) value))
+
+(defun (setf non-solid-actors) (value)
+  (setf (layer-non-solid-actors *current-layer*) value))
+
+(defun (setf glowing-actors) (value)
+  (setf (layer-glowing-actors *current-layer*) value))
 
 (defgeneric unequip (item actor)
   (:method (item actor))
@@ -68,28 +86,28 @@
 		    items-to-unequip)))))))))
 
 (defun add-glowing (actor)
-  (push actor *glowing-actors*))
+  (push actor (glowing-actors)))
 
 (defun remove-glowing (actor)
-  (setf *glowing-actors* (remove actor *glowing-actors*)))
+  (setf (glowing-actors) (remove actor (glowing-actors))))
 
 (defun solid (pos)
-  (gethash pos *solid-actors*))
+  (gethash pos (solid-actors)))
 
 (defun (setf solid) (value pos)
-  (setf (gethash pos *solid-actors*) value))
+  (setf (gethash pos (solid-actors)) value))
 
 (defun remove-solid (pos)
-  (remhash pos *solid-actors*))
+  (remhash pos (solid-actors)))
 
 (defun non-solid (pos)
-  (gethash pos *non-solid-actors*))
+  (gethash pos (non-solid-actors)))
 
 (defun (setf non-solid) (value pos)
-  (setf (gethash pos *non-solid-actors*) value))
+  (setf (gethash pos (non-solid-actors)) value))
 
 (defun remove-non-solid (pos)
-  (remhash pos *non-solid-actors*))
+  (remhash pos (non-solid-actors)))
     
 (defun contents (pos)
   (or (solid pos) (non-solid pos)))
@@ -201,8 +219,8 @@
 	  do (spawn-object cell)))
 
 (defun initialize-board ()
-  (setf *solid-actors* (make-hash-table :test #'equal))
-  (setf *non-solid-actors* (make-hash-table :test #'equal))
+  (setf (solid-actors) (make-hash-table :test #'equal))
+  (setf (non-solid-actors) (make-hash-table :test #'equal))
   (let* ((dungeon (generate-dungeon '(60 . 20) 4))
 	 (cells (pos-flatten dungeon)))
     (loop for x from -1 to 61
@@ -651,7 +669,7 @@
     (place item target :solid nil)))
 
 (defun illuminatedp (pos)
-  (loop for light-source in *glowing-actors*
+  (loop for light-source in (glowing-actors)
 	  thereis (<= (distance pos (pos light-source) :exactp t)
 		      (illumination light-source))))
 
@@ -734,9 +752,9 @@
   (print-log))
 
 (defun update-actors ()
-  (loop for actor being the hash-values of *solid-actors*
+  (loop for actor being the hash-values of (solid-actors)
 	do (update actor))
-  (loop for actor being the hash-values of *non-solid-actors*
+  (loop for actor being the hash-values of (non-solid-actors)
 	do (update actor)))
 
 (defun start ()

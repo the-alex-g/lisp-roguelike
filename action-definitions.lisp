@@ -68,7 +68,7 @@
 
 (defaction #\R "rest"
   (flet ((cannot-rest ()
-	   (cond ((loop for actor-pos being the hash-keys of *solid-actors*
+	   (cond ((loop for actor-pos being the hash-keys of (solid-actors)
 			thereis (and (visiblep actor-pos (pos *player*))
 				     (hostilep (solid actor-pos))))
 		  "there are enemies nearby")

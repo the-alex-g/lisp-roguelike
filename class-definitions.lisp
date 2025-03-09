@@ -1,5 +1,12 @@
 (defstruct attack dmg to-hit source types statuses)
 
+(defstruct layer
+  (solid-actors (make-hash-table :test #'equal))
+  (non-solid-actors (make-hash-table :test #'equal))
+  glowing-actors
+  up-ladder-pos
+  down-ladder-pos)
+
 (defclass actor ()
   ((display-char :initform #\? :initarg :display-char :writer (setf display-char))
    (illumination :initform 0 :initarg :illumination :reader illumination)
