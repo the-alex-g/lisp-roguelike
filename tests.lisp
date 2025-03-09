@@ -165,10 +165,21 @@
 		(not (statuses *player*))
 		(statuses *player*))))
 
+(defenemy test-creature #\T () :health 7)
+(defun test-max-health ()
+  (flag "testing max health")
+  (let ((test-creature (make-test-creature +zero+)))
+    (print-test "max health = starting health"
+		(eq (health test-creature) (max-health test-creature)))
+    (incf (health test-creature))
+    (print-test "health caps at max health"
+		(eq (health test-creature) (max-health test-creature)))))
+
 (defun test ()
   (test-combat)
   (test-vector-math)
   (test-equipment)
   (test-movement)
   (test-status)
+  (test-max-health)
   (test-throw))

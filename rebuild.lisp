@@ -726,7 +726,8 @@
 	       (print-game)
 	       (not (deadp *player*)))))
     (loop while (process-round (custom-read-char))))
-  (format t "~a has died.~c[0m~%~%" (name *player*) #\esc))
+  (when (deadp *player*)
+    (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
 
 (place *player* (car (initialize-board)))
 (equip (make-sword) *player*)

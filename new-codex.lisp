@@ -2,5 +2,5 @@
 (defequipment dagger () :atk '(1 4 0 0 piercing) :weaponp t)
 (defequipment food ((sustenance (roll 1 10 10))))
 
-(defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger))
-(defenemy kobold #\k () :color 91 :health (roll 1 4 1) :equips (make-dagger))
+(defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger) :dex 1)
+(defenemy kobold #\k () :color 91 :health (roll 1 4 1) :equips (make-dagger) :str 1 :dex 1 :armor 1)
