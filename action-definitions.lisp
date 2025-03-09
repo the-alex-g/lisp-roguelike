@@ -66,6 +66,29 @@
     (when (and target (not (listp target)))
       (attack target *player*))))
 
+(defaction #\R "rest"
+  (flet ((cannot-rest ()
+	   (cond ((loop for actor-pos being the hash-keys of *solid-actors*
+			thereis (and (visiblep actor-pos (pos *player*))
+				     (hostilep (solid actor-pos))))
+		  "there are enemies nearby")
+		 ((= (health *player*) (max-health *player*))
+		  "you are fully rested")
+		 ((<= (hunger *player*) 20)
+		  "you need food")
+		 (t
+		  nil))))
+    (let ((resting-status (make-resting-status))
+	  (initial-resting-status (cannot-rest)))
+      (if initial-resting-status
+	  (print-to-log "you cannot rest because ~a" initial-resting-status)
+	  (loop until (cannot-rest)
+		  initially (apply-to *player* resting-status)
+		do (update-actors)
+		finally (progn (remove-status resting-status)
+			       (print-to-log "you wake up because ~a"
+					     (cannot-rest))))))))
+
 (defaction #\# "open a REPL"
   (labels ((read-and-eval (previous-input)
 	     (let ((input (if previous-input

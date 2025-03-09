@@ -13,7 +13,7 @@
 (defparameter *non-solid-actors* (make-hash-table :test #'equal))
 (defparameter *glowing-actors* nil)
 (defparameter *board-size* '(60 . 20))
-(defparameter *player* (make-instance 'player :health 100 :name "player" :color 31 :illumination 5))
+(defparameter *player* (make-instance 'player :health 10 :name "player" :color 31 :illumination 5))
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
@@ -106,6 +106,10 @@
   (:method ((obj list)) (wallp (solid obj)))
   (:method ((obj symbol)) (eq obj 'wall))
   (:method ((obj character)) t))
+
+(defgeneric hostilep (obj)
+  (:method (obj) nil)
+  (:method ((obj enemy)) t))
 
 (defmethod name ((obj character)) "wall")
 (defmethod name ((obj symbol)) obj)
@@ -437,10 +441,6 @@
 (defun has-status-p (obj status-name)
   (member status-name (mapcar #'type-of (statuses obj))))
 
-(defstatus frightened)
-(defstatus brave)
-(defstatus immobilized)
-
 (defgeneric reposition (obj new-pos)
   (:method :around ((obj creature) new-pos)
     (unless (has-status-p obj 'immobilized)
@@ -486,6 +486,8 @@
 	    (call-next-method))
 	  (decf (duration obj))
 	  (act obj))))
+  (:method ((obj resting))
+    (incf (health (target obj))))
   (:method :around ((obj enemy))
     (when (>= (energy obj) 1)
       (decf (energy obj))
@@ -731,6 +733,12 @@
   (print-surroundings)
   (print-log))
 
+(defun update-actors ()
+  (loop for actor being the hash-values of *solid-actors*
+	do (update actor))
+  (loop for actor being the hash-values of *non-solid-actors*
+	do (update actor)))
+
 (defun start ()
   (print-game)
   (labels ((process-round (input)
@@ -738,12 +746,9 @@
 	       (let ((action (gethash input *actions*)))
 		 (when action
 		   (funcall action)
-		   (loop for actor being the hash-values of *solid-actors*
-			 do (update actor))
-		   (loop for actor being the hash-values of *non-solid-actors*
-			 do (update actor))))
+		   (update-actors))
 	       (print-game)
-	       (not (deadp *player*)))))
+	       (not (deadp *player*))))))
     (loop while (process-round (custom-read-char))))
   (when (deadp *player*)
     (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
