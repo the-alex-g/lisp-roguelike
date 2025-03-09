@@ -127,7 +127,7 @@
 (defun test-throw ()
   (flag "testing throwing")
   (with-clean-board
-    (let ((*player* (make-instance 'creature :name 'actor))
+    (let ((*player* (make-instance 'player :name 'actor))
 	  (*inventory* nil)
 	  (item (make-instance 'equipment :name 'item)))
       (flet ((test-inventory (value)

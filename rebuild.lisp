@@ -636,7 +636,7 @@
 	       nil))))
 
 (defgeneric throw-at (target obj thrower)
-  (:method :before (target (item equipment) thrower) ;; FIXME thrower should be typed as player
+  (:method :before (target (item equipment) (thrower player))
     (declare (ignore target)
 	     (ignore thrower))
     (remove-from-inventory item))
