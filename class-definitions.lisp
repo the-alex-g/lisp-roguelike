@@ -34,6 +34,7 @@
 
 (defclass enemy (creature)
   ((energy :initform 0 :accessor energy)
+   (target-pos :initform nil :accessor target-pos)
    (morale :initform 6 :accessor morale :initarg :morale)))
 
 (defclass equipment (actor)

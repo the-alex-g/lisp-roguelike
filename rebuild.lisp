@@ -13,11 +13,11 @@
 (defparameter *non-solid-actors* (make-hash-table :test #'equal))
 (defparameter *glowing-actors* nil)
 (defparameter *board-size* '(60 . 20))
-(defparameter *player* (make-instance 'player :health 10 :name "player" :pos '(5 . 5) :color 31 :illumination 5))
+(defparameter *player* (make-instance 'player :health 100 :name "player" :color 31 :illumination 5))
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
-(defparameter *print-surroundings-mode* 'non-walls)
+(defparameter *print-surroundings-mode* 'none)
 
 (defgeneric unequip (item actor)
   (:method (item actor))
@@ -210,7 +210,7 @@
 				  thereis (member (vec+ (cons x y) direction) cells :test #'equal))
 		       ;; put a wall down
 		       do (setf (solid (cons x y)) 'wall)))
-    (populate-dungeon cells 8)
+    (populate-dungeon cells 12)
     cells))
 
 (defgeneric corpse (obj)
@@ -414,7 +414,9 @@
     (pickup item)))
 
 (defgeneric move-into (passive active)
-  (:method ((passive creature) (active creature))
+  (:method ((passive player) (active enemy))
+    (attack passive active))
+  (:method ((passive enemy) (active player))
     (attack passive active))
   (:method (passive active))) ; default case: do nothing
 
@@ -470,10 +472,12 @@
   (:method :around ((obj enemy))
     (when (>= (energy obj) 1)
       (decf (energy obj))
+      (when (visiblep (pos *player*) (pos obj))
+	(setf (target-pos obj) (pos *player*)))
       (call-next-method)
       (act obj)))
   (:method ((obj enemy))
-    (when (visiblep (pos *player*) (pos obj))
+    (unless (equal (pos obj) (target-pos obj))
       (let ((primary (car (weapons obj)))
 	    (bravep (has-status-p obj 'brave))
 	    (afraidp (has-status-p obj 'frightened)))
