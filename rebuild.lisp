@@ -10,7 +10,7 @@
 (load "bsp-dungeon.lisp")
 
 (defparameter *board-size* '(60 . 20))
-(defparameter *player* (make-instance 'player :health 10 :name "player" :color 31 :illumination 5))
+(defparameter *player* (make-instance 'player :health 20 :name "player" :color 31 :illumination 5))
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
@@ -18,7 +18,9 @@
 (defparameter *layers* '())
 (defparameter *current-layer* (make-layer))
 (defparameter *current-depth* 0)
-			
+
+(setf (slot-value *player* 'max-health) (health *player*))
+
 (defun solid-actors ()
   (layer-solid-actors *current-layer*))
 
@@ -240,7 +242,7 @@
     (make-instance 'actor :name (log-to-string "~a corpse" (name obj)) :display-char #\c)))
 
 (defmethod evasion ((obj creature))
-  (+ 10 (dex obj) (slot-value obj 'evasion)))
+  (max 1 (+ 5 (dex obj) (slot-value obj 'evasion))))
 
 (defgeneric deadp (obj)
   (:method ((obj creature))

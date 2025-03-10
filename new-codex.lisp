@@ -5,7 +5,7 @@
 (defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger) :dex 1)
 (defenemy kobold #\k () :color 91 :health (roll 1 4 1) :equips (make-dagger) :str 1 :dex 1 :armor 1)
 
-(defstatus resting :duration -1 :speed 5)
+(defstatus resting :duration -1 :speed 0.2)
 (defstatus frightened)
 (defstatus brave)
 (defstatus immobilized)
