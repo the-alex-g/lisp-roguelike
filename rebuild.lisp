@@ -208,9 +208,8 @@
     (add-glowing obj)))
 
 (defun get-spawn-list ()
-  '((50 ((75 make-goblin)
-	 (25 make-kobold)))
-    (50 make-food-pickup)))
+  '((75 make-goblin)
+    (25 make-kobold)))
 
 (defun spawn-object (pos)
   (funcall (car (eval-weighted-list (get-spawn-list))) pos))
@@ -237,9 +236,17 @@
     (populate-dungeon cells 12)
     cells))
 
-(defgeneric corpse (obj)
-  (:method ((obj creature))
-    (make-instance 'actor :name (log-to-string "~a corpse" (name obj)) :display-char #\c)))
+(defgeneric drop-corpse (obj)
+  (:method ((obj enemy))
+    (let ((corpse (make-corpse (pos obj)))
+	  (meat (if (meat obj)
+		    (if (numberp (meat obj))
+			(make-instance 'food :sustenance (meat obj)
+					     :name (log-to-string "~a meat" (name obj)))
+			(meat obj)))))
+      (setf (name corpse) (log-to-string "~a corpse" (name obj)))
+      (when meat
+	(setf (loot corpse) (list meat))))))
 
 (defmethod evasion ((obj creature))
   (max 1 (+ 5 (dex obj) (slot-value obj 'evasion))))
@@ -254,7 +261,7 @@
     (remove-solid (pos obj))
     (remove-glowing obj))
   (:method ((obj enemy))
-    (place (corpse obj) (pos obj) :solid nil)))
+    (drop-corpse obj)))
 
 (defmethod (setf health) (value (obj creature))
   (if (> value 0)
@@ -434,6 +441,9 @@
 
 (defgeneric interact (object actor)
   (:method (object actor))
+  (:method ((object corpse) (actor (eql *player*)))
+    (mapc (lambda (i) (interact i actor)) (loot object))
+    (remove-non-solid (pos object)))
   (:method ((item equipment) (actor (eql *player*)))
     (pickup item)))
 
@@ -484,7 +494,7 @@
 	  newpos))))
 
 (defun step-towards (target obj)
-  (reposition obj (car (find-path (pos obj) (pos target)))))
+  (reposition obj (car (find-path (pos obj) target))))
 
 (defgeneric flee-direction (source obj)
   (:method ((source list) (pos list))
@@ -513,7 +523,8 @@
       (decf (energy obj))
       (when (visiblep (pos *player*) (pos obj))
 	(setf (target-pos obj) (pos *player*)))
-      (call-next-method)
+      (when (target-pos obj)
+	(call-next-method))
       (act obj)))
   (:method ((obj enemy))
     (unless (equal (pos obj) (target-pos obj))
@@ -536,7 +547,7 @@
 		   (range primary))
 	       (attack *player* obj))
 	      (t
-	       (step-towards *player* obj)))))))
+	       (step-towards (target-pos obj) obj)))))))
 
 (defgeneric update (obj)
   (:method (obj))

@@ -110,7 +110,7 @@
 		 (my-repl)))))
     (my-repl)))
 
-(defaction #\H "help"
+(defaction #\? "help"
   (loop for action being the hash-keys of *action-descriptions*
 	do (print-to-log "~a: ~a" action (gethash action *action-descriptions*)))
   (print-to-log "q: quit"))

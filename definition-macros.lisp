@@ -64,6 +64,7 @@
 			(solidp t)
 		      &allow-other-keys)
     (remf keys :inherit)
+    (remf keys :solidp)
     (remf keys :name)
     `(progn (defclass ,name (,inherit) (,@(mapcan #'build-slot new-slots)
 					,@(reinit-slots keys nil)
