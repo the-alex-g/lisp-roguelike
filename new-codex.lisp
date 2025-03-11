@@ -4,6 +4,7 @@
 (defequipment kobold-meat () :sustenance (roll 1 10 5) :inherit food)
 
 (defactor corpse #\c (loot) :solidp nil)
+(defactor ladder #\# (direction) :solidp nil)
 
 (defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger) :dex 1
   :meat (roll 2 10 10))

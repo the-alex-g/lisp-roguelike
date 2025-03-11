@@ -222,10 +222,16 @@
 (defun initialize-board ()
   (setf (solid-actors) (make-hash-table :test #'equal))
   (setf (non-solid-actors) (make-hash-table :test #'equal))
-  (let* ((dungeon (generate-dungeon '(60 . 20) 4))
-	 (cells (pos-flatten dungeon)))
-    (loop for x from -1 to 61
-	  do (loop for y from -1 to 21
+  (let* ((dungeon (generate-dungeon *board-size* 4))
+	 (cells (pos-flatten dungeon))
+	 (up-ladder-pos (randnth cells))
+	 (down-ladder-pos (randnth (loop for cell in cells
+					 when (>= (distance cell up-ladder-pos) 5)
+					   collect cell))))
+    (setf (direction (make-ladder up-ladder-pos)) -1)
+    (setf (direction (make-ladder down-ladder-pos)) 1)
+    (loop for x from -1 to (1+ (car *board-size*))
+	  do (loop for y from -1 to (1+ (cdr *board-size*))
 		   ;; cell is not on board
 		   unless (member (cons x y) cells :test #'equal)
 		     ;; cell is next to board
@@ -519,13 +525,12 @@
   (:method ((obj resting))
     (incf (health (target obj))))
   (:method :around ((obj enemy))
-    (when (>= (energy obj) 1)
-      (decf (energy obj))
-      (when (visiblep (pos *player*) (pos obj))
-	(setf (target-pos obj) (pos *player*)))
-      (when (target-pos obj)
-	(call-next-method))
-      (act obj)))
+    (when (visiblep (pos *player*) (pos obj))
+      (setf (target-pos obj) (pos *player*)))
+    (loop while (>= (energy obj) 1)
+	  do (decf (energy obj))
+	  when (target-pos obj)
+	    do (call-next-method)))
   (:method ((obj enemy))
     (unless (equal (pos obj) (target-pos obj))
       (let ((primary (car (weapons obj)))
@@ -742,21 +747,24 @@
 			 "")))))
 
 (defun print-surroundings ()
-  (flet ((printp (obj)
-	   (not (or (eq *print-surroundings-mode* 'none)
-		    (not obj)
-		    ;; things that are walls but not characters (secret doors) should be printed
-		    (and (characterp obj) (eq *print-surroundings-mode* 'non-walls))))))
-    (print-to-screen "~:[~;you see ~]~:*~{~:[~;a ~:*~a ~a~#[~;~; and ~:;, ~]~]~}~%"
-		     (append
-		      (loop for direction in +directions+
-			    when (printp (contents (vec+ (pos *player*) direction)))
-		    	      collect (name (contents (vec+ (pos *player*) direction)))
-			      and collect (concatenate 'string "to the "
-						       (gethash direction +direction-names+)))
-		      (let ((obj (non-solid (pos *player*))))
-			(when (printp obj)
-			  (list (name obj) "in your space")))))))
+  (if (eq *print-surroundings-mode* 'my-space)
+      (when (non-solid (pos *player*))
+	(print-to-screen "you are standing over a ~a" (name (non-solid (pos *player*)))))
+      (flet ((printp (obj)
+	       (not (or (eq *print-surroundings-mode* 'none)
+			(not obj)
+			;; things that are walls but not characters (secret doors) should be printed
+			(and (characterp obj) (eq *print-surroundings-mode* 'non-walls))))))
+	(print-to-screen "~:[~;you see ~]~:*~{~:[~;a ~:*~a ~a~#[~;~; and ~:;, ~]~]~}~%"
+			 (append
+			  (loop for direction in +directions+
+				when (printp (contents (vec+ (pos *player*) direction)))
+		    		  collect (name (contents (vec+ (pos *player*) direction)))
+				  and collect (concatenate 'string "to the "
+							   (gethash direction +direction-names+)))
+			  (let ((obj (non-solid (pos *player*))))
+			    (when (printp obj)
+			      (list (name obj) "in your space"))))))))
 
 (defun print-game ()
   (clear-screen)
@@ -784,7 +792,7 @@
   (when (deadp *player*)
     (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
 
-(place *player* (car (initialize-board)))
+(place *player* (randnth (initialize-board)))
 (equip (make-sword) *player*)
 
 (load "action-definitions.lisp")
