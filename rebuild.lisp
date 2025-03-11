@@ -142,6 +142,18 @@
 	  #\esc (ensure-list colors)
 	  arg))
 
+(defmethod hiddenp ((obj ladder))
+  (or (and (= *current-depth* 0)
+	   (= -1 (direction obj)))
+      (and (= *current-depth* (1- (length *layers*)))
+	   (= 1 (direction obj)))))
+
+(defmethod name ((obj ladder))
+  (cond ((= -1 (direction obj))
+	 'ladder-leading-up)
+	((= 1 (direction obj))
+	 'ladder-leading-down)))
+
 (defgeneric display-char (obj)
   (:method ((obj actor))
     (if (eq (color obj) 30)
@@ -230,6 +242,8 @@
 					   collect cell))))
     (setf (direction (make-ladder up-ladder-pos)) -1)
     (setf (direction (make-ladder down-ladder-pos)) 1)
+    (setf (layer-up-ladder-pos *current-layer*) up-ladder-pos)
+    (setf (layer-down-ladder-pos *current-layer*) down-ladder-pos)
     (loop for x from -1 to (1+ (car *board-size*))
 	  do (loop for y from -1 to (1+ (cdr *board-size*))
 		   ;; cell is not on board
@@ -241,6 +255,11 @@
 		       do (setf (solid (cons x y)) 'wall)))
     (populate-dungeon cells 12)
     cells))
+
+(defun add-layer ()
+  (let ((*current-layer* (make-layer)))
+    (push *current-layer* *layers*)
+    (initialize-board)))
 
 (defgeneric drop-corpse (obj)
   (:method ((obj enemy))
@@ -792,7 +811,9 @@
   (when (deadp *player*)
     (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
 
-(place *player* (randnth (initialize-board)))
+(let ((cells (add-layer)))
+  (setf *current-layer* (car *layers*))
+  (place *player* (randnth cells)))
 (equip (make-sword) *player*)
 
 (load "action-definitions.lisp")
