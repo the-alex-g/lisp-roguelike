@@ -9,12 +9,12 @@
 (load "inventory.lisp")
 (load "bsp-dungeon.lisp")
 
-(defparameter *board-size* '(60 . 20))
+(defparameter *board-size* '(40 . 10))
 (defparameter *player* (make-instance 'player :health 20 :name "player" :color 31 :illumination 5))
 (defparameter *sight-distance* 10)
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
-(defparameter *print-surroundings-mode* 'none)
+(defparameter *print-surroundings-mode* 'my-space)
 (defparameter *layers* '())
 (defparameter *current-layer* (make-layer))
 (defparameter *current-depth* 0)
@@ -232,8 +232,6 @@
 	  do (spawn-object cell)))
 
 (defun initialize-board ()
-  (setf (solid-actors) (make-hash-table :test #'equal))
-  (setf (non-solid-actors) (make-hash-table :test #'equal))
   (let* ((dungeon (generate-dungeon *board-size* 4))
 	 (cells (pos-flatten dungeon))
 	 (up-ladder-pos (randnth cells))
@@ -244,6 +242,7 @@
     (setf (direction (make-ladder down-ladder-pos)) 1)
     (setf (layer-up-ladder-pos *current-layer*) up-ladder-pos)
     (setf (layer-down-ladder-pos *current-layer*) down-ladder-pos)
+    
     (loop for x from -1 to (1+ (car *board-size*))
 	  do (loop for y from -1 to (1+ (cdr *board-size*))
 		   ;; cell is not on board
@@ -253,7 +252,7 @@
 				  thereis (member (vec+ (cons x y) direction) cells :test #'equal))
 		       ;; put a wall down
 		       do (setf (solid (cons x y)) 'wall)))
-    (populate-dungeon cells 12)
+    (populate-dungeon cells 20)
     cells))
 
 (defun add-layer ()
@@ -470,7 +469,16 @@
     (mapc (lambda (i) (interact i actor)) (loot object))
     (remove-non-solid (pos object)))
   (:method ((item equipment) (actor (eql *player*)))
-    (pickup item)))
+    (pickup item))
+  (:method ((item ladder) (actor (eql *player*)))
+    (unless (hiddenp item)
+      (remove-solid (pos *player*))
+      (remove-glowing (pos *player*))
+      (incf *current-depth* (direction item))
+      (setf *current-layer* (nth *current-depth* *layers*))
+      (place *player* (if (= (direction item) -1)
+			  (layer-down-ladder-pos *current-layer*)
+			  (layer-up-ladder-pos *current-layer*))))))
 
 (defgeneric eat (item actor)
   (:method (item (actor player))
@@ -767,8 +775,9 @@
 
 (defun print-surroundings ()
   (if (eq *print-surroundings-mode* 'my-space)
-      (when (non-solid (pos *player*))
-	(print-to-screen "you are standing over a ~a" (name (non-solid (pos *player*)))))
+      (let ((obj (non-solid (pos *player*))))
+	(when (and obj (not (hiddenp obj)))
+	  (print-to-screen "you are standing over a ~a~%" (name obj))))
       (flet ((printp (obj)
 	       (not (or (eq *print-surroundings-mode* 'none)
 			(not obj)
@@ -810,6 +819,8 @@
     (loop while (process-round (custom-read-char))))
   (when (deadp *player*)
     (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
+
+(add-layer)
 
 (let ((cells (add-layer)))
   (setf *current-layer* (car *layers*))
