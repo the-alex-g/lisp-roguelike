@@ -2,6 +2,7 @@
 (defequipment dagger () :atk '(1 4 0 0 piercing) :weaponp t)
 (defequipment food ((sustenance (roll 2 10 10))))
 (defequipment kobold-meat () :sustenance (roll 1 10 5) :inherit food)
+(defequipment fist () :atk '(1 3 -1 0 bludgeoning) :weaponp t)
 
 (defactor corpse #\c (loot) :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
