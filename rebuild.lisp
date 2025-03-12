@@ -3,12 +3,13 @@
 
 (load "utils.lisp")
 (load "class-definitions.lisp")
-(load "definition-macros.lisp")
-(load "new-codex.lisp")
-(load "terminal.lisp")
-(load "inventory.lisp")
+(load "class-methods.lisp")
 (load "bsp-dungeon.lisp")
 (load "dungeon.lisp")
+(load "terminal.lisp")
+(load "inventory.lisp")
+(load "definition-macros.lisp")
+(load "new-codex.lisp")
 
 (defparameter *player* (make-instance 'player :health 20 :name "player" :color 31 :illumination 5))
 (defparameter *actions* (make-hash-table))
@@ -17,53 +18,23 @@
 
 (setf (slot-value *player* 'max-health) (health *player*))
 
-(defgeneric unequip (item actor)
-  (:method (item actor))
-  (:method :after ((item equipment) (actor (eql *player*)))
-    (declare (ignore actor))
-    (add-to-inventory item))
-  (:method :after ((item equipment) (actor creature))
-    (setf (gethash (equip-slot item) (equipment actor))
-	  (remove item (gethash (equip-slot item) (equipment actor)) :test #'equal))))
+(defmethod drop-corpse ((obj enemy))
+  (let ((corpse (make-corpse (pos obj)))
+	(meat (if (meat obj)
+		  (if (numberp (meat obj))
+		      (make-instance 'food :sustenance (meat obj)
+					   :name (log-to-string "~a meat" (name obj)))
+		      (meat obj)))))
+    (setf (name corpse) (log-to-string "~a corpse" (name obj)))
+    (when meat
+      (setf (loot corpse) (list meat)))))
 
-(defgeneric equip (item actor)
-  (:method (item actor))
-  (:method :around ((item equipment) (actor (eql *player*)))
-    (let ((result (call-next-method)))
-      (when result
-	(remove-from-inventory item))
-      result))
-  (:method :around ((item equipment) (actor creature))
-    (let* ((current-equips (gethash (equip-slot item) (equipment actor)))
-	   (equips-size (loop for i in current-equips
-			      sum (size i)))
-	   (max-equips (cadr (assoc (equip-slot item) (slot-nums actor)))))
-      (flet ((equip-item ()
-	       (push item (gethash (equip-slot item) (equipment actor)))
-	       (when (next-method-p)
-		 (call-next-method))
-	       t))
-	(when max-equips
-	  (if (<= (+ equips-size (size item)) max-equips)
-	      (equip-item)
-	      (labels ((get-items-to-unequip (&optional item-list (size 0))
-			 (if (>= size (size item))
-			     item-list
-			     (let ((item-to-replace (get-item-from-list (gethash (equip-slot item)
-										 (equipment actor))
-									:naming-function #'name
-									:ignoring item-list
-									:test #'equal
-									:what "item to replace")))
-			       (if item-to-replace
-				   (get-items-to-unequip (cons item-to-replace item-list)
-							 (+ size (size item-to-replace)))
-				   nil)))))
-		(let ((items-to-unequip (get-items-to-unequip)))
-		  (when items-to-unequip
-		    (mapc (lambda (i) (unequip i actor)) items-to-unequip)
-		    (equip-item)
-		    items-to-unequip)))))))))
+(defmethod kill :before ((obj creature))
+  (remove-solid (pos obj))
+  (remove-glowing obj))
+
+(defmethod kill ((obj enemy))
+  (drop-corpse obj))
 
 (defgeneric remove-status (status)
   (:method :after ((status status))
@@ -72,26 +43,8 @@
 		  (statuses (target status)))))
   (:method (status)))
 
-(defgeneric wallp (obj)
-  (:method (obj) nil)
-  (:method ((obj list)) (wallp (solid obj)))
-  (:method ((obj symbol)) (eq obj 'wall))
-  (:method ((obj character)) t))
-
-(defgeneric hostilep (obj)
-  (:method (obj) nil)
-  (:method ((obj enemy)) t))
-
-(defmethod name ((obj character)) "wall")
-(defmethod name ((obj symbol)) obj)
-
 (defun apply-default-colors ()
   (format t "~c[40;37m" #\esc))
-
-(defun apply-colors (arg colors)
-  (format nil "~c[~{~d~^;~}m~a~0@*~c[40;37m"
-	  #\esc (ensure-list colors)
-	  arg))
 
 (defmethod hiddenp ((obj ladder))
   (or (and (= *current-depth* 0)
@@ -105,49 +58,6 @@
 	((= 1 (direction obj))
 	 'ladder-leading-down)))
 
-(defgeneric display-char (obj)
-  (:method ((obj actor))
-    (if (eq (color obj) 30)
-	(slot-value obj 'display-char)
-	(apply-colors (slot-value obj 'display-char) (color obj))))
-  (:method ((pos list))
-    (if (and (wallp (vec+ pos +up+))
-	     (wallp (vec+ pos +down+)))
-	(setf (solid pos) #\|)
-	(setf (solid pos) #\-)))
-  (:method ((obj character)) obj))
-
-(defmacro flood-fill (start (value-to-store exit-condition
-			     &key (solid t) (stop-for-occupied t) (go-until nil))
-		      &body body)
-  `(let ((cells (make-hash-table :test #'equal)))
-     (setf (gethash ,start cells) t)
-     (labels ((occupiedp (pos)
-		(if ,solid
-		    (solid pos)
-		    (or (non-solid pos) (wallp (solid pos)))))
-	      (neighbors (pos)
-		(loop for direction in +directions+
-		      unless (let ((cell-pos (vec+ pos direction)))
-			       (or (gethash cell-pos cells)
-				   (wallp (solid cell-pos))
-				   (and (occupiedp cell-pos)
-					(not (equal cell-pos ,go-until))
-					,stop-for-occupied)))
-			collect (vec+ pos direction)))
-	      (iterate (frontier)
-		(when (car frontier)
-		  (let* ((current (car frontier))
-			 (neighbors (neighbors current))
-			 (exit-condition ,exit-condition))
-		    (if exit-condition
-			exit-condition
-			(progn
-			  (mapc (lambda (n) (setf (gethash n cells) ,value-to-store)) neighbors)
-			  (iterate (append (cdr frontier) neighbors))))))))
-       (let ((result (iterate (list ,start))))
-	 ,@body))))
-
 (defun find-path (from to)
   (flood-fill from (current (if (equal current to) t) :go-until to)
 	      (if result
@@ -158,122 +68,11 @@
 		    (build-path to))
 		  (list from))))
 
-(defun place (obj pos &key (solid t))
-  (flood-fill pos (t (unless (occupiedp current) current) 
-		     :stop-for-occupied nil
-		     :solid solid)
-    (when result
-      (if solid
-	  (setf (solid result) obj)
-	  (setf (non-solid result) obj))
-      (setf (pos obj) result)))
-  (when (> (illumination obj) 0)
-    (add-glowing obj)))
-
-(defgeneric drop-corpse (obj)
-  (:method ((obj enemy))
-    (let ((corpse (make-corpse (pos obj)))
-	  (meat (if (meat obj)
-		    (if (numberp (meat obj))
-			(make-instance 'food :sustenance (meat obj)
-					     :name (log-to-string "~a meat" (name obj)))
-			(meat obj)))))
-      (setf (name corpse) (log-to-string "~a corpse" (name obj)))
-      (when meat
-	(setf (loot corpse) (list meat))))))
-
-(defmethod evasion ((obj creature))
-  (max 1 (+ 5 (dex obj) (slot-value obj 'evasion))))
-
-(defgeneric deadp (obj)
-  (:method ((obj creature))
-    (= (health obj) 0)))
-
-(defgeneric kill (obj)
-  (:method (obj))
-  (:method :before ((obj creature))
-    (remove-solid (pos obj))
-    (remove-glowing obj))
-  (:method ((obj enemy))
-    (drop-corpse obj)))
-
-(defmethod (setf health) (value (obj creature))
-  (if (> value 0)
-      (if (slot-boundp obj 'max-health)
-	  (setf (slot-value obj 'health) (min value (max-health obj)))
-	  (progn (setf (slot-value obj 'max-health) (health obj))
-		 (setf (slot-value obj 'health) value)))
-      (progn (setf (slot-value obj 'health) 0)
-	     (kill obj))))
-
-(defmethod (setf con) (value (obj creature))
-  (let ((dhealth (* (- value (con obj)) (ash (hd obj) -2))))
-    (incf (slot-value obj 'max-health)
-	  dhealth)
-    (incf (health obj) dhealth)))
-
-(defmethod (setf hunger) (value (obj player))
-  (cond ((> value (max-hunger obj))
-	 (setf (slot-value obj 'hunger) (max-hunger obj)))
-	((< value 0)
-	 (setf (slot-value obj 'hunger) 20)
-	 (decf (health obj)))
-	(t
-	 (setf (slot-value obj 'hunger) value))))
-
-(defmethod (setf illumination) (value (obj actor))
-  (let ((current-value (illumination obj)))
-    (when (and (<= current-value 0)
-	       (> value 0))
-      (add-glowing obj))
-    (when (and (> current-value 0)
-	       (<= value 0))
-      (remove-glowing obj)))
-  (setf (slot-value obj 'illumination) value))
-  
-(defgeneric death (obj)
-  (:method ((obj creature))
-    "killing it"))
-
-(defgeneric resistp (obj type)
-  (:method ((obj creature) type)
-    (member type (resistances obj))))
-
-(defgeneric immunep (obj type)
-  (:method ((obj creature) type)
-    (member type (immunities obj))))
-
-(defgeneric vulnerablep (obj type)
-  (:method ((obj creature) type)
-    (member type (vulnerabilities obj))))
-
-(defgeneric absorbp (obj type)
-  (:method ((obj creature) type)
-    (member type (absorbances obj))))
-
 (defgeneric apply-to (subj obj)
   (:method :before ((subj creature) (obj status))
     (setf (target obj) subj)
     (push obj (statuses subj)))
   (:method (subj obj)))
-
-(defun roll (num die &rest modifiers)
-  (+ (loop repeat num
-	   sum (1+ (random die)))
-     (loop for m in modifiers
-	   sum m)))
-
-(defgeneric weapons (obj)
-  (:method ((obj creature))
-    (let ((held-items (gethash 'hand (equipment obj))))
-      (cond ((= (length held-items) 1)
-	     held-items)
-	    ((= (length held-items) 0)
-	     (list (make-fist)))
-	    (t
-	     (loop for equipment in held-items
-		   when (weaponp equipment)
-		     collect equipment))))))
 
 (flet ((generate-attack (attacker num die &optional dmg-bonus to-hit types statuses)
 	 (make-attack :dmg (roll num die (str attacker) dmg-bonus)
@@ -361,6 +160,22 @@
 	      (let ((new-val (calculate-los to from)))
 		(setf (gethash key memos) new-val)
 		new-val)))))))
+
+(defun illuminatedp (pos)
+  (loop for light-source in (glowing-actors)
+	  thereis (<= (distance pos (pos light-source) :exactp t)
+		      (illumination light-source))))
+
+(defgeneric visiblep (pos from)
+  (:method ((pos list) (from list))
+    (and (has-los pos from)
+	 (illuminatedp pos)))
+  (:method ((n symbol) from) nil)
+  (:method ((c character) from) t)
+  (:method ((obj actor) from)
+    (if (hiddenp obj)
+	nil
+	(visiblep (pos obj) from))))
 
 (defgeneric pickup (item)
   (:method (item))
@@ -621,22 +436,6 @@
   (:method :after ((target list) (item equipment) thrower)
     (place item target :solid nil)))
 
-(defun illuminatedp (pos)
-  (loop for light-source in (glowing-actors)
-	  thereis (<= (distance pos (pos light-source) :exactp t)
-		      (illumination light-source))))
-
-(defgeneric visiblep (pos from)
-  (:method ((pos list) (from list))
-    (and (has-los pos from)
-	 (illuminatedp pos)))
-  (:method ((n symbol) from) nil)
-  (:method ((c character) from) t)
-  (:method ((obj actor) from)
-    (if (hiddenp obj)
-	nil
-	(visiblep (pos obj) from))))
-
 (defun get-player-lines ()
   (flatten
    (list (log-to-string "STR ~@d  DEX ~@d  CON ~@d"
@@ -679,6 +478,28 @@
 			  (let ((obj (non-solid (pos *player*))))
 			    (when (printp obj)
 			      (list (name obj) "in your space"))))))))
+
+(defun print-board ()
+  (apply-default-colors)
+  (let ((player-lines (get-player-lines)))
+    (loop for y from -1 to (1+ (cdr *board-size*))
+	  do (format t "~{~a~}~a~%"
+		     (loop for x from -1 to (1+ (car *board-size*))
+			   collect (let* ((pos (cons x y))
+					  (actor (contents pos)))
+				     (cond ((characterp actor)
+					    actor)
+					   ((and (wallp actor)
+						 (or (visiblep pos (pos *player*))
+						     (visiblep actor (pos *player*))))
+					    (display-char pos))
+					   ((and actor (visiblep actor (pos *player*)))
+					    (display-char actor))
+					   ((visiblep pos (pos *player*)) #\.)
+					   (t #\space))))
+		     (if (nth (1+ y) player-lines)
+			 (nth (1+ y) player-lines)
+			 "")))))
 
 (defun print-game ()
   (clear-screen)

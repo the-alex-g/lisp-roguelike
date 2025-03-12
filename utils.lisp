@@ -192,3 +192,45 @@
       (pick-item (if exit-option
 		     (append item-list '(nil))
 		     item-list)))))
+
+(defun roll (num die &rest modifiers)
+  (+ (loop repeat num
+	   sum (1+ (random die)))
+     (loop for m in modifiers
+	   sum m)))
+
+(defmacro flood-fill (start (value-to-store exit-condition
+			     &key (solid t) (stop-for-occupied t) (go-until nil))
+		      &body body)
+  `(let ((cells (make-hash-table :test #'equal)))
+     (setf (gethash ,start cells) t)
+     (labels ((occupiedp (pos)
+		(if ,solid
+		    (solid pos)
+		    (or (non-solid pos) (wallp (solid pos)))))
+	      (neighbors (pos)
+		(loop for direction in +directions+
+		      unless (let ((cell-pos (vec+ pos direction)))
+			       (or (gethash cell-pos cells)
+				   (wallp (solid cell-pos))
+				   (and (occupiedp cell-pos)
+					(not (equal cell-pos ,go-until))
+					,stop-for-occupied)))
+			collect (vec+ pos direction)))
+	      (iterate (frontier)
+		(when (car frontier)
+		  (let* ((current (car frontier))
+			 (neighbors (neighbors current))
+			 (exit-condition ,exit-condition))
+		    (if exit-condition
+			exit-condition
+			(progn
+			  (mapc (lambda (n) (setf (gethash n cells) ,value-to-store)) neighbors)
+			  (iterate (append (cdr frontier) neighbors))))))))
+       (let ((result (iterate (list ,start))))
+	 ,@body))))
+
+(defun apply-colors (arg colors)
+  (format nil "~c[~{~d~^;~}m~a~0@*~c[40;37m"
+	  #\esc (ensure-list colors)
+	  arg))

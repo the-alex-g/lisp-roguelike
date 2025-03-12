@@ -69,3 +69,51 @@
        (let ((item (get-item-from-inventory)))
 	 (when item
 	   ,@body))))
+
+(defgeneric unequip (item actor)
+  (:method (item actor))
+  (:method :after ((item equipment) (actor player))
+    (declare (ignore actor))
+    (add-to-inventory item))
+  (:method :after ((item equipment) (actor creature))
+    (setf (gethash (equip-slot item) (equipment actor))
+	  (remove item (gethash (equip-slot item) (equipment actor)) :test #'equal))))
+
+(defgeneric equip (item actor)
+  (:method (item actor))
+  (:method :around ((item equipment) (actor player))
+    (let ((result (call-next-method)))
+      (when result
+	(remove-from-inventory item))
+      result))
+  (:method :around ((item equipment) (actor creature))
+    (let* ((current-equips (gethash (equip-slot item) (equipment actor)))
+	   (equips-size (loop for i in current-equips
+			      sum (size i)))
+	   (max-equips (cadr (assoc (equip-slot item) (slot-nums actor)))))
+      (flet ((equip-item ()
+	       (push item (gethash (equip-slot item) (equipment actor)))
+	       (when (next-method-p)
+		 (call-next-method))
+	       t))
+	(when max-equips
+	  (if (<= (+ equips-size (size item)) max-equips)
+	      (equip-item)
+	      (labels ((get-items-to-unequip (&optional item-list (size 0))
+			 (if (>= size (size item))
+			     item-list
+			     (let ((item-to-replace (get-item-from-list (gethash (equip-slot item)
+										 (equipment actor))
+									:naming-function #'name
+									:ignoring item-list
+									:test #'equal
+									:what "item to replace")))
+			       (if item-to-replace
+				   (get-items-to-unequip (cons item-to-replace item-list)
+							 (+ size (size item-to-replace)))
+				   nil)))))
+		(let ((items-to-unequip (get-items-to-unequip)))
+		  (when items-to-unequip
+		    (mapc (lambda (i) (unequip i actor)) items-to-unequip)
+		    (equip-item)
+		    items-to-unequip)))))))))
