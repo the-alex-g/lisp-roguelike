@@ -527,9 +527,12 @@
   (when (deadp *player*)
     (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
 
-(add-layer)
+(add-layer '((75 ((75 make-goblin)
+		  (25 make-kobold)))
+	     (25 make-troll)))
 
-(let ((cells (add-layer)))
+(let ((cells (add-layer '((75 make-goblin)
+			  (25 make-kobold)))))
   (setf *current-layer* (car *layers*))
   (place *player* (randnth cells)))
 (equip (make-sword) *player*)

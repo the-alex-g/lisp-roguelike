@@ -54,19 +54,26 @@
 (defun up-ladder-pos ()
   (layer-up-ladder-pos *current-layer*))
 
-(defun get-spawn-list ()
-  '((75 make-goblin)
-    (25 make-kobold)))
+(defun spawn-object (pos spawn-list)
+  (funcall (car (eval-weighted-list spawn-list)) pos))
 
-(defun spawn-object (pos)
-  (funcall (car (eval-weighted-list (get-spawn-list))) pos))
-
-(defun populate-dungeon (region sparseness)
+(defun populate-dungeon (region spawn-list sparseness)
   (loop for cell in region
 	when (= (random sparseness) 0)
-	  do (spawn-object cell)))
+	  do (spawn-object cell spawn-list)))
 
-(defun initialize-board ()
+(defun place-walls (cells)
+  (loop for x from -1 to (1+ (car *board-size*))
+	do (loop for y from -1 to (1+ (cdr *board-size*))
+		 ;; cell is not on board
+		 unless (member (cons x y) cells :test #'equal)
+		   ;; cell is next to board
+		   when (loop for direction in +directions+
+				thereis (member (vec+ (cons x y) direction) cells :test #'equal))
+		     ;; put a wall down
+		     do (setf (solid (cons x y)) 'wall))))
+
+(defun initialize-board (spawn-list)
   (let* ((dungeon (generate-dungeon *board-size* 4))
 	 (cells (pos-flatten dungeon))
 	 (up-ladder-pos (randnth cells))
@@ -78,22 +85,14 @@
     (setf (layer-up-ladder-pos *current-layer*) up-ladder-pos)
     (setf (layer-down-ladder-pos *current-layer*) down-ladder-pos)
     
-    (loop for x from -1 to (1+ (car *board-size*))
-	  do (loop for y from -1 to (1+ (cdr *board-size*))
-		   ;; cell is not on board
-		   unless (member (cons x y) cells :test #'equal)
-		     ;; cell is next to board
-		     when (loop for direction in +directions+
-				  thereis (member (vec+ (cons x y) direction) cells :test #'equal))
-		       ;; put a wall down
-		       do (setf (solid (cons x y)) 'wall)))
-    (populate-dungeon cells 20)
+    (place-walls cells)
+    (populate-dungeon cells spawn-list 20)
     cells))
 
-(defun add-layer ()
+(defun add-layer (spawn-list)
   (let ((*current-layer* (make-layer)))
     (push *current-layer* *layers*)
-    (initialize-board)))
+    (initialize-board spawn-list)))
 
 (defun place (obj pos &key (solid t))
   (flood-fill pos (t (unless (occupiedp current) current) 
