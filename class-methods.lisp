@@ -1,3 +1,18 @@
+(defparameter *colors* '((black 30)
+			 (red 31)
+			 (green 32)
+			 (orange 33)
+			 (blue 34)
+			 (purple 35)
+			 (teal 36)
+			 (grey 90)
+			 (dark-red 91)
+			 (light-green 92)
+			 (yellow 93)
+			 (sky-blue 94)
+			 (dark-purple 95)
+			 (dark-teal 96)))
+
 (defgeneric kill (obj)
   (:method (obj)))
 (defgeneric drop-corpse (obj))
@@ -14,6 +29,20 @@
 
 (defmethod name ((obj character)) "wall")
 (defmethod name ((obj symbol)) obj)
+
+(defgeneric color (obj)
+  (:method ((obj number))
+    (if (or (<= 30 obj 36)
+	    (<= 90 obj 96))
+	obj
+	0))
+  (:method ((obj symbol))
+    (let ((color-set (assoc obj *colors*)))
+      (if color-set
+	  (cadr color-set)
+	  0)))
+  (:method ((obj actor))
+    (color (slot-value obj 'color))))
 
 (defgeneric display-char (obj)
   (:method ((obj actor))
