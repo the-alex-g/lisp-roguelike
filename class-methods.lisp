@@ -132,3 +132,12 @@
 	     (loop for equipment in held-items
 		   when (weaponp equipment)
 		     collect equipment))))))
+
+(defgeneric description (obj)
+  (:method ((obj equipment))
+    (log-to-string "takes ~d ~a slots~%deals ~a as a weapon~:[~;~%~:*~a~]"
+		   (size obj)
+		   (equip-slot obj)
+		   (damage-string (atk obj))
+		   (slot-value obj 'description))))
+		   

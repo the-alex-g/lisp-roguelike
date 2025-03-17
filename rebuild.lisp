@@ -461,13 +461,9 @@
 	 (log-to-string "INT ~@d  PER ~@d  CHA ~@d"
 			(intl *player*) (per *player*) (cha *player*))
 	 (mapcar (lambda (weapon)
-		   (let ((atk (atk weapon)))
-		     (setf (nth 4 atk) (ensure-list (nth 4 atk)))
-		     (apply #'log-to-string
-			    "~@:(~a~): ~dd~d~[~:;~:*~@d~]~5@*~{ ~a~} damage~
-                             ~4@*~[~:;~:*, ~@d to hit~]"
-			    (name weapon)
-			    atk)))
+		   (log-to-string "~@:(~a~): ~a"
+				  (name weapon)
+				  (damage-string (atk weapon))))
 		 (weapons *player*))
 	 (log-to-string "HEALTH ~d/~d"
 			(health *player*)

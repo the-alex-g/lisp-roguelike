@@ -13,7 +13,8 @@
    (pos :initform +zero+ :initarg :pos :accessor pos)
    (name :initform "" :initarg :name :accessor name)
    (color :initform 30 :initarg :color :writer (setf color))
-   (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)))
+   (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)
+   (description :initform nil :initarg :description :writer (setf description))))
 
 (defclass creature (actor)
   ((dex :initform 0 :initarg :dex :accessor dex)

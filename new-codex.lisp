@@ -1,7 +1,8 @@
 (defequipment sword () :atk '(1 6 0 0 slashing) :weaponp t)
 (defequipment dagger () :atk '(1 4 0 0 piercing) :weaponp t)
-(defequipment food ((sustenance (roll 2 10 10))))
-(defequipment kobold-meat () :sustenance (roll 1 10 5) :inherit food)
+(defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger")
+(defequipment kobold-meat ()
+  :sustenance (roll 1 10 5) :inherit food :description "recovers 6-15 hunger")
 (defequipment fist () :atk '(1 3 -1 0 bludgeoning) :weaponp t)
 (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :weaponp t :size 2)
 

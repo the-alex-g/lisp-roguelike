@@ -234,3 +234,9 @@
   (format nil "~c[~{~d~^;~}m~a~0@*~c[40;37m"
 	  #\esc (ensure-list colors)
 	  arg))
+
+(defun damage-string (atk)
+  (setf (nth 4 atk) (ensure-list (nth 4 atk)))
+  (apply #'log-to-string
+	 "~dd~d~[~:;~:*~@d~]~4@*~{ ~a~} damage~3@*~[~:;~:*, ~@d to hit~]"
+	 atk))

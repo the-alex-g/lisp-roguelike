@@ -66,6 +66,10 @@
     (when (and target (not (listp target)))
       (attack target *player*))))
 
+(defaction #\x "examine"
+  (with-item-from-inventory
+      (print-to-log (description item))))
+
 (defaction #\R "rest"
   (flet ((cannot-rest ()
 	   (cond ((loop for actor-pos being the hash-keys of (solid-actors)
