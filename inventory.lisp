@@ -55,6 +55,17 @@
 			     (num-in-inventory item)
 			     (name item)))))
 
+(defun get-owned-item ()
+  (get-item-from-list
+   (append (short-inventory)
+	   (flatten (loop for item-list being the hash-values of (equipment *player*)
+			  collect item-list)))
+   :naming-function (lambda (i)
+		      (log-to-string "~:[~*~;~[~;~:;~:*~dx ~]~]~a~0@*~:[ (equipped)~;~]"
+				     (member i *inventory*)
+				     (num-in-inventory i)
+				     (name i)))))
+
 (defun get-item-from-inventory ()
   (get-item-from-list
    (short-inventory)
@@ -69,6 +80,18 @@
        (let ((item (get-item-from-inventory)))
 	 (when item
 	   ,@body))))
+
+(defmacro with-owned-item (&body body)
+  `(if (and (= (length *inventory*) 0)
+	    (loop for i being the hash-values of (equipment *player*)
+		  never i))
+       (print-to-log "you have no items")
+       (let ((item (get-owned-item)))
+	 (when item
+	   ,@body))))
+
+(defun equippedp (item creature)
+  (member item (gethash (equip-slot item) (equipment creature)) :test #'equal))
 
 (defgeneric unequip (item actor)
   (:method (item actor))

@@ -24,7 +24,6 @@
 
 (defaction #\D "drop an item"
   (with-item-from-inventory
-      (remove-from-inventory item)
     (place item (pos *player*) :solid nil)))
 
 (defaction #\e "equip an item"
@@ -50,10 +49,10 @@
 
 (defaction #\E "eat"
   (with-item-from-inventory
-      (eat item *player*)))
+    (eat item *player*)))
 
 (defaction #\t "throw an item"
-  (with-item-from-inventory
+  (with-owned-item
     (let ((target (choose-target 'free-form
 				 (if (= (size item) 1)
 				     3
@@ -67,8 +66,8 @@
       (attack target *player*))))
 
 (defaction #\x "examine"
-  (with-item-from-inventory
-      (print-to-log (description item))))
+  (with-owned-item
+    (print-to-log (description item))))
 
 (defaction #\R "rest"
   (flet ((cannot-rest ()
