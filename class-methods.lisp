@@ -23,6 +23,10 @@
   (:method ((obj symbol)) (eq obj 'wall))
   (:method ((obj character)) t))
 
+(defgeneric playerp (obj)
+  (:method ((obj player)) t)
+  (:method (obj) nil))
+
 (defgeneric hostilep (obj)
   (:method (obj) nil)
   (:method ((obj enemy)) t))

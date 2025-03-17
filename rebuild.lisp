@@ -97,23 +97,18 @@
 			       (t 1)))
 		  (cdr types))
 		 mod)))
-    (calculate-damage-modifier 1 damage-types)))
+    (calculate-damage-modifier 1 (ensure-list damage-types))))
 
-(defun damage (defender attack)
-  (let* ((base-damage (max 1 (- (attack-dmg attack) (armor defender))))
-	 (mod-damage (round (* base-damage (damage-modifier defender (attack-types attack)))))
+(defun damage (defender amount types &optional statuses)
+  (let* ((base-damage (max 1 (- amount (armor defender))))
+	 (mod-damage (round (* base-damage (damage-modifier defender types))))
 	 (real-damage (cond ((= mod-damage 0) 0)
 			    ((< mod-damage 0) mod-damage)
 			    (t (max 1 mod-damage)))))
     (decf (health defender) real-damage)
-    (loop for status in (attack-statuses attack)
+    (loop for status in statuses
 	  do (apply-to defender status))
-    (print-to-log "~a hit ~a for ~d damage~:[~;, ~a~]"
-		  (attack-source attack)
-		  (name defender)
-		  (max 0 real-damage)
-		  (deadp defender)
-		  (death defender))))
+    (max 0 real-damage)))
 
 (defgeneric attack (defender attacker)
   (:method :around ((defender creature) attacker)
@@ -127,7 +122,12 @@
 	  (weapons attacker)))
   (:method ((defender creature) (attack attack))
     (if (>= (attack-to-hit attack) (evasion defender))
-	(damage defender attack)
+	(print-to-log "~a hit ~a for ~d damage~:[~;, ~a~]"
+		      (attack-source attack)
+		      (name defender)
+		      (damage defender (attack-dmg attack) (attack-types attack) (attack-statuses attack))
+		      (deadp defender)
+		      (death defender))
 	(print-to-log "~a missed ~a" (attack-source attack) (name defender)))))
 
 (defun show-colors ()
@@ -217,11 +217,29 @@
 		  (name item)
 		  (sustenance item))))
 
+(defgeneric trigger (object activator)
+  (:method (object activator))
+  (:method :around ((trap trap) activator)
+    (setf (hiddenp trap) nil)
+    (if (>= (roll 1 20 (dex activator)) (avoid-dc trap))
+	(print-to-log "you triggered a ~a but dodged out of the way"
+		      (name trap))
+	(call-next-method)))
+  (:method ((trap pit-trap) (activator creature))
+    (let ((damage (damage activator (roll 1 6) 'bludgeoning)))
+      (when (playerp activator)
+	(print-to-log "you triggered a ~a and took ~d damage"
+		      (name trap)
+		      damage)))))
+
 (defgeneric move-into (passive active)
   (:method ((passive player) (active enemy))
     (attack passive active))
   (:method ((passive enemy) (active player))
     (attack passive active))
+  (:method ((passive trap) (active player))
+    (when (< (random 100) (trigger-chance passive))
+      (trigger passive active)))
   (:method (passive active))) ; default case: do nothing
 
 (defun has-status-p (obj status-name)
@@ -527,12 +545,14 @@
   (when (deadp *player*)
     (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
 
-(add-layer '((75 ((75 make-goblin)
-		  (25 make-kobold)))
-	     (25 make-troll)))
+(add-layer '((50 ((75 ((75 make-goblin)
+		       (25 make-kobold)))
+		  (25 make-troll)))
+	     (50 make-pit-trap)))
 
-(let ((cells (add-layer '((75 make-goblin)
-			  (25 make-kobold)))))
+(let ((cells (add-layer '((50 ((75 make-goblin)
+			       (25 make-kobold)))
+			  (50 make-pit-trap)))))
   (setf *current-layer* (car *layers*))
   (place *player* (randnth cells)))
 (equip (make-sword) *player*)
