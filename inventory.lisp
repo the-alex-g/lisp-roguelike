@@ -161,20 +161,22 @@
 		    items-to-unequip)))))))))
 
 (defun sell-item (shopkeeper)
-  (let ((item (get-item-from-list
-	       (loop for item in *inventory*
-		     unless (shopkeeper item)
-		       collect item)
-	       :naming-function (lambda (item)
-				  (inventory-name item :sell-price-p t)))))
-    (when item
-      (remove-from-inventory item)
-      (incf *gold* (sell-price item))
-      (print-to-log "you sold ~a for ~d gold"
-		    (name item)
-		    (sell-price item))
-      (setf (shopkeeper item) shopkeeper)
-      (place item (pos shopkeeper) :solid nil))))
+  (let ((sellable-items (loop for item in (short-inventory)
+			      unless (shopkeeper item)
+				collect item)))
+    (if sellable-items
+	(let ((item (get-item-from-list sellable-items
+					:naming-function (lambda (item)
+							   (inventory-name item :sell-price-p t)))))
+	  (when item
+	    (remove-from-inventory item)
+	    (incf *gold* (sell-price item))
+	    (print-to-log "you sold ~a for ~d gold"
+			  (name item)
+			  (sell-price item))
+	    (setf (shopkeeper item) shopkeeper)
+	    (place item (pos shopkeeper) :solid nil)))
+	(print-to-log "you don't have any items to sell"))))
 
 (defun checkout ()
   (let ((total-price (loop for item in *inventory*
@@ -195,16 +197,18 @@
 	   (decf *gold* total-price))
 	  ((>= *gold* min-price)
 	   (labels ((checkout-item ()
-		      (let ((item (get-item-from-list (loop for item in *inventory*
-							    when (and (shopkeeper item)
-								      (<= (price item) *gold*))
-							      collect item)
-						      :naming-function #'inventory-name)))
-			(when item
-			  (setf (shopkeeper item) nil)
-			  (decf *gold* (price item))
-			  (push item items-checked-out)
-			  (checkout-item)))))
+		      (let ((buyable-items (loop for item in (short-inventory)
+						 when (and (shopkeeper item)
+							   (<= (price item) *gold*))
+						   collect item)))
+			(when buyable-items
+			  (let ((item (get-item-from-list buyable-items
+							  :naming-function #'inventory-name)))
+			    (when item
+			      (setf (shopkeeper item) nil)
+			      (decf *gold* (price item))
+			      (push item items-checked-out)
+			      (checkout-item)))))))
 	     (checkout-item)))
 	  (t
 	   (print-to-log "you don't have enough gold for any of those items")))
