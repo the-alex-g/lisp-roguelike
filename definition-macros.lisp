@@ -44,18 +44,19 @@
        (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
 					,@(reinit-slots keys nil)))
        ;; define constructor for new class
-       (defun ,(constructor name) (pos)
-	 (let ((new-enemy (make-instance ',name
-					 :pos pos
-					 :display-char ,display-char
-					 :name ',name)))
-	   (place new-enemy pos)
-	   (mapc (lambda (i)
-		   (equip i new-enemy))
-		 (ensure-list ,equips))
-	   (setf (slot-value new-enemy 'max-health)
-		 (health new-enemy))
-	   new-enemy))))
+       (defgeneric ,(constructor name) (pos)
+	 (:method (pos)
+	   (let ((new-enemy (make-instance ',name
+					   :pos pos
+					   :display-char ,display-char
+					   :name ',name)))
+	     (place new-enemy pos)
+	     (mapc (lambda (i)
+		     (equip i new-enemy))
+		   (ensure-list ,equips))
+	     (setf (slot-value new-enemy 'max-health)
+		   (health new-enemy))
+	     new-enemy)))))
 
   ;; define class and constructor function for actor
   (defmacro defactor (name display-char new-slots

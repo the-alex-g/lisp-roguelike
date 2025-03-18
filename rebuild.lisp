@@ -18,6 +18,19 @@
 
 (setf (slot-value *player* 'max-health) (health *player*))
 
+(defun place-shop-item (pos shopkeeper)
+  (setf (shopkeeper (make-sword-pickup pos)) shopkeeper))
+
+(defmethod make-shopkeeper :around (pos)
+  (let ((shopkeeper (call-next-method)))
+    (loop for x from (- (car pos) (domain shopkeeper)) to (+ (car pos) (domain shopkeeper))
+	  do (loop for y from (- (cdr pos) (domain shopkeeper))
+		     to (+ (cdr pos) (domain shopkeeper))
+		   when (and (= (random 6) 0)
+			     (visiblep (cons x y) pos))
+		     do (place-shop-item (cons x y) shopkeeper)))
+    shopkeeper))
+
 (defmethod drop-corpse ((obj enemy))
   (let ((corpse (make-corpse (pos obj)))
 	(meat (if (meat obj)
@@ -299,6 +312,9 @@
 	  do (decf (energy obj))
 	  when (target-pos obj)
 	    do (call-next-method)))
+  (:method ((obj shopkeeper))
+    (when (enragedp obj)
+      (call-next-method)))
   (:method ((obj enemy))
     (unless (equal (pos obj) (target-pos obj))
       (let ((primary (car (weapons obj)))

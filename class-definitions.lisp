@@ -50,7 +50,9 @@
   ((atk :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
    (range :initform 1 :initarg :range :accessor range)
    (size :initform 1 :initarg :size :accessor size)
+   (price :initform 2 :initarg :price :accessor price)
    (weaponp :initform nil :initarg :weaponp :accessor weaponp)
+   (shopkeeper :initform nil :accessor shopkeeper)
    (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))
 
 (defclass status ()

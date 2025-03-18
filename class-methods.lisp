@@ -134,10 +134,25 @@
 		     collect equipment))))))
 
 (defgeneric description (obj)
+  (:method ((obj container))
+    (description (contents obj)))
   (:method ((obj equipment))
     (log-to-string "takes ~d ~a slots~%deals ~a as a weapon~:[~;~%~:*~a~]"
 		   (size obj)
 		   (equip-slot obj)
 		   (damage-string (atk obj))
 		   (slot-value obj 'description))))
-		   
+
+
+(macrolet ((container-method (method)
+	     `(defmethod ,method ((obj container))
+		(,method (contents obj)))))
+  (container-method price)
+  (container-method atk)
+  (container-method range)
+  (container-method size)
+  (container-method weaponp)
+  (container-method equip-slot))
+
+(defun contain (obj)
+  (make-instance 'container :contents obj))

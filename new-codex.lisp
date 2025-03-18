@@ -1,4 +1,5 @@
 (defequipment sword () :atk '(1 6 0 0 slashing) :weaponp t)
+(defequipment sword+1 () :atk '(1 6 1 1 slashing) :weaponp t)
 (defequipment dagger () :atk '(1 4 0 0 piercing) :weaponp t)
 (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger")
 (defequipment kobold-meat ()
@@ -21,6 +22,8 @@
   :meat (make-kobold-meat))
 (defenemy troll #\T () :color 96 :health (roll 2 8) :equips (make-warclub)
   :str 2 :dex -1 :armor 1 :spd 3/4 :con 2 :meat (roll 2 10 20))
+(defenemy shopkeeper #\U ((domain 4) (enragedp nil)) :color 'purple :health (roll 3 10 5)
+  :equips (list (make-sword+1) (make-sword+1)))
 
 (defstatus resting :duration -1 :speed 0.2)
 (defstatus frightened)
