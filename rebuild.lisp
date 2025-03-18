@@ -222,8 +222,10 @@
     (print-to-log "you can't eat that")
     nil)
   (:method :around ((item equipment) (actor player))
-    (when (call-next-method)
-      (remove-from-inventory item)))
+    (if (shopkeeper item)
+	(print-to-log "you must buy that before eating it")
+	(when (call-next-method)
+	  (remove-from-inventory item))))
   (:method ((item food) (actor player))
     (incf (hunger actor) (sustenance item))
     (print-to-log "you ate ~a and recovered ~d hunger"

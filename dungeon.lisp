@@ -104,4 +104,5 @@
 	  (setf (non-solid result) obj))
       (setf (pos obj) result)))
   (when (> (illumination obj) 0)
-    (add-glowing obj)))
+    (add-glowing obj))
+  obj)

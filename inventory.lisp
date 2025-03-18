@@ -110,10 +110,13 @@
 (defgeneric equip (item actor)
   (:method (item actor))
   (:method :around ((item equipment) (actor player))
-    (let ((result (call-next-method)))
-      (when result
-	(remove-from-inventory item))
-      result))
+    (if (shopkeeper item)
+	(progn (print-to-log "you must buy that before equipping it")
+	       nil)
+	(let ((result (call-next-method)))
+	  (when result
+	    (remove-from-inventory item))
+	  result)))
   (:method :around ((item equipment) (actor creature))
     (let* ((current-equips (gethash (equip-slot item) (equipment actor)))
 	   (equips-size (loop for i in current-equips

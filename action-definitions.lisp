@@ -28,12 +28,12 @@
 
 (defaction #\e "equip an item"
   (with-item-from-inventory
-    (let ((result (equip item *player*)))
-      (cond ((listp result)
-	     (print-to-log "you equipped ~a instead of ~{~a~#[~; and ~:;, ~]~}"
-			   (name item) (mapcar #'name result)))
-	    (result
-	     (print-to-log "you equipped ~a" (name item)))))))
+      (let ((result (equip item *player*)))
+	(when result
+	  (if (listp result)
+	      (print-to-log "you equipped ~a instead of ~{~a~#[~; and ~:;, ~]~}"
+			    (name item) (mapcar #'name result))
+	      (print-to-log "you equipped ~a" (name item)))))))
 
 (defaction #\U "unequip an item"
   (let ((item-list (apply #'append (loop for i-list being the hash-values of (equipment *player*)
