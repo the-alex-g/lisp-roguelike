@@ -52,12 +52,18 @@
     (loop for item in old-inventory
 	  do (add-to-inventory item))))
 
-(defun inventory-name (item)
+(defgeneric sell-price (item)
+  (:method ((item equipment))
+    (ash (price item) -1)))
+
+(defun inventory-name (item &key (sell-price-p nil))
   (log-to-string "~[~;~:;~:*~dx ~]~a~:[~; (~d gold)~]"
 		 (num-in-inventory item)
 		 (name item)
 		 (shopkeeper item)
-		 (price item)))
+		 (if sell-price-p
+		     (sell-price item)
+		     (price item))))
 
 (defun print-inventory ()
   (if (= (length *inventory*) 0)
@@ -153,6 +159,22 @@
 		    (mapc (lambda (i) (unequip i actor)) items-to-unequip)
 		    (equip-item)
 		    items-to-unequip)))))))))
+
+(defun sell-item (shopkeeper)
+  (let ((item (get-item-from-list
+	       (loop for item in *inventory*
+		     unless (shopkeeper item)
+		       collect item)
+	       :naming-function (lambda (item)
+				  (inventory-name item :sell-price-p t)))))
+    (when item
+      (remove-from-inventory item)
+      (incf *gold* (sell-price item))
+      (print-to-log "you sold ~a for ~d gold"
+		    (name item)
+		    (sell-price item))
+      (setf (shopkeeper item) shopkeeper)
+      (place item (pos shopkeeper) :solid nil))))
 
 (defun checkout ()
   (let ((total-price (loop for item in *inventory*
