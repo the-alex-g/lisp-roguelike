@@ -3,6 +3,9 @@
 
 (load "utils.lisp")
 (load "class-definitions.lisp")
+
+(defparameter *player* (make-instance 'player :health 20 :name "player" :color 31 :illumination 5))
+
 (load "class-methods.lisp")
 (load "bsp-dungeon.lisp")
 (load "dungeon.lisp")
@@ -11,9 +14,6 @@
 (load "definition-macros.lisp")
 (load "new-codex.lisp")
 
-(defparameter *player* (make-instance 'player :health 20 :name "player" :color 31 :illumination 5))
-(defparameter *actions* (make-hash-table))
-(defparameter *action-descriptions* (make-hash-table))
 (defparameter *print-surroundings-mode* 'my-space)
 
 (setf (slot-value *player* 'max-health) (health *player*))

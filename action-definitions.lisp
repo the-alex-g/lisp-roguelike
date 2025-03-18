@@ -1,3 +1,6 @@
+(defparameter *actions* (make-hash-table))
+(defparameter *action-descriptions* (make-hash-table))
+
 (defaction (#\4 #\h) "move left" (move *player* +left+))
 
 (defaction (#\6 #\l) "move right" (move *player* +right+))
