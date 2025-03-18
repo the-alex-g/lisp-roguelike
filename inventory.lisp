@@ -47,13 +47,18 @@
     (loop for item in old-inventory
 	  do (add-to-inventory item))))
 
+(defun inventory-name (item)
+  (log-to-string "~[~;~:;~:*~dx ~]~a~:[~; (~d gold)~]"
+		 (num-in-inventory item)
+		 (name item)
+		 (shopkeeper item)
+		 (price item)))
+
 (defun print-inventory ()
   (if (= (length *inventory*) 0)
       (print-to-log "your inventory is empty")
       (loop for item in (short-inventory)
-	    do (print-to-log "~[~;~:;~:*~dx ~]~a"
-			     (num-in-inventory item)
-			     (name item)))))
+	    do (print-to-log (inventory-name item)))))
 
 (defun get-owned-item ()
   (get-item-from-list
@@ -61,18 +66,18 @@
 	   (flatten (loop for item-list being the hash-values of (equipment *player*)
 			  collect item-list)))
    :naming-function (lambda (i)
-		      (log-to-string "~:[~*~;~[~;~:;~:*~dx ~]~]~a~0@*~:[ (equipped)~;~]"
+		      (log-to-string "~:[~*~;~[~;~:;~:*~dx ~]~]~a~0@*~:[ (equipped)~;~]~
+                                      ~3@*~:[~; (~d gold)~]"
 				     (member i *inventory*)
 				     (num-in-inventory i)
-				     (name i)))))
+				     (name i)
+				     (shopkeeper item)
+				     (price item)))))
 
 (defun get-item-from-inventory ()
   (get-item-from-list
    (short-inventory)
-   :naming-function (lambda (i)
-		      (log-to-string "~[~;~:;~:*~dx ~]~a"
-				     (num-in-inventory i)
-				     (name i)))))
+   :naming-function #'inventory-name))
 
 (defmacro with-item-from-inventory (&body body)
   `(if (= (length *inventory*) 0)
