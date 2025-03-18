@@ -1,10 +1,13 @@
+(defparameter *tests-failed* 0)
+
 (defmacro with-clean-board (&body body)
-  `(let ((*solid-actors* (make-hash-table :test #'equal))
-	 (*non-solid-actors* (make-hash-table :test #'equal)))
+  `(let ((*current-layer* (make-layer)))
      ,@body))
 
 (defun print-test (string passedp &rest args)
-  (format t "~&~:[FAIL~;PASS~]: ~?" passedp string args))
+  (format t "~&~:[FAIL~;PASS~]: ~?" passedp string args)
+  (unless passedp
+    (incf *tests-failed*)))
 
 (defun flag (string)
   (format t "~2%~:@(~a~)~2%" string))
@@ -175,6 +178,25 @@
     (print-test "health caps at max health"
 		(eq (health test-creature) (max-health test-creature)))))
 
+(defun test-shops ()
+  (flag "testing shops")
+  (let* ((shopkeeper (make-shopkeeper +zero+))
+	 (shop-sword (make-sword+1))
+	 (*inventory* (list (make-sword) shop-sword))
+	 (*gold* 1))
+    (setf (shopkeeper shop-sword) shopkeeper)
+    (checkout)
+    (print-test "can't buy item that's too expensive"
+		(shopkeeper shop-sword))
+    (with-fake-input #\0
+      (sell-item shopkeeper)
+      (print-test "sold item"
+		  (and (= *gold* 2)
+		       (= (length *inventory*) 1))))
+    (checkout)
+    (print-test "bought item"
+		(not (shopkeeper shop-sword)))))
+
 (defun test ()
   (test-combat)
   (test-vector-math)
@@ -182,4 +204,9 @@
   (test-movement)
   (test-status)
   (test-max-health)
-  (test-throw))
+  (test-shops)
+  (test-throw)
+  (flag "testing tests")
+  (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
+	      (= *tests-failed* 0)
+	      *tests-failed*))
