@@ -24,6 +24,7 @@
 
 (defaction #\D "drop an item"
   (with-item-from-inventory
+      (remove-from-inventory item)
     (place item (pos *player*) :solid nil)))
 
 (defaction #\e "equip an item"

@@ -141,7 +141,7 @@
 ;; If the list items are not printable, pass a naming-function that gets a
 ;; printable name from the list item.
 (defun get-item-from-list (lst &key
-				 (naming-function (lambda (x) (log-to-string "~a" x)))
+				 (naming-function (lambda (x) x))
 				 (ignoring nil)
 				 (test #'eq)
 				 (exit-option t)

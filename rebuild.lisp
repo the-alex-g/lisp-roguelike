@@ -255,6 +255,17 @@
   (:method ((passive trap) (active player))
     (when (< (random 100) (trigger-chance passive))
       (trigger passive active)))
+  (:method ((passive shopkeeper) (active player))
+    (if (enragedp passive)
+	(attack passive active)
+	(let ((action (get-item-from-list '(attack sell buy))))
+	  (cond ((eq action 'attack)
+		 (setf (enragedp passive) t)
+		 (attack passive active))
+		((eq action 'sell)
+		 (sell-item passive))
+		((eq action 'buy)
+		 (checkout))))))
   (:method (passive active))) ; default case: do nothing
 
 (defun has-status-p (obj status-name)

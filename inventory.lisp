@@ -1,8 +1,13 @@
 (defparameter *inventory* '())
+(defparameter *gold* 0)
 
 (defun names-equal-p (a b)
-  (string= (log-to-string "~a" (name a))
-	   (log-to-string "~a" (name b))))
+  (and (string= (log-to-string "~a" (name a))
+		(log-to-string "~a" (name b)))
+       (or (and (not (shopkeeper a))
+		(not (shopkeeper b)))
+	   (and (shopkeeper a)
+		(shopkeeper b)))))
 
 (defun short-inventory ()
   (loop for item in *inventory*
@@ -148,3 +153,40 @@
 		    (mapc (lambda (i) (unequip i actor)) items-to-unequip)
 		    (equip-item)
 		    items-to-unequip)))))))))
+
+(defun checkout ()
+  (let ((total-price (loop for item in *inventory*
+			   when (shopkeeper item)
+			     sum (price item)))
+	(starting-gold *gold*)
+	(min-price (loop for item in *inventory*
+			 when (shopkeeper item)
+			   minimize (price item)))
+	(items-checked-out '()))
+    (cond ((= total-price 0)
+	   (print-to-log "you don't have anything to buy"))
+	  ((>= *gold* total-price)
+	   (loop for item in *inventory*
+		 when (shopkeeper item)
+		   do (setf (shopkeeper item) nil)
+		   and do (push item items-checked-out))
+	   (decf *gold* total-price))
+	  ((>= *gold* min-price)
+	   (labels ((checkout-item ()
+		      (let ((item (get-item-from-list (loop for item in *inventory*
+							    when (and (shopkeeper item)
+								      (<= (price item) *gold*))
+							      collect item)
+						      :naming-function #'inventory-name)))
+			(when item
+			  (setf (shopkeeper item) nil)
+			  (decf *gold* (price item))
+			  (push item items-checked-out)
+			  (checkout-item)))))
+	     (checkout-item)))
+	  (t
+	   (print-to-log "you don't have enough gold for any of those items")))
+    (when items-checked-out
+      (print-to-log "you bought~{ ~a~#[~; and~:;,~]~} for ~d gold"
+		    (mapcar #'name items-checked-out)
+		    (- starting-gold *gold*)))))
