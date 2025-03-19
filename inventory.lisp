@@ -1,5 +1,6 @@
 (defparameter *inventory* '())
 (defparameter *gold* 0)
+(defparameter *has-store-item-p* nil)
 
 (defun names-equal-p (a b)
   (and (string= (log-to-string "~a" (name a))
@@ -18,11 +19,17 @@
 	  collect (progn (push string-name used-names)
 			 item)))
 
+(defun update-has-store-item ()
+  (setf *has-store-item-p*
+	(loop for item in *inventory*
+	      thereis (shopkeeper item))))
+
 (defun remove-from-inventory (item)
   (setf *inventory*
 	(remove item *inventory* :test (lambda (a b)
 					 (names-equal-p a b))
-				 :count 1)))
+				 :count 1))
+  (update-has-store-item))
 
 (defun in-inventoryp (item)
   (loop for i in *inventory*
@@ -43,7 +50,9 @@
 		      collect item
 		      and do (setf needs-collecting nil)
 		    collect i))
-	(setf *inventory* (append *inventory* (list item))))))
+	(setf *inventory* (append *inventory* (list item))))
+    (when (shopkeeper item)
+      (setf *has-store-item-p* t))))
 
 (defun reorder-inventory ()
   ;; recreate the inventory to group like items
@@ -215,4 +224,17 @@
     (when items-checked-out
       (print-to-log "you bought~{ ~a~#[~; and~:;,~]~} for ~d gold"
 		    (mapcar #'name items-checked-out)
-		    (- starting-gold *gold*)))))
+		    (- starting-gold *gold*))
+      (update-has-store-item))))
+
+(defun steal-items ()
+  (loop for item in *inventory*
+	when (shopkeeper item)
+	  do (setf (enragedp (shopkeeper item)) t)
+	  and do (setf (shopkeeper item) nil))
+  (setf *has-store-item-p* nil))
+
+(defun get-shopkeeper ()
+  (loop for item in *inventory*
+	when (shopkeeper item)
+	  return (shopkeeper item)))

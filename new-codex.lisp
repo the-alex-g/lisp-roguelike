@@ -15,6 +15,7 @@
 		    (searchedp nil))
   :solidp nil :color 31 :hiddenp t)
 (defactor pit-trap #\! () :inherit trap :solidp nil)
+(defactor shopkeeper-pedestal #\I () :solidp nil)
 
 (defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger) :dex 1
   :meat (roll 2 10 10))
