@@ -55,6 +55,10 @@
    (shopkeeper :initform nil :accessor shopkeeper)
    (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))
 
+(defclass secret-equipment (equipment)
+  ((cover-name :initform "" :initarg :cover-name :accessor cover-name)
+   (identifiedp :initform nil :accessor identifiedp)))
+
 (defclass status ()
   ((energy :initform 0 :accessor energy)
    (spd :initform 1 :initarg :spd :accessor spd)

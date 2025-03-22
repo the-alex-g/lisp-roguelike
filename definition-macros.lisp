@@ -102,3 +102,25 @@
        ((spd :initform ,speed)))
      (defun ,(constructor name 'status) (&key (duration ,duration) (name ',name))
        (make-instance ',name :duration duration :name name))))
+
+(defmacro defsecretequipment (name cover-names new-slots
+			      &rest keys
+			      &key (inherit 'secret-equipment)
+			      &allow-other-keys)
+  (remf keys :inherit)
+  (let* ((cover-name (randnth cover-names))
+	 (color (if (listp cover-name)
+		    (cadr cover-name)
+		    nil))
+	 (display-char (if (and (listp cover-name)
+				(>= (length cover-name) 3))
+			   (caddr cover-name)
+			   nil)))
+    `(defequipment ,name ,new-slots ,@keys :inherit ,inherit
+       ,@(if color
+	     `(:color ,color))
+       ,@(if display-char
+	     `(:display-char ,display-char))
+       :cover-name ',(if (listp cover-name)
+			 (car cover-name)
+			 cover-name))))

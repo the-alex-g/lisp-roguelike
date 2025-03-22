@@ -33,6 +33,10 @@
 
 (defmethod name ((obj character)) "wall")
 (defmethod name ((obj symbol)) obj)
+(defmethod name ((obj secret-equipment))
+  (if (identifiedp obj)
+      (slot-value obj 'name)
+      (cover-name obj)))
 
 (defgeneric color (obj)
   (:method ((obj number))
@@ -140,3 +144,7 @@
 		   (equip-slot obj)
 		   (damage-string (atk obj))
 		   (slot-value obj 'description))))
+
+(defgeneric identify (obj)
+  (:method ((obj secret-equipment))
+    (setf (identifiedp obj) t)))

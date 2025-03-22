@@ -197,6 +197,16 @@
     (print-test "bought item"
 		(not (shopkeeper shop-sword)))))
 
+(defsecretequipment test-equipment ((cover-name 34 #\t)) ())
+(defun test-secret-equipment ()
+  (flag "testing secret equipment")
+  (let ((equipment (make-test-equipment)))
+    (print-test "secret name" (eq (name equipment) 'cover-name))
+    (print-test "color updated" (= (color equipment) 34))
+    (print-test "character correct" (eq (slot-value equipment 'display-char) #\t))
+    (identify equipment)
+    (print-test "identified" (eq (name equipment) 'test-equipment))))
+
 (defun test ()
   (test-combat)
   (test-vector-math)
@@ -206,6 +216,7 @@
   (test-max-health)
   (test-shops)
   (test-throw)
+  (test-secret-equipment)
   (flag "testing tests")
   (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
 	      (= *tests-failed* 0)
