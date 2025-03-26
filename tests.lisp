@@ -197,7 +197,8 @@
     (print-test "bought item"
 		(not (shopkeeper shop-sword)))))
 
-(defsecretequipment test-equipment ((cover-name 34 #\t)) ())
+(defsecretequipment test-equipment ((cover-name :color 34 :display-char #\t)) () :color 31
+  :display-char #\f)
 (defun test-secret-equipment ()
   (flag "testing secret equipment")
   (let ((equipment (make-test-equipment)))

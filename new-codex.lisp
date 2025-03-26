@@ -6,7 +6,10 @@
   :sustenance (roll 1 10 5) :inherit food :description "recovers 6-15 hunger")
 (defequipment fist () :atk '(1 3 -1 0 bludgeoning) :weaponp t)
 (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :weaponp t :size 2)
-(defsecretequipment healing-potion ((blue-potion 34) (green-potion 32) (red-potion 31))
+(defsecretequipment healing-potion
+    ((blue-potion :color 34)
+     (green-potion :color 32)
+     (red-potion :color 31))
   ((healing (roll 2 4))))
 
 (defactor corpse #\c (loot) :solidp nil)

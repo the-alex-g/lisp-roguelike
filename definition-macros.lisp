@@ -109,18 +109,13 @@
 			      &allow-other-keys)
   (remf keys :inherit)
   (let* ((cover-name (randnth cover-names))
-	 (color (if (listp cover-name)
-		    (cadr cover-name)
-		    nil))
-	 (display-char (if (and (listp cover-name)
-				(>= (length cover-name) 3))
-			   (caddr cover-name)
-			   nil)))
-    `(defequipment ,name ,new-slots ,@keys :inherit ,inherit
-       ,@(if color
-	     `(:color ,color))
-       ,@(if display-char
-	     `(:display-char ,display-char))
+	 (cover-name-slots (if (listp cover-name)
+			       (cdr cover-name))))
+    (loop for name-slot in cover-name-slots
+	  when (keywordp name-slot)
+	    do (remf keys name-slot))
+    `(defequipment ,name ,new-slots ,@keys :inherit ,inherit 
        :cover-name ',(if (listp cover-name)
 			 (car cover-name)
-			 cover-name))))
+			 cover-name)
+       ,@cover-name-slots)))
