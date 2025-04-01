@@ -4,7 +4,7 @@
 (load "utils.lisp")
 (load "class-definitions.lisp")
 
-(defparameter *player* (make-instance 'player :health 20 :name "player" :color 31 :illumination 5))
+(defparameter *player* (make-instance 'player :health 20 :name "player" :color 31 :illumination 5 :char #\@))
 
 (load "class-methods.lisp")
 (load "bsp-dungeon.lisp")
@@ -12,14 +12,12 @@
 (load "terminal.lisp")
 (load "inventory.lisp")
 (load "definition-macros.lisp")
+(load "shops.lisp")
 (load "new-codex.lisp")
 
 (defparameter *print-surroundings-mode* 'my-space)
 
 (setf (slot-value *player* 'max-health) (health *player*))
-
-(defun place-shop-item (pos shopkeeper)
-  (setf (shopkeeper (make-sword-pickup pos)) shopkeeper))
 
 (defmethod drop-corpse ((obj enemy))
   (let ((corpse (make-corpse (pos obj)))
@@ -182,17 +180,6 @@
 	nil
 	(visiblep (pos obj) from))))
 
-(defmethod make-shopkeeper :around (pos)
-  (let ((shopkeeper (call-next-method)))
-    (loop for x from (- (car pos) (domain shopkeeper)) to (+ (car pos) (domain shopkeeper))
-	  do (loop for y from (- (cdr pos) (domain shopkeeper))
-		     to (+ (cdr pos) (domain shopkeeper))
-		   when (and (= (random 6) 0)
-			     (visiblep (cons x y) pos))
-		     do (place-shop-item (cons x y) shopkeeper)))
-    (make-shopkeeper-pedestal (pos shopkeeper)) ;; pos shopkeeper because first pos may be occupied
-    shopkeeper))
-
 (defgeneric pickup (item)
   (:method (item))
   (:method :after ((item equipment))
@@ -219,21 +206,27 @@
 			  (down-ladder-pos)
 			  (up-ladder-pos))))))
 
-(defgeneric eat (item actor)
-  (:method (item (actor player))
-    (declare (ignore item actor))
-    (print-to-log "you can't eat that")
-    nil)
-  (:method :around ((item equipment) (actor player))
-    (if (shopkeeper item)
-	(print-to-log "you must buy that before eating it")
-	(when (call-next-method)
-	  (remove-from-inventory item))))
-  (:method ((item food) (actor player))
-    (incf (hunger actor) (sustenance item))
-    (print-to-log "you ate ~a and recovered ~d hunger"
-		  (name item)
-		  (sustenance item))))
+(defgeneric heal (actor amount &key to-print)
+  (:method ((actor player) amount &key to-print)
+    (let ((previous-health (health actor)))
+      (call-next-method)
+      (if to-print
+	  (print-to-log "you healed ~d" (- (health actor) previous-health))
+	  (print-to-string "healed ~d" (- (health actor) previous-health)))))
+  (:method ((actor creature) amount &key to-print)
+    (incf (health actor) amount)))
+
+(defconsume quaff potion)
+(defconsume eat)
+
+(defmethod quaff ((item healing-potion) (actor player))
+  (print-to-log "you quaffed ~a and ~a" (name item) (heal actor (healing item))))
+
+(defmethod eat ((item food) (actor player))
+  (incf (hunger actor) (sustenance item))
+  (print-to-log "you ate ~a and recovered ~d hunger"
+		(name item)
+		(sustenance item)))
 
 (defgeneric trigger (object activator)
   (:method (object activator))
@@ -334,6 +327,7 @@
 	  (decf (duration obj))
 	  (act obj))))
   (:method ((obj resting))
+    (incf (hunger (target obj)))
     (incf (health (target obj))))
   (:method :around ((obj enemy))
     (when (visiblep (pos *player*) (pos obj))

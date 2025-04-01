@@ -48,7 +48,7 @@
 	 (:method (pos)
 	   (let ((new-enemy (make-instance ',name
 					   :pos pos
-					   :display-char ,display-char
+					   :char ,display-char
 					   :name ',name)))
 	     (place new-enemy pos)
 	     (mapc (lambda (i)
@@ -119,3 +119,15 @@
 			 (car cover-name)
 			 cover-name)
        ,@cover-name-slots)))
+
+(defmacro defconsume (action &optional (item-type equipment))
+  `(defgeneric ,action (item actor)
+     (:method (item (actor player))
+       (declare (ignore item actor))
+       (print-to-log "you can't ~a that" ',action)
+       'dont-remove)
+     (:method :around ((item ,item-type) (actor player))
+       (if (shopkeeper item)
+	   (print-to-log "you must buy that before ~aing it" ',action)
+	   (unless (eq (call-next-method) 'dont-remove)
+	     (remove-from-inventory item))))))

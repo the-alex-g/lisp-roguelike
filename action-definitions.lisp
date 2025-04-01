@@ -57,12 +57,12 @@
 
 (defaction #\t "throw an item"
   (with-owned-item
-    (let ((target (choose-target 'free-form
-				 (if (= (size item) 1)
-				     3
-				     1))))
-      (when target
-	(throw-at target item *player*)))))
+      (let ((target (choose-target 'free-form
+				   (if (= (size item) 1)
+				       3
+				       1))))
+	(when target
+	  (throw-at target item *player*)))))
 
 (defaction #\A "attack"
   (let ((target (choose-target 'two-key (range (car (weapons *player*))))))
@@ -71,7 +71,11 @@
 
 (defaction #\x "examine"
   (with-owned-item
-    (print-to-log (description item))))
+      (print-to-log (description item))))
+
+(defaction #\q "quaff"
+  (with-owned-item
+      (quaff item)))
 
 (defaction #\R "rest"
   (flet ((cannot-rest ()

@@ -86,13 +86,12 @@
 	   (flatten (loop for item-list being the hash-values of (equipment *player*)
 			  collect item-list)))
    :naming-function (lambda (i)
-		      (log-to-string "~:[~*~;~[~;~:;~:*~dx ~]~]~a~0@*~:[ (equipped)~;~]~
-                                      ~3@*~:[~; (~d gold)~]"
-				     (member i *inventory*)
+		      (log-to-string "~[~;~:;~:*~dx ~]~a~0@*~[ (equipped)~;~]~
+                                      ~2@*~:[~; (~d gold)~]"
 				     (num-in-inventory i)
 				     (name i)
-				     (shopkeeper item)
-				     (price item)))))
+				     (shopkeeper i)
+				     (price i)))))
 
 (defun get-item-from-inventory ()
   (get-item-from-list
