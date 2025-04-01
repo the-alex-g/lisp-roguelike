@@ -43,7 +43,8 @@
 (defclass enemy (creature)
   ((energy :initform 0 :accessor energy)
    (target-pos :initform nil :accessor target-pos)
-   (meat :initform nil :accessor meat :initarg :meat)
+   (meat :initform nil :writer (setf meat) :initarg :meat)
+   (loot :initform nil :accessor loot :initarg :loot)
    (morale :initform 6 :accessor morale :initarg :morale)))
 
 (defclass equipment (actor)

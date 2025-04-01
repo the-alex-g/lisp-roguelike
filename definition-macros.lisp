@@ -120,7 +120,7 @@
 			 cover-name)
        ,@cover-name-slots)))
 
-(defmacro defconsume (action &optional (item-type equipment))
+(defmacro defconsume (action &optional (item-type 'equipment))
   `(defgeneric ,action (item actor)
      (:method (item (actor player))
        (declare (ignore item actor))

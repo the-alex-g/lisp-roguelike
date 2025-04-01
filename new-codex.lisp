@@ -13,6 +13,7 @@
 (defequipment kobold-meat ()
   :sustenance (roll 1 10 5) :inherit food :description "recovers 6-15 hunger")
 (defequipment fist () :atk '(1 3 -1 0 bludgeoning) :weaponp t)
+(defequipment gold (amount) :solidp nil :color 'yellow :char #\*)
 
 (defactor corpse #\c (loot) :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
@@ -25,7 +26,8 @@
 (defactor shopkeeper-pedestal #\I () :solidp nil)
 
 (defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger) :dex 1
-  :meat (roll 2 10 10))
+  :meat (roll 2 10 10)
+  :loot (list (make-gold (roll 1 6)) (make-dagger)))
 (defenemy kobold #\k () :color 91 :health (roll 1 4 1) :equips (make-dagger) :str 1 :dex 1 :armor 1
   :meat (make-kobold-meat))
 (defenemy troll #\T () :color 96 :health (roll 2 8) :equips (make-warclub)

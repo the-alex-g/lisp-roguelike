@@ -148,3 +148,12 @@
 (defgeneric identify (obj)
   (:method ((obj secret-equipment))
     (setf (identifiedp obj) t)))
+
+(defgeneric meat (obj)
+  (:method ((obj enemy))
+    (let ((meat (slot-value obj 'meat)))
+      (if meat
+	  (if (numberp meat)
+	      (make-instance 'food :sustenance meat
+				   :name (log-to-string "~a meat" (name obj)))
+	      meat)))))

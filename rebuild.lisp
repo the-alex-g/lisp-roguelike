@@ -14,21 +14,29 @@
 (load "definition-macros.lisp")
 (load "shops.lisp")
 (load "new-codex.lisp")
+(load "action-definitions.lisp")
 
 (defparameter *print-surroundings-mode* 'my-space)
 
 (setf (slot-value *player* 'max-health) (health *player*))
 
+(defun make-gold (&optional (amount 1))
+  (let ((gold (make-instance 'gold)))
+    (setf (amount gold) amount)
+    gold))
+
+(defun get-loot (obj)
+  (let ((loot '()))
+    (when (meat obj)
+      (push (meat obj) loot))
+    (loop for item in (loot obj)
+	  do (push item loot))
+    loot))
+
 (defmethod drop-corpse ((obj enemy))
-  (let ((corpse (make-corpse (pos obj)))
-	(meat (if (meat obj)
-		  (if (numberp (meat obj))
-		      (make-instance 'food :sustenance (meat obj)
-					   :name (log-to-string "~a meat" (name obj)))
-		      (meat obj)))))
+  (let ((corpse (make-corpse (pos obj))))
     (setf (name corpse) (log-to-string "~a corpse" (name obj)))
-    (when meat
-      (setf (loot corpse) (list meat)))))
+    (setf (loot corpse) (get-loot obj))))
 
 (defmethod kill :before ((obj creature))
   (remove-solid (pos obj))
@@ -182,6 +190,10 @@
 
 (defgeneric pickup (item)
   (:method (item))
+  (:method :around ((item gold))
+    (remove-non-solid (pos item))
+    (incf *gold* (amount item))
+    (print-to-log "you picked up ~d gold" (amount item)))
   (:method :after ((item equipment))
     (remove-non-solid (pos item))
     (when (> (illumination item) 0)
@@ -592,7 +604,5 @@
   (setf *current-layer* (car *layers*))
   (place *player* (randnth cells)))
 (equip (make-sword) *player*)
-
-(load "action-definitions.lisp")
 
 (start)

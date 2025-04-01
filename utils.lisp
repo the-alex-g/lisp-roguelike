@@ -116,6 +116,11 @@
       (append (flatten (car lst)) (if (cdr lst)
 				      (flatten (cdr lst))))))
 
+(defun weighted-list-p (list)
+  (and (listp list)
+       (listp (car list))
+       (numberp (caar list))))
+
 (defun eval-weighted-list (list &optional (weight 100))
   (labels ((get-results (lst)
 	     (if (numberp (caar lst))
