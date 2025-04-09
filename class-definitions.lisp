@@ -44,6 +44,7 @@
   ((energy :initform 0 :accessor energy)
    (target-pos :initform nil :accessor target-pos)
    (meat :initform nil :writer (setf meat) :initarg :meat)
+   (xp :initform 1 :reader xp :initarg :xp)
    (loot :initform nil :accessor loot :initarg :loot)
    (morale :initform 6 :accessor morale :initarg :morale)))
 

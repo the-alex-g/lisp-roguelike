@@ -17,6 +17,8 @@
 (load "action-definitions.lisp")
 
 (defparameter *print-surroundings-mode* 'my-space)
+(defparameter *experience* 0)
+(defparameter *level* 1)
 
 (setf (slot-value *player* 'max-health) (health *player*))
 
@@ -24,6 +26,36 @@
   (let ((gold (make-instance 'gold)))
     (setf (amount gold) amount)
     gold))
+
+(defun increase-health ()
+  (let ((health-increase (max 1 (roll 1 10 (con *player*)))))
+    (incf (slot-value *player* 'max-health) health-increase)
+    (incf (health *player*) health-increase)))
+
+(defun increase-stat ()
+  (with-item-from-list ('(str con dex spd int per cha det)
+			 :what "ability to increase"
+			 :exit-option nil
+			 :varname ability)
+    (eval `(incf (,ability *player*)))))
+
+;; triangular numbers times 10
+(defun xp-for-next-level ()
+  (* *level* (1+ *level*) 5))
+
+(defun level-up ()
+  (decf *experience* (xp-for-next-level))
+  (incf *level*)
+  (increase-health)
+  (increase-stat)
+  (print-to-log "you leveled up to level ~d" *level*)
+  (if (>= *experience* (xp-for-next-level))
+      (level-up)))
+
+(defun gain-experience (amount)
+  (incf *experience* amount)
+  (if (>= *experience* (xp-for-next-level))
+      (level-up)))
 
 (defun get-loot (obj)
   (let ((loot '()))
@@ -44,6 +76,9 @@
 
 (defmethod kill ((obj enemy))
   (drop-corpse obj))
+
+(defmethod kill :after ((obj enemy))
+  (gain-experience (xp obj)))
 
 (defgeneric remove-status (status)
   (:method :after ((status status))
@@ -226,6 +261,7 @@
 	  (print-to-log "you healed ~d" (- (health actor) previous-health))
 	  (print-to-string "healed ~d" (- (health actor) previous-health)))))
   (:method ((actor creature) amount &key to-print)
+    (declare (ignore to-print))
     (incf (health actor) amount)))
 
 (defconsume quaff potion)
@@ -301,8 +337,7 @@
 			  (domain shopkeeper))
 		       (not (visiblep (pos shopkeeper) new-pos))))
 	      (progn (print-to-screen "if you move there, you will be stealing from the shopkeeper")
-		     (when (get-item-from-list '(t) :naming-function (lambda (x) "move anyway")
-						    :what 'option)
+		     (when (confirm-action "move anyway")
 		       (steal-items)
 		       (call-next-method)))
 	      (call-next-method)))
@@ -537,6 +572,9 @@
 	 (log-to-string "HEALTH ~d/~d"
 			(health *player*)
 			(max-health *player*))
+	 (log-to-string "EXPERIENCE ~d/~d"
+			*experience*
+			(xp-for-next-level))
 	 (log-to-string "FOOD ~d/~d"
 			(hunger *player*)
 			(max-hunger *player*)))))

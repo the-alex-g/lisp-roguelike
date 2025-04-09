@@ -75,7 +75,7 @@
 
 (defaction #\q "quaff"
   (with-owned-item
-      (quaff item)))
+      (quaff item *player*)))
 
 (defaction #\R "rest"
   (flet ((cannot-rest ()

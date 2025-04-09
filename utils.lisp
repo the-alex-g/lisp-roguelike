@@ -150,6 +150,7 @@
 				 (ignoring nil)
 				 (test #'eq)
 				 (exit-option t)
+				 (anp t)
 				 (what "object"))
   (let* ((temp (loop for x in lst
 		     when (funcall naming-function x)
@@ -177,7 +178,7 @@
 					and do (incf i))))
 	     (pick-item (from)
 	       (fresh-line)
-	       (print-to-screen "Choose an ~a: " what)
+	       (print-to-screen "Choose a~:[~;n~] ~a: " anp what)
 	       (let* ((raw (if (<= (length lst) 10)
 			       (custom-read-char)
 			       (read-line)))
@@ -197,6 +198,12 @@
       (pick-item (if exit-option
 		     (append item-list '(nil))
 		     item-list)))))
+
+(defun confirm-action (message)
+  (get-item-from-list '(t) :naming-function (lambda (x)
+					      (declare (ignore x))
+					      message)
+		      :what 'option))
 
 (defun roll (num die &rest modifiers)
   (+ (loop repeat num
