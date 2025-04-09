@@ -100,6 +100,10 @@
 			       (print-to-log "you wake up because ~a"
 					     (cannot-rest))))))))
 
+(defaction #\/ "look"
+  (with-direction
+      (look-at (vec+ (pos *player*) direction))))
+
 (defaction #\# "open a REPL"
   (labels ((read-and-eval (previous-input)
 	     (let ((input (if previous-input

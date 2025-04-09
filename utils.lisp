@@ -245,3 +245,24 @@
   (apply #'log-to-string
 	 "~dd~d~[~:;~:*~@d~]~4@*~{ ~a~} damage~3@*~[~:;~:*, ~@d to hit~]"
 	 atk))
+
+(defun get-direction (&optional input)
+  (unless input
+    (setf input (custom-read-char)))
+  (let ((direction (assoc input `((#\h ,+left+)
+				  (#\l ,+right+)
+				  (#\k ,+up+)
+				  (#\j ,+down+)
+				  (#\y (-1 . -1))
+				  (#\u (1 . -1))
+				  (#\b (-1 . 1))
+				  (#\n (1 . 1))))))
+    (when direction
+      (cadr direction))))
+      
+(defmacro with-direction (&body body)
+  `(progn
+     (print-to-screen "enter a direction: ")
+     (let ((direction (get-direction)))
+       (when direction
+	 ,@body))))
