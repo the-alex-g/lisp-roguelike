@@ -19,8 +19,11 @@
 
 (defaction #\P "wait" t)
 
-(defaction #\i "interact"
-  (interact (non-solid (pos *player*)) *player*))
+(defaction (#\i #\,) "interact"
+  (let ((item (non-solid (pos *player*))))
+    (if (and item (not (hiddenp item)))
+	(interact item *player*)
+	(print-to-log "there is nothing here"))))
 
 (defaction #\v "print inventory"
   (print-inventory))

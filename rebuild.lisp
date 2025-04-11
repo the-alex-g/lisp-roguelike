@@ -33,10 +33,9 @@
     (incf (health *player*) health-increase)))
 
 (defun increase-stat ()
-  (with-item-from-list ('(str con dex spd int per cha det)
-			 :what "ability to increase"
-			 :exit-option nil
-			 :varname ability)
+  (let ((ability (get-item-from-list '(str con dex spd int per cha det)
+				     :what "ability to increase"
+				     :exit-option nil)))
     (eval `(incf (,ability *player*)))))
 
 ;; triangular numbers times 10
