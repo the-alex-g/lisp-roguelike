@@ -19,15 +19,22 @@
 		       `(,slt :accessor ,slt
 			      :initform nil
 			      :initarg ,(make-keyword slt)))))
-	   (reinit-slots (args slotlist &key (slotname nil slotnamep))
+	   (reinit-slots (args slotlist allocate-class &key (slotname nil slotnamep))
 	     (if (> (length args) 0) ; cannot check for (car arg) because it might be nil
 		 (if slotnamep
 		     (reinit-slots (cdr args)
-				   (cons (list (read-from-string slotname)
-					       :initform (car args))
+				   (let ((slot-symbol (read-from-string slotname)))
+				     (cons (if (member slot-symbol allocate-class)
+					       (list slot-symbol
+						     :initform (car args)
+						     :allocation :class)
+					       (list slot-symbol
+						     :initform (car args)))
 					 slotlist))
+				   allocate-class)
 		     (reinit-slots (cdr args)
 				   slotlist
+				   allocate-class
 				   :slotname (symbol-name (car args))))
 		 slotlist)))
   ;; define new monster class and matching constructor function
@@ -42,7 +49,7 @@
        ;; declare new monster class, including new keys and setting initform of
        ;; old values
        (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
-					,@(reinit-slots keys nil)))
+					,@(reinit-slots keys nil nil)))
        ;; define constructor for new class
        (defgeneric ,(constructor name) (pos)
 	 (:method (pos)
@@ -68,7 +75,7 @@
     (remf keys :solidp)
     (remf keys :name)
     `(progn (defclass ,name (,inherit) (,@(mapcan #'build-slot new-slots)
-					,@(reinit-slots keys nil)
+					,@(reinit-slots keys nil nil)
 					,(if name-overriden-p
 					     `(name :initform ,name-override)
 					     `(name :initform ',name))
@@ -81,13 +88,21 @@
   ;; define class, constructor function, and pickup generator function for equipment
   (defmacro defequipment (name new-slots
 			  &rest keys
-			  &key (inherit 'equipment)
+			  &key
+			    (inherit 'equipment inheritp)
+			    (allocate-class nil allocate-class-p)
+			    (char #\?)
 			  &allow-other-keys)
-    (remf keys :inherit)
+    (when inheritp
+      (remf keys :inherit))
+    (when allocate-class-p
+      (remf keys :allocate-class))
+    (remf keys :char)
+    (setf (getf keys :display-char) char)
     `(progn
        ;; define equipment class
        (defclass ,name (,inherit) (,@(mapcan #'build-slot new-slots)
-				    ,@(reinit-slots keys nil)
+				    ,@(reinit-slots keys nil allocate-class)
 				    (name :initform ',name)))
        ;; define constructor function
        (defun ,(constructor name) ()
@@ -118,6 +133,8 @@
        :cover-name ',(if (listp cover-name)
 			 (car cover-name)
 			 cover-name)
+       :identifiedp nil
+       :allocate-class '(identifiedp)
        ,@cover-name-slots)))
 
 (defmacro defconsume (action &optional (item-type 'equipment))

@@ -15,6 +15,11 @@
 (defequipment fist () :atk '(1 3 -1 0 bludgeoning) :weaponp t)
 (defequipment gold (amount) :solidp nil :color 'yellow :char #\*)
 
+(defun make-gold (&optional (amount 1))
+  (let ((gold (make-instance 'gold)))
+    (setf (amount gold) amount)
+    gold))
+
 (defactor corpse #\c (loot) :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
 (defactor trap #\! ((trigger-chance 100)

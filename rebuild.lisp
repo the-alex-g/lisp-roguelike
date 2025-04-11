@@ -4,7 +4,8 @@
 (load "utils.lisp")
 (load "class-definitions.lisp")
 
-(defparameter *player* (make-instance 'player :health 20 :name "player" :color 31 :illumination 5 :char #\@))
+(defparameter *player*
+  (make-instance 'player :health 20 :name "player" :color 31 :illumination 5 :char #\@))
 
 (load "class-methods.lisp")
 (load "bsp-dungeon.lisp")
@@ -21,11 +22,6 @@
 (defparameter *level* 1)
 
 (setf (slot-value *player* 'max-health) (health *player*))
-
-(defun make-gold (&optional (amount 1))
-  (let ((gold (make-instance 'gold)))
-    (setf (amount gold) amount)
-    gold))
 
 (defun increase-health ()
   (let ((health-increase (max 1 (roll 1 10 (con *player*)))))

@@ -181,7 +181,7 @@
 (defun test-shops ()
   (flag "testing shops")
   (let* ((shopkeeper (make-shopkeeper +zero+))
-	 (shop-sword (make-sword+1))
+	 (shop-sword (make-sword-+1))
 	 (*inventory* (list (make-sword) shop-sword))
 	 (*gold* 1))
     (setf (shopkeeper shop-sword) shopkeeper)
@@ -221,4 +221,5 @@
   (flag "testing tests")
   (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
 	      (= *tests-failed* 0)
-	      *tests-failed*))
+	      *tests-failed*)
+  (setf *tests-failed* 0))
