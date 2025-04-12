@@ -9,7 +9,11 @@
        (loop for ,key in ,key-list
 	     when (gethash ,key *action-descriptions*)
 	       do (print-to-log "You're declaring the ~a action twice!" ,key)
-	     do (setf (gethash ,key *actions*) (cons ,time (lambda () ,@body))))
+	     do (setf (gethash ,key *actions*)
+		      (lambda ()
+			(let ((.time. ,time))
+			  ,@body
+			  .time.))))
        (setf (gethash (format nil "~{~c~#[~; or ~;, ~]~}" ,key-list)
 		      *action-descriptions*)
 	     ,description))))
@@ -23,9 +27,16 @@
 (defun resolve-action (input)
   (let ((action (gethash input *actions*)))
     (if action
-	(progn (funcall (cdr action))
-	       (car action))
+	(funcall action)
 	0)))
+
+(defmacro with-time-safe-item-from-inventory (&body body)
+  `(with-item-from-inventory-if (setf .time. 0)
+     ,@body))
+
+(defmacro with-time-safe-owned-item (&body body)
+  `(with-owned-item-if (setf .time. 0)
+     ,@body))
 
 (defaction (#\4 #\h) 1 "move left" (move *player* +left+))
 
@@ -55,12 +66,12 @@
   (print-inventory))
 
 (defaction #\D 1 "drop an item"
-  (with-item-from-inventory
+  (with-time-safe-item-from-inventory
       (remove-from-inventory item)
     (place item (pos *player*) :solid nil)))
 
 (defaction #\e 1 "equip an item"
-  (with-item-from-inventory
+  (with-time-safe-item-from-inventory
       (let ((result (equip item *player*)))
 	(when result
 	  (if (listp result)
@@ -81,11 +92,11 @@
 	(print-to-log "you have nothing equipped"))))
 
 (defaction #\E 1 "eat"
-  (with-item-from-inventory
+  (with-time-safe-item-from-inventory
     (eat item *player*)))
 
 (defaction #\t 1 "throw an item"
-  (with-owned-item
+  (with-time-safe-owned-item
       (let ((target (choose-target 'free-form
 				   (if (= (size item) 1)
 				       3
@@ -99,11 +110,11 @@
       (attack target *player*))))
 
 (defaction #\x 1 "examine"
-  (with-owned-item
+  (with-time-safe-owned-item
       (print-to-log (description item))))
 
 (defaction #\q 1 "quaff"
-  (with-owned-item
+  (with-time-safe-owned-item
       (quaff item *player*)))
 
 (defaction #\R 0 "rest"
@@ -130,8 +141,8 @@
 					     (cannot-rest))))))))
 
 (defaction #\/ 1 "look"
-  (with-direction
-      (look-at (vec+ (pos *player*) direction))))
+  (with-direction (setf .time. 0)
+    (look-at (vec+ (pos *player*) direction))))
 
 (defaction #\# 0 "open a REPL"
   (labels ((read-and-eval (previous-input)

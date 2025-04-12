@@ -282,9 +282,10 @@
     (when direction
       (cadr direction))))
       
-(defmacro with-direction (&body body)
+(defmacro with-direction (no &body body)
   `(progn
      (print-to-screen "enter a direction: ")
      (let ((direction (get-direction)))
-       (when direction
-	 ,@body))))
+       (if direction
+	   (progn ,@body)
+	   ,no))))

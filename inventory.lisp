@@ -81,6 +81,11 @@
 			  collect (inventory-name item))
 		    :print-function #'print-to-log)))
 
+(defun owns-item-p ()
+  (or (> (length *inventory*) 0)
+      (loop for i being the hash-values of (equipment *player*)
+	    thereis i)))
+
 (defun get-owned-item ()
   (get-item-from-list
    (append (short-inventory)
@@ -107,13 +112,25 @@
 	   ,@body))))
 
 (defmacro with-owned-item (&body body)
-  `(if (and (= (length *inventory*) 0)
-	    (loop for i being the hash-values of (equipment *player*)
-		  never i))
-       (print-to-log "you have no items")
+  `(if (owns-item-p)
        (let ((item (get-owned-item)))
 	 (when item
-	   ,@body))))
+	   ,@body))
+       (print-to-log "you have no items")))
+
+(defmacro with-owned-item-if (no &body body)
+  `(if (owns-item-p)
+       (let ((item (get-owned-item)))
+	 (if item (progn ,@body) ,no))
+       (progn (print-to-log "you have no items")
+	      ,no)))
+
+(defmacro with-item-from-inventory-if (no &body body)
+  `(if (= (length *inventory*) 0)
+       (progn (print-to-log "you have nothing in your inventory")
+	      ,no)
+       (let ((item (get-item-from-inventory)))
+	 (if item (progn ,@body) ,no))))
 
 (defun equippedp (item creature)
   (member item (gethash (equip-slot item) (equipment creature)) :test #'equal))
