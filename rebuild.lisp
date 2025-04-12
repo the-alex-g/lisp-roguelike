@@ -364,6 +364,9 @@
 (defun flee (source obj)
   (move obj (flee-direction source obj)))
 
+(defun target-too-close-p (a b range)
+  (<= (distance (pos a) (pos b)) (/ range 2)))
+
 (defgeneric act (obj)
   (:method (obj))
   (:method :around ((obj status))
@@ -402,7 +405,7 @@
 		     (apply-to obj (make-brave-status :duration morale-roll))
 		     (apply-to obj (make-frightened-status :duration morale-roll)))))
 	      ((and can-flee
-		    (or (<= (distance (pos obj) (pos *player*)) (/ (range primary) 2))
+		    (or (target-too-close-p obj *player* (range primary))
 			afraidp))
 	       (flee *player* obj))
 	      ((<= (distance (pos obj) (pos *player*))
@@ -652,14 +655,16 @@
   (when (deadp *player*)
     (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
 
-(add-layer '((50 ((75 ((75 make-goblin)
+(add-layer '((75 ((75 ((75 ((75 make-goblin)
+			    (25 make-goblin-archer)))
 		       (25 make-kobold)))
 		  (25 make-troll)))
-	     (50 make-pit-trap)))
+	     (25 make-pit-trap)))
 
-(let ((cells (add-layer '((50 ((75 make-goblin)
+(let ((cells (add-layer '((75 ((75 ((25 make-goblin-archer)
+				    (75 make-goblin)))
 			       (25 make-kobold)))
-			  (50 make-pit-trap)))))
+			  (25 make-pit-trap)))))
   (setf *current-layer* (car *layers*))
   (make-shopkeeper (randnth cells))
   (place *player* (randnth cells)))

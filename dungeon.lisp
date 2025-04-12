@@ -85,7 +85,7 @@
     (setf (layer-up-ladder-pos *current-layer*) up-ladder-pos)
     (setf (layer-down-ladder-pos *current-layer*) down-ladder-pos)    
     (place-walls cells)
-    (populate-dungeon cells spawn-list 15)
+    (populate-dungeon cells spawn-list 20)
     cells))
 
 (defun add-layer (spawn-list)

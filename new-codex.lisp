@@ -3,6 +3,7 @@
  (defequipment sword () :atk '(1 6 0 0 slashing) :weaponp t)
  (defequipment sword-+1 () :atk '(1 6 1 1 slashing) :weaponp t)
  (defequipment dagger () :atk '(1 4 0 0 piercing) :weaponp t)
+ (defequipment bow () :atk '(1 4 0 0 piercing) :weaponp t :range 4)
  (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger")
  (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :weaponp t :size 2)
  (defsecretequipment healing-potion
@@ -33,6 +34,9 @@
 (defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger) :dex 1
   :meat (roll 2 10 10)
   :loot (list (make-gold (roll 1 6)) (make-dagger)))
+(defenemy goblin-archer #\g () :inherit goblin
+  :equips (make-bow)
+  :loot (list (make-gold (roll 2 4)) (make-bow)))
 (defenemy kobold #\k () :color 91 :health (roll 1 4 1) :equips (make-dagger) :str 1 :dex 1 :armor 1
   :meat (make-kobold-meat))
 (defenemy troll #\T () :color 96 :health (roll 2 8) :equips (make-warclub)
