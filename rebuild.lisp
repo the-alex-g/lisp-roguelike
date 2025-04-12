@@ -23,6 +23,9 @@
 
 (setf (slot-value *player* 'max-health) (health *player*))
 
+(defmethod hostilep ((obj shopkeeper))
+  (enragedp obj))
+
 (defun increase-health ()
   (let ((health-increase (max 1 (roll 1 10 (con *player*)))))
     (incf (slot-value *player* 'max-health) health-increase)
@@ -213,6 +216,10 @@
 	 (illuminatedp pos)))
   (:method ((n symbol) from) nil)
   (:method ((c character) from) t)
+  (:method ((pos list) (from enemy))
+    (and (has-los pos (pos from))
+	 (or (darkvisionp from)
+	     (illuminatedp pos))))
   (:method ((obj actor) from)
     (if (hiddenp obj)
 	nil

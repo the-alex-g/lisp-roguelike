@@ -18,7 +18,7 @@
 	  do (loop for y from (- (cdr pos) (domain shopkeeper))
 		     to (+ (cdr pos) (domain shopkeeper))
 		   when (and (= (random 6) 0)
-			     (visiblep (cons x y) pos))
+			     (visiblep (cons x y) shopkeeper))
 		     do (place-shop-item (cons x y) shopkeeper)))
     (make-shopkeeper-pedestal (pos shopkeeper)) ;; pos shopkeeper because first pos may be occupied
     shopkeeper))

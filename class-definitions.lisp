@@ -42,6 +42,7 @@
 
 (defclass enemy (creature)
   ((energy :initform 0 :accessor energy)
+   (darkvisionp :initform t :accessor darkvisionp :initarg :darkvisionp)
    (target-pos :initform nil :accessor target-pos)
    (meat :initform nil :writer (setf meat) :initarg :meat)
    (xp :initform 1 :reader xp :initarg :xp)
