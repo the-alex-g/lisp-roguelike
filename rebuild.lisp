@@ -254,7 +254,7 @@
       (call-next-method)
       (if to-print
 	  (print-to-log "you healed ~d" (- (health actor) previous-health))
-	  (print-to-string "healed ~d" (- (health actor) previous-health)))))
+	  (log-to-string "healed ~d" (- (health actor) previous-health)))))
   (:method ((actor creature) amount &key to-print)
     (declare (ignore to-print))
     (incf (health actor) amount)))
@@ -629,17 +629,19 @@
   (loop for actor being the hash-values of (non-solid-actors)
 	do (update actor)))
 
+(defun game-over-p ()
+  (or (deadp *player*)
+      *game-over-p*))
+
 (defun start ()
   (print-game)
   (labels ((process-round (input)
 	     (unless (eq input #\q)
-	       (let ((action (gethash input *actions*)))
-		 (when action
-		   (funcall action)
-		   (update-actors))
-	       (print-game)
-	       (not (deadp *player*))))))
-    (loop while (process-round (custom-read-char))))
+	       (loop repeat (resolve-action input)
+		     do (update-actors))
+	       (print-game))))
+    (loop until (game-over-p)
+	  do (process-round (custom-read-char))))
   (when (deadp *player*)
     (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
 
@@ -652,6 +654,7 @@
 			       (25 make-kobold)))
 			  (50 make-pit-trap)))))
   (setf *current-layer* (car *layers*))
+  (make-shopkeeper (randnth cells))
   (place *player* (randnth cells)))
 (equip (make-sword) *player*)
 

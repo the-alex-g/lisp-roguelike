@@ -1,15 +1,3 @@
-(defmacro defaction ((&rest keys) description &body body)
-  (let ((key (gensym))
-	(key-list (gensym)))
-    `(let ((,key-list (ensure-list ',keys)))
-       (loop for ,key in ,key-list
-	     when (gethash ,key *action-descriptions*)
-	       do (print-to-log "You're declaring the ~a action twice!" ,key)
-	     do (setf (gethash ,key *actions*) (lambda () ,@body)))
-       (setf (gethash (format nil "~{~c~#[~; or ~;, ~]~}" ,key-list)
-		      *action-descriptions*)
-	     ,description))))
-
 ;; initialize helper functions for macros
 (labels ((build-slot (slt) ; creates slot information for new slots
 	     (list (if (listp slt)

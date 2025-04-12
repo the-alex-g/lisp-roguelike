@@ -142,6 +142,36 @@
 	  do (setf best-point p)
 	finally (return best-point)))
 
+(defun column-print (list-of-items
+		     &key
+		       (indexp nil) (columns 2) (fit-screen t)
+		       (print-function #'print-to-screen))
+  (let ((tab-length (+ (loop for item in list-of-items maximizing (length item))
+		       (if indexp 5 2))))
+    (if (> tab-length 40)
+	(setf columns 1)
+	(when fit-screen
+	  (setf columns
+		(floor (/ (if indexp 78 80) tab-length)))))
+    (funcall print-function
+	      "~{~@?~}"
+	      (do ((remaining-items list-of-items (cdr remaining-items))
+		   (i 0 (1+ i))
+		   (collected-items
+		    nil
+		    (append
+		     collected-items
+		     (if (= 0 (mod i columns))
+			 (if indexp
+			     (list "~%~2t~d) ~a" i (car remaining-items))
+			     (list "~%~a" (car remaining-items)))
+			 (if indexp
+			     (list "~vt~d) ~a" (+ 2 (* tab-length (mod i columns)))
+				   i (car remaining-items))
+			     (list "~vt~a" (* tab-length (mod i columns))
+				   (car remaining-items)))))))
+		  ((not remaining-items) collected-items)))))
+
 ;; Return an item, chosen by the player, from the given list
 ;; If the list items are not printable, pass a naming-function that gets a
 ;; printable name from the list item.
@@ -159,24 +189,8 @@
 			 and collect x into b
 		     finally (return (cons a b))))
 	 (name-list (car temp))
-	 (item-list (cdr temp))
-	 (tab-length (+ 7 (loop for item in name-list maximize (length item)))))
-    (labels ((print-list (from)
-	       (print-to-screen "~{~@?~}"
-				(loop for n in from
-				      with i = 0
-				      if (= 0 (mod i 2))
-					collect "~%~2t~d) ~a"
-					and collect i
-					and collect n
-					and do (incf i)
-				      else
-					collect "~vt~d) ~a"
-					and collect tab-length
-					and collect i
-					and collect n
-					and do (incf i))))
-	     (pick-item (from)
+	 (item-list (cdr temp)))
+    (labels ((pick-item (from)
 	       (fresh-line)
 	       (print-to-screen "Choose a~:[~;n~] ~a: " anp what)
 	       (let* ((raw (if (<= (length lst) 10)
@@ -192,9 +206,10 @@
 		       (t
 			(print-to-screen "~%That was an invalid choice")
 			(pick-item from))))))
-      (print-list (if exit-option
-		      (append name-list '(cancel))
-		      name-list))
+      (column-print (if exit-option
+			(append name-list (list "cancel"))
+			name-list)
+		    :indexp t)
       (pick-item (if exit-option
 		     (append item-list '(nil))
 		     item-list)))))

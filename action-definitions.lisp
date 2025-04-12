@@ -1,39 +1,65 @@
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
+(defparameter *game-over-p* nil)
 
-(defaction (#\4 #\h) "move left" (move *player* +left+))
+(defmacro defaction ((&rest keys) time description &body body)
+  (let ((key (gensym))
+	(key-list (gensym)))
+    `(let ((,key-list (ensure-list ',keys)))
+       (loop for ,key in ,key-list
+	     when (gethash ,key *action-descriptions*)
+	       do (print-to-log "You're declaring the ~a action twice!" ,key)
+	     do (setf (gethash ,key *actions*) (cons ,time (lambda () ,@body))))
+       (setf (gethash (format nil "~{~c~#[~; or ~;, ~]~}" ,key-list)
+		      *action-descriptions*)
+	     ,description))))
 
-(defaction (#\6 #\l) "move right" (move *player* +right+))
+(defmacro on-new-screen (&body body)
+  `(progn (clear-screen)
+	  ,@body
+	  (print-to-screen "~2%press any key to return to game")
+	  (custom-read-char)))
 
-(defaction (#\8 #\k) "move up" (move *player* +up+))
+(defun resolve-action (input)
+  (let ((action (gethash input *actions*)))
+    (if action
+	(progn (funcall (cdr action))
+	       (car action))
+	0)))
 
-(defaction (#\2 #\j) "move down" (move *player* +down+))
+(defaction (#\4 #\h) 1 "move left" (move *player* +left+))
 
-(defaction (#\9 #\u) "move up-right" (move *player* '(1 . -1)))
+(defaction (#\6 #\l) 1 "move right" (move *player* +right+))
 
-(defaction (#\7 #\y) "move up-left" (move *player* '(-1 . -1)))
+(defaction (#\8 #\k) 1 "move up" (move *player* +up+))
 
-(defaction (#\3 #\n) "move down-right" (move *player* '(1 . 1)))
+(defaction (#\2 #\j) 1 "move down" (move *player* +down+))
 
-(defaction (#\1 #\b) "move down-left" (move *player* '(-1 . 1)))
+(defaction (#\9 #\u) 1 "move up-right" (move *player* '(1 . -1)))
 
-(defaction #\P "wait" t)
+(defaction (#\7 #\y) 1 "move up-left" (move *player* '(-1 . -1)))
 
-(defaction (#\i #\,) "interact"
+(defaction (#\3 #\n) 1 "move down-right" (move *player* '(1 . 1)))
+
+(defaction (#\1 #\b) 1 "move down-left" (move *player* '(-1 . 1)))
+
+(defaction #\P 1 "wait" t)
+
+(defaction (#\i #\,) 1 "interact"
   (let ((item (non-solid (pos *player*))))
     (if (and item (not (hiddenp item)))
 	(interact item *player*)
 	(print-to-log "there is nothing here"))))
 
-(defaction #\v "print inventory"
+(defaction #\v 0 "print inventory"
   (print-inventory))
 
-(defaction #\D "drop an item"
+(defaction #\D 1 "drop an item"
   (with-item-from-inventory
       (remove-from-inventory item)
     (place item (pos *player*) :solid nil)))
 
-(defaction #\e "equip an item"
+(defaction #\e 1 "equip an item"
   (with-item-from-inventory
       (let ((result (equip item *player*)))
 	(when result
@@ -42,7 +68,7 @@
 			    (name item) (mapcar #'name result))
 	      (print-to-log "you equipped ~a" (name item)))))))
 
-(defaction #\U "unequip an item"
+(defaction #\U 1 "unequip an item"
   (let ((item-list (apply #'append (loop for i-list being the hash-values of (equipment *player*)
 					 collect i-list))))
     (if item-list
@@ -54,11 +80,11 @@
 	  (print-to-log "you have unequipped ~a" (name item)))
 	(print-to-log "you have nothing equipped"))))
 
-(defaction #\E "eat"
+(defaction #\E 1 "eat"
   (with-item-from-inventory
     (eat item *player*)))
 
-(defaction #\t "throw an item"
+(defaction #\t 1 "throw an item"
   (with-owned-item
       (let ((target (choose-target 'free-form
 				   (if (= (size item) 1)
@@ -67,20 +93,20 @@
 	(when target
 	  (throw-at target item *player*)))))
 
-(defaction #\A "attack"
+(defaction #\A 1 "attack"
   (let ((target (choose-target 'two-key (range (car (weapons *player*))))))
     (when (and target (not (listp target)))
       (attack target *player*))))
 
-(defaction #\x "examine"
+(defaction #\x 1 "examine"
   (with-owned-item
       (print-to-log (description item))))
 
-(defaction #\q "quaff"
+(defaction #\q 1 "quaff"
   (with-owned-item
       (quaff item *player*)))
 
-(defaction #\R "rest"
+(defaction #\R 0 "rest"
   (flet ((cannot-rest ()
 	   (cond ((loop for actor-pos being the hash-keys of (solid-actors)
 			thereis (and (visiblep actor-pos (pos *player*))
@@ -103,11 +129,11 @@
 			       (print-to-log "you wake up because ~a"
 					     (cannot-rest))))))))
 
-(defaction #\/ "look"
+(defaction #\/ 1 "look"
   (with-direction
       (look-at (vec+ (pos *player*) direction))))
 
-(defaction #\# "open a REPL"
+(defaction #\# 0 "open a REPL"
   (labels ((read-and-eval (previous-input)
 	     (let ((input (if previous-input
 			      (concatenate 'string
@@ -128,7 +154,13 @@
 		 (my-repl)))))
     (my-repl)))
 
-(defaction #\? "help"
-  (loop for action being the hash-keys of *action-descriptions*
-	do (print-to-log "~a: ~a" action (gethash action *action-descriptions*)))
-  (print-to-log "q: quit"))
+(defaction #\? 0 "help"
+  (on-new-screen
+   (column-print (loop for action being the hash-keys of *action-descriptions*
+		       collect (log-to-string "~a: ~a"
+					      action
+					      (gethash action *action-descriptions*)))
+		 :fit-screen t)))
+
+(defaction #\Q 0 "quit"
+  (setf *game-over-p* t))

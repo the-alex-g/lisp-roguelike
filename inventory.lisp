@@ -77,8 +77,9 @@
 (defun print-inventory ()
   (if (= (length *inventory*) 0)
       (print-to-log "your inventory is empty")
-      (loop for item in (short-inventory)
-	    do (print-to-log (inventory-name item)))))
+      (column-print (loop for item in (short-inventory)
+			  collect (inventory-name item))
+		    :print-function #'print-to-log)))
 
 (defun get-owned-item ()
   (get-item-from-list
