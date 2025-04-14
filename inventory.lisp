@@ -168,7 +168,7 @@
 	  (if (<= (+ equips-size (size item)) max-equips)
 	      (equip-item)
 	      (labels ((get-items-to-unequip (&optional item-list (size 0))
-			 (if (>= size (size item))
+			 (if (<= (+ (size item) equips-size (- size)) max-equips)
 			     item-list
 			     (let ((item-to-replace (get-item-from-list (gethash (equip-slot item)
 										 (equipment actor))
