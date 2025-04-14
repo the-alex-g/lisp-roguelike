@@ -97,7 +97,13 @@
 	 (make-instance ',name))
 
        (defun ,(constructor name 'pickup) (pos)
-	 (place (,(constructor name)) pos :solid nil)))))
+	 (place (,(constructor name)) pos :solid nil))))
+  
+
+  (defmacro defabstract (inherit name new-slots &rest keys)
+    `(defclass ,name (,inherit)
+       (,@(mapcan #'build-slot new-slots)
+	,@(reinit-slots keys nil nil)))))
 
 (defmacro defstatus (name &key (duration 3) (speed 1))
   `(progn

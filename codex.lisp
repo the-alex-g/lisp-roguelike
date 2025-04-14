@@ -1,13 +1,15 @@
 ;; EQUIPMENT
 
-(defequipment potion ())
+(defabstract secret-equipment potion () :char #\p)
+(defabstract equipment weapon () :weaponp t)
+
 (add-to-shop
- (defequipment sword () :atk '(1 6 0 0 slashing) :weaponp t)
- (defequipment sword-+1 () :atk '(1 6 1 1 slashing) :weaponp t)
- (defequipment dagger () :atk '(1 4 0 0 piercing) :weaponp t)
- (defequipment bow () :atk '(1 4 0 0 piercing) :weaponp t :range 4)
+ (defequipment sword () :atk '(1 6 0 0 slashing) :inherit weapon)
+ (defequipment sword-+1 () :atk '(1 6 1 1 slashing) :inherit weapon)
+ (defequipment dagger () :atk '(1 4 0 0 piercing) :inherit weapon)
+ (defequipment bow () :atk '(1 4 0 0 piercing) :inherit weapon :range 4 :size 2)
  (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger")
- (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :weaponp t :size 2)
+ (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2)
  (defsecretequipment healing-potion
      ((blue-potion :color 34)
       (green-potion :color 32)
@@ -16,8 +18,8 @@
 (defequipment kobold-meat ()
   :sustenance (roll 1 10 5) :inherit food :description "recovers 6-15 hunger")
 (defequipment goblin-meat ()
-  :sustenance (roll 2 10 10) :inherit food :description "recovers 21-13 hunger")
-(defequipment fist () :atk '(1 3 -1 0 bludgeoning) :weaponp t)
+  :sustenance (roll 2 10 10) :inherit food :description "recovers 12-30 hunger")
+(defequipment fist () :atk '(1 3 -1 0 bludgeoning) :inherit weapon)
 (defequipment gold (amount) :solidp nil :color 'yellow :char #\*)
 
 (defun make-gold (&optional (amount 1))
@@ -27,13 +29,14 @@
 
 ;; ACTORS
 
+(defabstract actor trap ((trigger-chance 100)
+			 (find-dc 10)
+			 (avoid-dc 10)
+			 (searchedp nil))
+  :solidp nil :color 31 :hiddenp t)
+
 (defactor corpse #\c (loot) :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
-(defactor trap #\! ((trigger-chance 100)
-		    (find-dc 10)
-		    (avoid-dc 10)
-		    (searchedp nil))
-  :solidp nil :color 31 :hiddenp t)
 (defactor pit-trap #\! () :inherit trap :solidp nil)
 (defactor shopkeeper-pedestal #\I () :solidp nil)
 
