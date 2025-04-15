@@ -21,6 +21,7 @@
   :sustenance (roll 2 10 10) :inherit food :description "recovers 12-30 hunger")
 (defequipment fist () :atk '(1 3 -1 0 bludgeoning) :inherit weapon)
 (defequipment gold (amount) :solidp nil :color 'yellow :char #\*)
+(defequipment crude-bow () :inherit bow :atk '(1 3 0 -1 piercing))
 
 (defun make-gold (&optional (amount 1))
   (let ((gold (make-instance 'gold)))
@@ -46,8 +47,8 @@
   :meat (make-goblin-meat)
   :loot (list (make-gold (roll 1 6)) (make-dagger)))
 (defenemy goblin-archer #\g () :inherit goblin
-  :equips (make-bow)
-  :loot (list (make-gold (roll 2 4)) (make-bow)))
+  :equips (make-crude-bow)
+  :loot (list (make-gold (roll 2 4)) (make-crude-bow)))
 (defenemy kobold #\k () :color 91 :health (roll 1 4 1) :equips (make-dagger) :str 1 :dex 1 :armor 1
   :meat (make-kobold-meat))
 (defenemy troll #\T () :color 96 :health (roll 2 8) :equips (make-warclub)
