@@ -1,1 +1,1 @@
-sbcl --script rebuild.lisp
+sbcl --script main.lisp
