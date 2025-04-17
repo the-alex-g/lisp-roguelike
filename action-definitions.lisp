@@ -119,9 +119,7 @@
 
 (defaction #\R 0 "rest"
   (flet ((cannot-rest ()
-	   (cond ((loop for actor-pos being the hash-keys of (solid-actors)
-			thereis (and (visiblep actor-pos (pos *player*))
-				     (hostilep (solid actor-pos))))
+	   (cond ((is-hostile-in-los-of-p *player*)
 		  "there are enemies nearby")
 		 ((= (health *player*) (max-health *player*))
 		  "you are fully rested")

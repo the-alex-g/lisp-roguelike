@@ -23,8 +23,80 @@
 
 (setf (slot-value *player* 'max-health) (health *player*))
 
-(defmethod hostilep ((obj shopkeeper))
-  (enragedp obj))
+;;;; STATUSES AND ALIGNMENT
+
+(defun has-status-p (obj status-name)
+  (loop for status in (statuses obj)
+	thereis (eq status-name (type-of status))))
+
+(defun apply-alignment-status (obj)
+  (let ((index (random 3)))
+    (cond ((= index 0)
+	   (apply-to obj (make-good-status))
+	   'g)
+	  ((= index 1)
+	   (apply-to obj (make-neutral-status))
+	   'n)
+	  ((= index 2)
+	   (apply-to obj (make-evil-status))
+	   'e))))
+
+(defgeneric alignment (obj)
+  (:method ((obj creature))
+    (let ((alignment (slot-value obj 'alignment)))
+      (cond ((has-status-p obj 'neutral)
+	     'n)
+	    ((eq alignment 'n)
+	     (apply-alignment-status obj))
+	    ((or (eq alignment 'e)
+		 (has-status-p obj 'evil))
+	     'e)
+	    ((or (eq alignment 'g)
+		 (has-status-p obj 'good))
+	     'g)
+	    (t
+	     'n)))))
+
+(defun evilp (obj)
+  (eq (alignment obj) 'e))
+
+(defun goodp (obj)
+  (eq (alignment obj) 'g))
+
+(defun neutralp (obj)
+  (eq (alignment obj) 'n))
+
+(defgeneric hostilep (obj to)
+  (:method (obj to) nil)
+  (:method ((obj creature) (to creature))
+    (or (and (evilp obj) (goodp to))
+	(and (evilp to) (goodp obj))))
+  (:method ((obj shopkeeper) (to player))
+    (enragedp obj))
+  (:method ((obj shopkeeper) (to creature))
+    nil)
+  (:method ((obj creature) (to shopkeeper))
+    nil))
+
+;;;; OTHER STUFF
+
+(defun is-hostile-in-los-of-p (obj)
+  (loop for actor being the hash-values of (solid-actors)
+	  thereis (and (not (wallp actor))
+		       (visiblep (pos actor) (pos obj))
+		       (hostilep actor obj))))
+
+(defun get-hostile-in-los-of (from)
+  (let* ((hostiles (loop for actor being the hash-values of (solid-actors)
+			 when (and (not (wallp actor))
+				   (visiblep (pos actor) (pos from))
+				   (hostilep actor from))
+			   collect actor))
+	 (min-distance (loop for hostile in hostiles
+			     minimize (distance (pos from) (pos hostile)))))
+    (loop for hostile in hostiles
+	  when (= (distance (pos from) (pos hostile)) min-distance)
+	    return hostile)))
 
 (defun increase-health ()
   (let ((health-increase (max 1 (roll 1 10 (con *player*)))))
@@ -152,32 +224,6 @@
 	  do (apply-to defender status))
     (max 0 real-damage)))
 
-(defgeneric attack (defender attacker)
-  (:method :after ((defender shopkeeper) (attacker player))
-    (setf (enragedp defender) t))
-  (:method :around ((defender creature) attacker)
-    (unless (deadp defender)
-      (call-next-method)))
-  (:method ((defender creature) (attacker creature))
-    ;; one attack per equipped hand item
-    (mapc (lambda (weapon)
-	    (when (<= (distance (pos defender) (pos attacker)) (range weapon))
-	      (attack defender (get-attack weapon attacker))))
-	  (weapons attacker)))
-  (:method ((defender creature) (attack attack))
-    (if (>= (attack-to-hit attack) (evasion defender))
-	(print-to-log "~a hit ~a for ~d damage~:[~;, ~a~]"
-		      (attack-source attack)
-		      (name defender)
-		      (damage defender (attack-dmg attack) (attack-types attack) (attack-statuses attack))
-		      (deadp defender)
-		      (death defender))
-	(print-to-log "~a missed ~a" (attack-source attack) (name defender)))))
-
-(defun show-colors ()
-  (loop for code below 111
-	do (format t "~c[~dmCODE ~:*~d~0@*~c[0m~%" #\esc code)))
-
 ;;; memoized has-los function
 (let ((memos (make-hash-table :test #'equal)))
   (labels ((calculate-los (to from)
@@ -216,7 +262,7 @@
 	 (illuminatedp pos)))
   (:method ((n symbol) from) nil)
   (:method ((c character) from) t)
-  (:method ((pos list) (from enemy))
+  (:method ((pos list) (from creature))
     (and (has-los pos (pos from))
 	 (or (darkvisionp from)
 	     (illuminatedp pos))))
@@ -224,6 +270,36 @@
     (if (hiddenp obj)
 	nil
 	(visiblep (pos obj) from))))
+
+(defgeneric attack (defender attacker)
+  (:method :after ((defender shopkeeper) (attacker player))
+    (setf (enragedp defender) t))
+  (:method :after ((defender creature) (attacker player))
+    (unless (hostilep defender attacker)
+      (apply-to defender (make-evil-status))))
+  (:method :around ((defender creature) attacker)
+    (unless (deadp defender)
+      (call-next-method)))
+  (:method ((defender creature) (attacker creature))
+    ;; one attack per equipped hand item
+    (mapc (lambda (weapon)
+	    (when (<= (distance (pos defender) (pos attacker)) (range weapon))
+	      (attack defender (get-attack weapon attacker))))
+	  (weapons attacker)))
+  (:method ((defender creature) (attack attack))
+    (if (>= (attack-to-hit attack) (evasion defender))
+	(print-to-log "~:[~;~a hit ~a for ~d damage~:[~;, ~a~]~]"
+		      (visiblep defender *player*)
+		      (attack-source attack)
+		      (name defender)
+		      (damage defender (attack-dmg attack) (attack-types attack) (attack-statuses attack))
+		      (deadp defender)
+		      (death defender))
+	(print-to-log "~a missed ~a" (attack-source attack) (name defender)))))
+
+(defun show-colors ()
+  (loop for code below 111
+	do (format t "~c[~dmCODE ~:*~d~0@*~c[0m~%" #\esc code)))
 
 (defgeneric pickup (item)
   (:method (item))
@@ -294,10 +370,14 @@
 		      damage)))))
 
 (defgeneric move-into (passive active)
-  (:method ((passive player) (active enemy))
-    (attack passive active))
-  (:method ((passive enemy) (active player))
-    (attack passive active))
+  (:method ((passive creature) (active player))
+    (when (if (hostilep passive active)
+	      t
+	      (confirmp "that creature does not appear hostile. Do you want to attack it?"))
+      (attack passive active)))
+  (:method ((passive creature) (active creature))
+    (when (hostilep passive active)
+      (attack passive active)))
   (:method ((passive trap) (active player))
     (when (< (random 100) (trigger-chance passive))
       (trigger passive active)))
@@ -312,9 +392,6 @@
 		((eq action 'buy)
 		 (checkout))))))
   (:method (passive active))) ; default case: do nothing
-
-(defun has-status-p (obj status-name)
-  (member status-name (mapcar #'type-of (statuses obj))))
 
 (defgeneric reposition (obj new-pos)
   (:method :around ((obj creature) new-pos)
@@ -338,10 +415,10 @@
 		   (or (> (distance new-pos (pos shopkeeper))
 			  (domain shopkeeper))
 		       (not (visiblep (pos shopkeeper) new-pos))))
-	      (progn (print-to-screen "if you move there, you will be stealing from the shopkeeper")
-		     (when (confirm-action "move anyway")
-		       (steal-items)
-		       (call-next-method)))
+	      (when (confirmp  "if you move there, you will be stealing from the shopkeeper~
+                                ~%do you want to move anyway?")
+		(steal-items)
+		(call-next-method))
 	      (call-next-method)))
 	(call-next-method)))
   (:method ((obj actor) direction)
@@ -358,19 +435,21 @@
 (defgeneric flee-direction (source obj)
   (:method ((source list) (pos list))
     (vec- pos (car (find-path pos source))))
+  (:method ((source list) (obj actor))
+    (flee-direction source (pos obj)))
   (:method ((source actor) (obj actor))
     (flee-direction (pos source) (pos obj))))
 
 (defun flee (source obj)
   (move obj (flee-direction source obj)))
 
-(defun target-too-close-p (a b range)
-  (<= (distance (pos a) (pos b)) (/ range 2)))
+(defun target-too-close-p (obj range)
+  (<= (distance (pos obj) (target-pos obj)) (/ range 2)))
 
 (defgeneric act (obj)
   (:method (obj))
   (:method :around ((obj status))
-    (if (= (duration obj) 0) ;; = 0 so that a status with negative duration is permanent
+    (if (= (duration obj) 0) ; = 0 so that a status with negative duration is permanent
 	(remove-status obj)
 	(when (>= (energy obj) 1)
 	  (decf (energy obj))
@@ -382,9 +461,10 @@
     (incf (hunger (target obj)))
     (incf (health (target obj))))
   (:method :around ((obj enemy))
-    (when (visiblep (pos *player*) (pos obj))
-      (setf (target-pos obj) (pos *player*)))
     (loop while (>= (energy obj) 1)
+	  initially (let ((closest-hostile (get-hostile-in-los-of obj)))
+		      (when closest-hostile
+			(setf (target-pos obj) (pos closest-hostile))))
 	  do (decf (energy obj))
 	  when (target-pos obj)
 	    do (call-next-method)))
@@ -405,12 +485,14 @@
 		     (apply-to obj (make-brave-status :duration morale-roll))
 		     (apply-to obj (make-frightened-status :duration morale-roll)))))
 	      ((and can-flee
-		    (or (target-too-close-p obj *player* (range primary))
+		    (or (target-too-close-p obj (range primary))
 			afraidp))
-	       (flee *player* obj))
-	      ((<= (distance (pos obj) (pos *player*))
+	       (flee (target-pos obj) obj))
+	      ((<= (distance (pos obj) (target-pos obj))
 		   (range primary))
-	       (attack *player* obj))
+	       (let ((target (solid (target-pos obj))))
+		 (when target
+		   (attack target obj))))
 	      ((not afraidp)
 	       (step-towards (target-pos obj) obj)))))))
 

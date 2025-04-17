@@ -27,10 +27,6 @@
   (:method ((obj player)) t)
   (:method (obj) nil))
 
-(defgeneric hostilep (obj)
-  (:method (obj) nil)
-  (:method ((obj enemy)) t))
-
 (defmethod name ((obj character)) "wall")
 (defmethod name ((obj symbol)) obj)
 (defmethod name ((obj secret-equipment))

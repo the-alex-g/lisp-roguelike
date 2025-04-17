@@ -172,6 +172,19 @@
 				   (car remaining-items)))))))
 		  ((not remaining-items) collected-items)))))
 
+(defun confirmp (&rest args)
+  (print-to-screen "~:[~;~:*~? ~]" (car args) (cdr args))
+  (labels ((get-answer ()
+	     (print-to-screen "(y or n)~%")
+	     (let ((answer (char-downcase (custom-read-char))))
+	       (cond ((eq answer #\y)
+		      t)
+		     ((eq answer #\n)
+		      nil)
+		     (t
+		      (get-answer))))))
+    (get-answer)))
+  
 ;; Return an item, chosen by the player, from the given list
 ;; If the list items are not printable, pass a naming-function that gets a
 ;; printable name from the list item.
@@ -213,12 +226,6 @@
       (pick-item (if exit-option
 		     (append item-list '(nil))
 		     item-list)))))
-
-(defun confirm-action (message)
-  (get-item-from-list '(t) :naming-function (lambda (x)
-					      (declare (ignore x))
-					      message)
-		      :what 'option))
 
 (defun roll (num die &rest modifiers)
   (+ (loop repeat num

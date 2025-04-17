@@ -43,18 +43,19 @@
 
 ;; ENEMIES
 
-(defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger) :dex 1
+(defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger) :dex 1 :align 'e
   :meat (make-goblin-meat)
   :loot (list (make-gold (roll 1 6)) (make-dagger)))
 (defenemy goblin-archer #\g () :inherit goblin
   :equips (make-crude-bow)
   :loot (list (make-gold (roll 2 4)) (make-crude-bow)))
 (defenemy kobold #\k () :color 91 :health (roll 1 4 1) :equips (make-dagger) :str 1 :dex 1 :armor 1
-  :meat (make-kobold-meat))
+  :meat (make-kobold-meat) :align 'e)
 (defenemy troll #\T () :color 96 :health (roll 2 8) :equips (make-warclub)
-  :str 2 :dex -1 :armor 1 :spd 3/4 :con 2 :meat (roll 2 10 20))
+  :str 2 :dex -1 :armor 1 :spd 3/4 :con 2 :meat (roll 2 10 20) :align 'e)
 (defenemy shopkeeper #\U ((domain 4) (enragedp nil)) :color 'purple :health (roll 3 10 5)
   :equips (list (make-sword-+1) (make-sword-+1)))
+(defenemy ally #\A () :align 'g :health 6 :equips (make-sword))
 
 ;; STATUSES
 
@@ -62,3 +63,6 @@
 (defstatus frightened)
 (defstatus brave)
 (defstatus immobilized)
+(defstatus evil :duration 10)
+(defstatus good :duration 10)
+(defstatus neutral :duration 10)

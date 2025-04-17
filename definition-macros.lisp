@@ -24,15 +24,25 @@
 				   slotlist
 				   allocate-class
 				   :slotname (symbol-name (car args))))
-		 slotlist)))
+		 slotlist))
+	 
+
+	 (replace-keyword (existing new list)
+	   (when (getf list existing)
+	     (setf (getf list new) (getf list existing))
+	     (remf list existing))
+	   list))
+  
   ;; define new monster class and matching constructor function
   (defmacro defenemy (name display-char new-slots
 		      &rest keys
 		      &key (inherit 'enemy) equips
 		      &allow-other-keys)
-    ;; remove :inherit from key list to prevent odd behavior
+    ;; remove unwanted keys from key list to prevent odd behavior
     (remf keys :inherit)
     (remf keys :equips)
+    (setf keys (replace-keyword :evd :evasion keys))
+    (setf keys (replace-keyword :align :alignment keys))
     `(progn
        ;; declare new monster class, including new keys and setting initform of
        ;; old values
