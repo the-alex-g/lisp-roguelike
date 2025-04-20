@@ -25,35 +25,13 @@
 
 (setf (slot-value *player* 'max-health) (health *player*))
 
-(defun get-loot (obj)
-  (let ((loot '()))
-    (when (meat obj)
-      (push (meat obj) loot))
-    (loop for item in (loot obj)
-	  do (push item loot))
-    loot))
-
 (defmethod drop-corpse ((obj enemy))
   (let ((corpse (make-corpse (pos obj))))
     (setf (name corpse) (log-to-string "~a corpse" (name obj)))
     (setf (loot corpse) (get-loot obj))))
 
-(defmethod kill :before ((obj creature))
-  (remove-solid (pos obj))
-  (remove-glowing obj))
-
-(defmethod kill ((obj enemy))
-  (drop-corpse obj))
-
 (defmethod kill :after ((obj enemy))
   (gain-experience (xp obj)))
-
-(defgeneric remove-status (status)
-  (:method :after ((status status))
-    (setf (statuses (target status))
-	  (remove status
-		  (statuses (target status)))))
-  (:method (status)))
 
 (defun apply-default-colors ()
   (format t "~c[40;37m" #\esc))

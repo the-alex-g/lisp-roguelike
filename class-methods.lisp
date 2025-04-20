@@ -13,9 +13,15 @@
 			 (dark-purple 95)
 			 (dark-teal 96)))
 
-(defgeneric kill (obj)
-  (:method (obj)))
 (defgeneric drop-corpse (obj))
+
+(defgeneric kill (obj)
+  (:method (obj))
+  (:method ((obj enemy))
+    (drop-corpse obj))
+  (:method :before ((obj creature))
+    (remove-solid (pos obj))
+    (remove-glowing obj)))
 
 (defgeneric wallp (obj)
   (:method (obj) nil)
@@ -154,6 +160,21 @@
 				   :name (log-to-string "~a meat" (name obj)))
 	      meat)))))
 
+(defun get-loot (obj)
+  (let ((loot '()))
+    (when (meat obj)
+      (push (meat obj) loot))
+    (loop for item in (loot obj)
+	  do (push item loot))
+    loot))
+
 (defun has-status-p (obj status-name)
   (loop for status in (statuses obj)
 	thereis (eq status-name (type-of status))))
+
+(defgeneric remove-status (status)
+  (:method :after ((status status))
+    (setf (statuses (target status))
+	  (remove status
+		  (statuses (target status)))))
+  (:method (status)))
