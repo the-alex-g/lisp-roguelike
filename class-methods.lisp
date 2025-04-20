@@ -153,3 +153,7 @@
 	      (make-instance 'food :sustenance meat
 				   :name (log-to-string "~a meat" (name obj)))
 	      meat)))))
+
+(defun has-status-p (obj status-name)
+  (loop for status in (statuses obj)
+	thereis (eq status-name (type-of status))))

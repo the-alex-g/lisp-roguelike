@@ -7,125 +7,23 @@
 (defparameter *player*
   (make-instance 'player :health 20 :name "player" :color 31 :illumination 5 :char #\@))
 
-(load "class-methods.lisp")
-(load "bsp-dungeon.lisp")
-(load "dungeon.lisp")
-(load "terminal.lisp")
-(load "inventory.lisp")
-(load "definition-macros.lisp")
-(load "shops.lisp")
-(load "codex.lisp")
-(load "action-definitions.lisp")
+(mapc #'load
+      (list "class-methods.lisp"
+	    "bsp-dungeon.lisp"
+	    "dungeon.lisp"
+	    "terminal.lisp"
+	    "inventory.lisp"
+	    "definition-macros.lisp"
+	    "shops.lisp"
+	    "idle-behaviors.lisp"
+	    "codex.lisp"
+	    "alignment.lisp"
+	    "leveling.lisp"
+	    "action-definitions.lisp"))
 
 (defparameter *print-surroundings-mode* 'my-space)
-(defparameter *experience* 0)
-(defparameter *level* 1)
 
 (setf (slot-value *player* 'max-health) (health *player*))
-
-;;;; STATUSES AND ALIGNMENT
-
-(defun has-status-p (obj status-name)
-  (loop for status in (statuses obj)
-	thereis (eq status-name (type-of status))))
-
-(defun apply-alignment-status (obj)
-  (let ((index (random 3)))
-    (cond ((= index 0)
-	   (apply-to obj (make-good-status))
-	   'g)
-	  ((= index 1)
-	   (apply-to obj (make-neutral-status))
-	   'n)
-	  ((= index 2)
-	   (apply-to obj (make-evil-status))
-	   'e))))
-
-(defgeneric alignment (obj)
-  (:method ((obj creature))
-    (let ((alignment (slot-value obj 'alignment)))
-      (cond ((has-status-p obj 'neutral)
-	     'n)
-	    ((eq alignment 'n)
-	     (apply-alignment-status obj))
-	    ((or (eq alignment 'e)
-		 (has-status-p obj 'evil))
-	     'e)
-	    ((or (eq alignment 'g)
-		 (has-status-p obj 'good))
-	     'g)
-	    (t
-	     'n)))))
-
-(defun evilp (obj)
-  (eq (alignment obj) 'e))
-
-(defun goodp (obj)
-  (eq (alignment obj) 'g))
-
-(defun neutralp (obj)
-  (eq (alignment obj) 'n))
-
-(defgeneric hostilep (obj to)
-  (:method (obj to) nil)
-  (:method ((obj creature) (to creature))
-    (or (and (evilp obj) (goodp to))
-	(and (evilp to) (goodp obj))))
-  (:method ((obj shopkeeper) (to player))
-    (enragedp obj))
-  (:method ((obj shopkeeper) (to creature))
-    nil)
-  (:method ((obj creature) (to shopkeeper))
-    nil))
-
-;;;; OTHER STUFF
-
-(defun is-hostile-in-los-of-p (obj)
-  (loop for actor being the hash-values of (solid-actors)
-	  thereis (and (not (wallp actor))
-		       (visiblep (pos actor) (pos obj))
-		       (hostilep actor obj))))
-
-(defun get-hostile-in-los-of (from)
-  (let* ((hostiles (loop for actor being the hash-values of (solid-actors)
-			 when (and (not (wallp actor))
-				   (visiblep (pos actor) (pos from))
-				   (hostilep actor from))
-			   collect actor))
-	 (min-distance (loop for hostile in hostiles
-			     minimize (distance (pos from) (pos hostile)))))
-    (loop for hostile in hostiles
-	  when (= (distance (pos from) (pos hostile)) min-distance)
-	    return hostile)))
-
-(defun increase-health ()
-  (let ((health-increase (max 1 (roll 1 10 (con *player*)))))
-    (incf (slot-value *player* 'max-health) health-increase)
-    (incf (health *player*) health-increase)))
-
-(defun increase-stat ()
-  (let ((ability (get-item-from-list '(str con dex spd int per cha det)
-				     :what "ability to increase"
-				     :exit-option nil)))
-    (eval `(incf (,ability *player*)))))
-
-;; triangular numbers times 10
-(defun xp-for-next-level ()
-  (* *level* (1+ *level*) 5))
-
-(defun level-up ()
-  (decf *experience* (xp-for-next-level))
-  (incf *level*)
-  (increase-health)
-  (increase-stat)
-  (print-to-log "you leveled up to level ~d" *level*)
-  (if (>= *experience* (xp-for-next-level))
-      (level-up)))
-
-(defun gain-experience (amount)
-  (incf *experience* amount)
-  (if (>= *experience* (xp-for-next-level))
-      (level-up)))
 
 (defun get-loot (obj)
   (let ((loot '()))
@@ -461,13 +359,16 @@
     (incf (hunger (target obj)))
     (incf (health (target obj))))
   (:method :around ((obj enemy))
+    (let ((closest-hostile (get-hostile-in-los-of obj)))
+      (when closest-hostile
+	(setf (target-pos obj) (pos closest-hostile))))
     (loop while (>= (energy obj) 1)
-	  initially (let ((closest-hostile (get-hostile-in-los-of obj)))
-		      (when closest-hostile
-			(setf (target-pos obj) (pos closest-hostile))))
 	  do (decf (energy obj))
-	  when (target-pos obj)
-	    do (call-next-method)))
+	  if (target-pos obj)
+	    do (call-next-method)
+	  else
+	    if (idle-behavior obj)
+	      do (funcall (idle-behavior obj) obj)))
   (:method ((obj shopkeeper))
     (when (enragedp obj)
       (call-next-method)))

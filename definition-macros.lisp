@@ -42,6 +42,7 @@
     (remf keys :inherit)
     (remf keys :equips)
     (setf keys (replace-keyword :evd :evasion keys))
+    (setf keys (replace-keyword :idle :idle-behavior keys))
     (setf keys (replace-keyword :align :alignment keys))
     `(progn
        ;; declare new monster class, including new keys and setting initform of

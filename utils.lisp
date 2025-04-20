@@ -288,7 +288,7 @@
 				  (#\n (1 . 1))))))
     (when direction
       (cadr direction))))
-      
+
 (defmacro with-direction (no &body body)
   `(progn
      (print-to-screen "enter a direction: ")
@@ -296,3 +296,9 @@
        (if direction
 	   (progn ,@body)
 	   ,no))))
+
+(defun random-direction (&key (zero t))
+  (nth (random (if zero 9 8))
+       (if zero
+	   (cons +zero+ +directions+)
+	   +directions+)))
