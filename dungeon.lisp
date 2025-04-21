@@ -83,7 +83,7 @@
     (setf (direction (make-ladder up-ladder-pos)) -1)
     (setf (direction (make-ladder down-ladder-pos)) 1)
     (setf (layer-up-ladder-pos *current-layer*) up-ladder-pos)
-    (setf (layer-down-ladder-pos *current-layer*) down-ladder-pos)    
+    (setf (layer-down-ladder-pos *current-layer*) down-ladder-pos)
     (place-walls cells)
     (populate-dungeon cells spawn-list 20)
     cells))
