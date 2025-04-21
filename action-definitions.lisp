@@ -56,6 +56,9 @@
 
 (defaction #\P 1 "wait" t)
 
+(defaction #\H 0 "view message history"
+  (on-new-screen (print-history)))
+
 (defaction (#\i #\,) 1 "interact"
   (let ((item (non-solid (pos *player*))))
     (if (and item (not (hiddenp item)))
