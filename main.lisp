@@ -49,7 +49,7 @@
 	 'ladder-leading-down)))
 
 (defun find-path (from to)
-  (flood-fill from (current (if (equal current to) t) :go-until to)
+  (flood-fill from (current (equal current to) :go-until to)
 	      (if result
 		  (labels ((build-path (pos &optional (path nil))
 			     (if (equal pos from)
@@ -628,7 +628,7 @@
 			       (25 make-kobold)))
 			  (25 make-pit-trap)))))
   (setf *current-layer* (car *layers*))
-  (make-shopkeeper (randnth cells))
+  (make-shopkeeper (get-shop-position cells))
   (place *player* (randnth cells)))
 (equip (make-sword) *player*)
 

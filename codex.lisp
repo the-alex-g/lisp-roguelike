@@ -39,7 +39,6 @@
 (defactor corpse #\c (loot) :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
 (defactor pit-trap #\! () :inherit trap :solidp nil)
-(defactor shopkeeper-pedestal #\I () :solidp nil)
 
 ;; ENEMIES
 

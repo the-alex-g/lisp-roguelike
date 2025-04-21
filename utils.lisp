@@ -251,9 +251,7 @@
   `(let ((cells (make-hash-table :test #'equal)))
      (setf (gethash ,start cells) t)
      (labels ((occupiedp (pos)
-		(if ,solid
-		    (solid pos)
-		    (or (non-solid pos) (wallp (solid pos)))))
+		(,(if solid 'solid 'non-solid) pos))
 	      (neighbors (pos)
 		(loop for direction in +directions+
 		      unless (let ((cell-pos (vec+ pos direction)))
@@ -268,8 +266,7 @@
 		  (let* ((current (car frontier))
 			 (neighbors (neighbors current))
 			 (exit-condition ,exit-condition))
-		    (if exit-condition
-			exit-condition
+		    (or exit-condition
 			(progn
 			  (mapc (lambda (n) (setf (gethash n cells) ,value-to-store)) neighbors)
 			  (iterate (append (cdr frontier) neighbors))))))))
