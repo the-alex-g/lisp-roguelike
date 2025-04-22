@@ -156,6 +156,12 @@
   (:method :around ((defender creature) attacker)
     (unless (deadp defender)
       (call-next-method)))
+  (:method :after (defender (attacker player))
+    (mapc (lambda (weapon)
+	    (when (breaksp weapon)
+	      (print-to-log "your ~a breaks!" (name weapon))
+	      (unequip weapon *player* :to 'the-abyss)))
+	  (weapons attacker)))
   (:method ((defender creature) (attacker creature))
     ;; one attack per equipped hand item
     (mapc (lambda (weapon)

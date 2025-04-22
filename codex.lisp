@@ -1,6 +1,6 @@
 ;; EQUIPMENT
 
-(defabstract secret-equipment potion () :char #\p)
+(defabstract secret-equipment potion () :char #\p :break-chance 75)
 (defabstract equipment weapon () :weaponp t :break-chance 2)
 
 (add-to-shop
@@ -19,7 +19,7 @@
   :sustenance (roll 1 10 5) :inherit food :description "recovers 6-15 hunger")
 (defequipment goblin-meat ()
   :sustenance (roll 2 10 10) :inherit food :description "recovers 12-30 hunger")
-(defequipment fist () :atk '(1 3 -1 0 bludgeoning) :inherit weapon)
+(defequipment fist () :atk '(1 3 -1 0 bludgeoning) :inherit weapon :break-chance -100)
 (defequipment gold (amount) :solidp nil :color 'yellow :char #\*)
 (defequipment crude-bow () :inherit bow :atk '(1 3 0 -1 piercing) :break-chance 3)
 

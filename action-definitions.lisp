@@ -153,7 +153,8 @@
 					   " "
 					   (read-line))
 			      (read-line))))
-	       (if (string= "q" input)
+	       (if (or (string= "q" input)
+		       (string= "Q" input))
 		   'exit-repl
 		   (handler-case (eval (read-from-string input))
 		     (end-of-file () (read-and-eval input))))))
