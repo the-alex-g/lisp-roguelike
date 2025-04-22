@@ -545,7 +545,8 @@
 			(xp-for-next-level))
 	 (log-to-string "FOOD ~d/~d"
 			(hunger *player*)
-			(max-hunger *player*)))))
+			(max-hunger *player*))
+	 (log-to-string "GOLD ~d" *gold*))))
 
 (defun print-surroundings ()
   (if (eq *print-surroundings-mode* 'my-space)

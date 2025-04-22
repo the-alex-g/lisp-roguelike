@@ -165,7 +165,15 @@
     (when (meat obj)
       (push (meat obj) loot))
     (loop for item in (loot obj)
-	  do (push item loot))
+	  if (atom item)
+	    do (push item loot)
+	  else
+	    do (let ((bit (eval-weighted-list item)))
+		 (when bit
+		   (push bit loot))))
+    (loop for item being the hash-values of (equipment obj)
+	  when (>= (+ 50 (random 100)) (break-chance item))
+	    do (push item loot))
     loot))
 
 (defun has-status-p (obj status-name)

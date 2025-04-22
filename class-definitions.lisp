@@ -55,6 +55,7 @@
 
 (defclass equipment (actor)
   ((atk :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
+   (break-chance :initform 50 :initarg :break-chance :accessor break-chance)
    (range :initform 1 :initarg :range :accessor range)
    (size :initform 1 :initarg :size :accessor size)
    (price :initform 2 :initarg :price :accessor price)
