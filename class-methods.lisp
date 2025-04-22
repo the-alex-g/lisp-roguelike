@@ -175,8 +175,8 @@
 	    do (push item loot)
 	  else
 	    do (let ((bit (eval-weighted-list item)))
-		 (when bit
-		   (push bit loot))))
+		 (when (car bit)
+		   (mapc (lambda (b) (push b loot)) bit))))
     (loop for item-list being the hash-values of (equipment obj)
 	  do (loop for item in item-list
 		   unless (breaksp item 50)
