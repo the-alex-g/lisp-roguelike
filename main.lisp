@@ -635,8 +635,9 @@
 			       (25 make-kobold)))
 			  (25 make-pit-trap)))))
   (setf *current-layer* (car *layers*))
-  (make-shopkeeper (get-shop-position cells))
-  (place *player* (randnth cells)))
+  (defparameter *shopkeeper* (make-shopkeeper (get-shop-position cells)))
+  (place *player* (pos *shopkeeper*)));(randnth cells)))
 (equip (make-sword) *player*)
+(loop repeat 2 do (add-to-inventory (make-dagger)))
 
 (start)

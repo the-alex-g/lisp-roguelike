@@ -180,16 +180,11 @@
 
 (defun test-shops ()
   (flag "testing shops")
-  (let* ((shopkeeper (make-shopkeeper +zero+))
-	 (shop-sword (make-sword-+1))
-	 (*inventory* (list (make-sword) shop-sword))
-	 (*shop-items* (list #'make-sword))
-	 (*gold* 1)
-	 (cells (append (loop for x below 3 collect (cons x 0))
+  (with-clean-board
+    (let ((cells (append (loop for x below 3 collect (cons x 0))
 			(loop for x below 6 collect (cons x 1))
 			(loop for x below 3 collect (cons x 2))
 			(loop for y from 1 to 4 collect (cons 5 y)))))
-    (with-clean-board
       (loop for y from -1 to 5
 	    do (loop for x from -1 to 6
 		     unless (member (cons x y) cells :test #'equal)
@@ -201,7 +196,12 @@
       (let ((shop-pos (get-shop-position cells :start '(5 . 4))))
 	(print-test "shop positions correctly (shop at ~a)"
 		    (equal shop-pos '(1 . 1))
-		    shop-pos)))
+		    shop-pos))))
+  (let* ((shopkeeper (make-shopkeeper +zero+))
+	 (shop-sword (make-sword-+1))
+	 (*inventory* (list (make-sword) shop-sword))
+	 (*shop-items* (list #'make-sword))
+	 (*gold* 1))
     (setf (shopkeeper shop-sword) shopkeeper)
     (checkout)
     (print-test "can't buy item that's too expensive"

@@ -196,7 +196,32 @@
 		     (t
 		      (get-answer))))))
     (get-answer)))
-  
+
+(defun get-number-input (&key (min 0 minp) (max 0 maxp))
+  (print-to-screen "please enter a number~
+                    ~:[~2*~; between ~d and ~d~]~:[~*~; greater than ~d~]~:[~*~; less than ~d~] "
+		   (and minp maxp)
+		   min max
+		   (and minp (not maxp))
+		   (1- min)
+		   (and maxp (not minp))
+		   (1+ max))
+  (labels ((get-answer ()
+	     (let* ((raw (read-line))
+		    (number (parse-integer raw :junk-allowed t)))
+	       (if number
+		   number
+		   (progn (print-to-screen "~%please enter a number ")
+			  (get-answer))))))
+    (cond ((and maxp minp)
+	   (max min (min max (get-answer))))
+	  (maxp
+	   (min max (get-answer)))
+	  (minp
+	   (max min (get-answer)))
+	  (t
+	   (get-answer)))))
+
 ;; Return an item, chosen by the player, from the given list
 ;; If the list items are not printable, pass a naming-function that gets a
 ;; printable name from the list item.

@@ -24,12 +24,23 @@
 	(loop for item in *inventory*
 	      thereis (shopkeeper item))))
 
-(defun remove-from-inventory (item)
-  (setf *inventory*
-	(remove item *inventory* :test (lambda (a b)
-					 (names-equal-p a b))
-				 :count 1))
-  (update-has-store-item))
+(defun remove-from-inventory (item &key (exact-match-p t))
+  (if exact-match-p
+      (progn (setf *inventory*
+		   (remove item *inventory* :test #'equal))
+	     (update-has-store-item)
+	     item)
+      (do ((inventory *inventory* (cdr inventory))
+	   (new-inventory nil (if (and (not removed-item)
+				       (names-equal-p (car inventory) item))
+				  (progn (setf removed-item (car inventory))
+					 new-inventory)
+				  (cons (car inventory) new-inventory)))
+	   (removed-item nil))
+	  ((not inventory)
+	   (progn (setf *inventory* new-inventory)
+		  (update-has-store-item)
+		  removed-item)))))
 
 (defun in-inventoryp (item)
   (loop for i in *inventory*
@@ -190,22 +201,40 @@
 		    (equip-item)
 		    items-to-unequip)))))))))
 
+(defun get-items-with-name-of (item &key (limit -1))
+  (do ((inventory *inventory* (cdr inventory))
+       (collected-items nil))
+      ((or (= (length collected-items) limit)
+	   (not inventory))
+       collected-items)
+    (when (names-equal-p item (car inventory))
+      (push (car inventory) collected-items))))
+
 (defun sell-item (shopkeeper)
   (let ((sellable-items (loop for item in (short-inventory)
 			      unless (shopkeeper item)
 				collect item)))
     (if sellable-items
-	(let ((item (get-item-from-list sellable-items
-					:naming-function (lambda (item)
-							   (inventory-name item :sell-price-p t)))))
-	  (when item
-	    (remove-from-inventory item)
-	    (incf *gold* (sell-price item))
-	    (print-to-log "you sold ~a for ~d gold"
-			  (name item)
-			  (sell-price item))
-	    (setf (shopkeeper item) shopkeeper)
-	    (place item (pos shopkeeper) :solid nil)))
+	(flet ((sell (i)
+		 (remove-from-inventory i)
+		 (incf *gold* (sell-price i))
+		 (setf (shopkeeper i) shopkeeper)
+		 (place i (pos shopkeeper) :solid nil)))
+	  (let ((item (get-item-from-list sellable-items
+					  :naming-function (lambda (item)
+							     (inventory-name item :sell-price-p t))))
+		(num 1))
+	    (when item
+	      (let ((qty (num-in-inventory item)))
+		(when (> qty 1)
+		  (print-to-screen "~%how many ~as would you like to sell?~%"
+				   (name item))
+		  (setf num (get-number-input :min 1 :max qty))))
+	      (print-to-log "you sold ~d ~a~0@*~p for ~*~d gold"
+			    num
+			    (name item)
+			    (* num (sell-price item)))
+	      (mapc #'sell (get-items-with-name-of item :limit num)))))
 	(print-to-log "you don't have any items to sell"))))
 
 (defun checkout ()
