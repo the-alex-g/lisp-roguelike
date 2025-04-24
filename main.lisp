@@ -25,6 +25,10 @@
 
 (setf (slot-value *player* 'max-health) (health *player*))
 
+(defgeneric quaffablep (obj)
+  (:method ((obj potion)) t)
+  (:method (obj) nil))
+
 (defmethod drop-corpse ((obj enemy))
   (let ((corpse (make-corpse (pos obj))))
     (setf (name corpse) (log-to-string "~a corpse" (name obj)))

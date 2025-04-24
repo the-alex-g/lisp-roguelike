@@ -117,8 +117,9 @@
       (print-to-log (description item))))
 
 (defaction #\q 1 "quaff"
-  (with-time-safe-owned-item
-      (quaff item *player*)))
+  (with-filter #'quaffablep
+    (with-time-safe-owned-item
+      (quaff item *player*))))
 
 (defaction #\R 0 "rest"
   (flet ((cannot-rest ()
