@@ -1,6 +1,6 @@
 (defparameter *inventory* '())
 (defparameter *gold* 0)
-(defparameter *has-store-item-p* nil)
+(defparameter *shopkeeper* nil)
 
 (defun string-name (item)
   (let ((name (name item)))
@@ -23,8 +23,8 @@
 		      (cons (car inventory) items))))
       ((not inventory) (reverse items))))
 
-(defun update-has-store-item ()
-  (setf *has-store-item-p*
+(defun update-shopkeeper ()
+  (setf *shopkeeper*
 	(loop for item in *inventory*
 	      thereis (shopkeeper item))))
 
@@ -32,7 +32,7 @@
   (if exact-match-p
       (progn (setf *inventory*
 		   (remove item *inventory* :test #'equal))
-	     (update-has-store-item)
+	     (update-shopkeeper)
 	     item)
       (do ((inventory *inventory* (cdr inventory))
 	   (new-inventory nil (if (and (not removed-item)
@@ -43,7 +43,7 @@
 	   (removed-item nil))
 	  ((not inventory)
 	   (progn (setf *inventory* (reverse new-inventory))
-		  (update-has-store-item)
+		  (update-shopkeeper)
 		  removed-item)))))
 
 (defun in-inventoryp (item)
@@ -67,7 +67,7 @@
 		    collect i))
 	(setf *inventory* (append *inventory* (list item))))
     (when (shopkeeper item)
-      (setf *has-store-item-p* t))))
+      (setf *shopkeeper* (shopkeeper item)))))
 
 (defun reorder-inventory ()
   ;; recreate the inventory to group like items
@@ -266,11 +266,11 @@
 		    (mapcar #'name items-checked-out)
 		    (- starting-gold *gold*))
       (reorder-inventory)
-      (update-has-store-item))))
+      (update-shopkeeper))))
 
 (defun steal-items ()
   (loop for item in *inventory*
 	when (shopkeeper item)
 	  do (setf (enragedp (shopkeeper item)) t)
 	  and do (setf (shopkeeper item) nil))
-  (setf *has-store-item-p* nil))
+  (setf *shopkeeper* nil))

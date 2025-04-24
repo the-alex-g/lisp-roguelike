@@ -290,13 +290,12 @@
 
 (defgeneric move (obj direction)
   (:method :around ((obj player) direction)
-    (if *has-store-item-p*
-	(let ((shopkeeper (get-shopkeeper))
-	      (new-pos (vec+ (pos obj) direction)))
+    (if *shopkeeper*
+	(let ((new-pos (vec+ (pos obj) direction)))
 	  (if (and (not (solid new-pos))
-		   (or (> (distance new-pos (pos shopkeeper))
-			  (domain shopkeeper))
-		       (not (visiblep (pos shopkeeper) new-pos))))
+		   (or (> (distance new-pos (pos *shopkeeper*))
+			  (domain *shopkeeper*))
+		       (not (visiblep (pos *shopkeeper*) new-pos))))
 	      (when (confirmp  "if you move there, you will be stealing from the shopkeeper~
                                 ~%do you want to move anyway?")
 		(steal-items)
@@ -635,8 +634,7 @@
 			       (25 make-kobold)))
 			  (25 make-pit-trap)))))
   (setf *current-layer* (car *layers*))
-  (defparameter *shopkeeper* (make-shopkeeper (get-shop-position cells)))
-  (place *player* (pos *shopkeeper*)));(randnth cells)))
+  (place *player* (pos (make-shopkeeper (get-shop-position cells)))))
 (equip (make-sword) *player*)
 (loop repeat 2 do (add-to-inventory (make-dagger)))
 
