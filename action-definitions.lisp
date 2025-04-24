@@ -31,11 +31,11 @@
 	0)))
 
 (defmacro with-time-safe-item-from-inventory (&body body)
-  `(with-item-from-inventory-if (setf .time. 0)
+  `(with-item-from-inventory (setf .time. 0)
      ,@body))
 
 (defmacro with-time-safe-owned-item (&body body)
-  `(with-owned-item-if (setf .time. 0)
+  `(with-owned-item (setf .time. 0)
      ,@body))
 
 (defaction (#\4 #\h) 1 "move left" (move *player* +left+))

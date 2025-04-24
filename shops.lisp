@@ -21,8 +21,7 @@
 			(and (member new-pos cells :test #'equal)
 			     (not (solid pos))))
 		   sum 1)))
-    (flood-fill start (t (progn (print (adjacent-empty-cells current))
-				(if (>= (adjacent-empty-cells current) 8) current)))
+    (flood-fill start (t (if (>= (adjacent-empty-cells current) 8) current))
       (or result
 	  start))))
 

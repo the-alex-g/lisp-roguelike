@@ -182,9 +182,9 @@
   (flag "testing shops")
   (with-clean-board
     (let ((cells (append (loop for x below 3 collect (cons x 0))
-			(loop for x below 6 collect (cons x 1))
-			(loop for x below 3 collect (cons x 2))
-			(loop for y from 1 to 4 collect (cons 5 y)))))
+			 (loop for x below 6 collect (cons x 1))
+			 (loop for x below 3 collect (cons x 2))
+			 (loop for y from 1 to 4 collect (cons 5 y)))))
       (loop for y from -1 to 5
 	    do (loop for x from -1 to 6
 		     unless (member (cons x y) cells :test #'equal)

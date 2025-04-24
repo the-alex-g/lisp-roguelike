@@ -40,6 +40,10 @@
       (slot-value obj 'name)
       (cover-name obj)))
 
+(defgeneric sell-price (item)
+  (:method ((item equipment))
+    (ash (price item) -1)))
+
 (defgeneric color (obj)
   (:method ((obj number))
     (if (or (<= 30 obj 36)

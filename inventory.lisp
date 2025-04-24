@@ -2,22 +2,26 @@
 (defparameter *gold* 0)
 (defparameter *has-store-item-p* nil)
 
+(defun string-name (item)
+  (let ((name (name item)))
+    (if (stringp name)
+	name
+	(log-to-string "~a" name))))
+
 (defun names-equal-p (a b)
-  (and (string= (log-to-string "~a" (name a))
-		(log-to-string "~a" (name b)))
+  (and (string= (string-name a) (string-name b))
        (or (and (not (shopkeeper a))
 		(not (shopkeeper b)))
 	   (and (shopkeeper a)
 		(shopkeeper b)))))
 
 (defun short-inventory ()
-  (loop for item in *inventory*
-	with used-names = nil
-	with string-name = ""
-	do (setf string-name (log-to-string "~a" (name item)))
-	unless (member string-name used-names :test #'equal)
-	  collect (progn (push string-name used-names)
-			 item)))
+  (do ((inventory *inventory* (cdr inventory))
+       (used-names nil (cons (string-name (car inventory)) used-names))
+       (items nil (if (member (string-name (car inventory)) used-names :test #'string=)
+		      items
+		      (cons (car inventory) items))))
+      ((not inventory) (reverse items))))
 
 (defun update-has-store-item ()
   (setf *has-store-item-p*
@@ -38,7 +42,7 @@
 				  (cons (car inventory) new-inventory)))
 	   (removed-item nil))
 	  ((not inventory)
-	   (progn (setf *inventory* new-inventory)
+	   (progn (setf *inventory* (reverse new-inventory))
 		  (update-has-store-item)
 		  removed-item)))))
 
@@ -71,10 +75,6 @@
     (setf *inventory* nil)
     (loop for item in old-inventory
 	  do (add-to-inventory item))))
-
-(defgeneric sell-price (item)
-  (:method ((item equipment))
-    (ash (price item) -1)))
 
 (defun inventory-name (item &key (sell-price-p nil))
   (log-to-string "~[~;~:;~:*~dx ~]~a~:[~; (~d gold)~]"
@@ -115,33 +115,23 @@
    (short-inventory)
    :naming-function #'inventory-name))
 
-(defmacro with-item-from-inventory (&body body)
-  `(if (= (length *inventory*) 0)
-       (print-to-log "you have nothing in your inventory")
-       (let ((item (get-item-from-inventory)))
-	 (when item
-	   ,@body))))
-
-(defmacro with-owned-item (&body body)
-  `(if (owns-item-p)
-       (let ((item (get-owned-item)))
-	 (when item
-	   ,@body))
-       (print-to-log "you have no items")))
-
-(defmacro with-owned-item-if (no &body body)
-  `(if (owns-item-p)
-       (let ((item (get-owned-item)))
-	 (if item (progn ,@body) ,no))
-       (progn (print-to-log "you have no items")
-	      ,no)))
-
-(defmacro with-item-from-inventory-if (no &body body)
+(defmacro with-item-from-inventory (fail-case &body body)
   `(if (= (length *inventory*) 0)
        (progn (print-to-log "you have nothing in your inventory")
-	      ,no)
+	      ,fail-case)
        (let ((item (get-item-from-inventory)))
-	 (if item (progn ,@body) ,no))))
+	 (if item
+	     (progn ,@body)
+	     ,fail-case))))
+
+(defmacro with-owned-item (fail-case &body body)
+  `(if (owns-item-p)
+       (let ((item (get-owned-item)))
+	 (if item
+	     (progn ,@body)
+	     ,fail-case))
+       (progn (print-to-log "you have no items")
+	      ,fail-case)))
 
 (defun equippedp (item creature)
   (member item (gethash (equip-slot item) (equipment creature)) :test #'equal))
@@ -275,6 +265,7 @@
       (print-to-log "you bought~{ ~a~#[~; and~:;,~]~} for ~d gold"
 		    (mapcar #'name items-checked-out)
 		    (- starting-gold *gold*))
+      (reorder-inventory)
       (update-has-store-item))))
 
 (defun steal-items ()
@@ -283,8 +274,3 @@
 	  do (setf (enragedp (shopkeeper item)) t)
 	  and do (setf (shopkeeper item) nil))
   (setf *has-store-item-p* nil))
-
-(defun get-shopkeeper ()
-  (loop for item in *inventory*
-	when (shopkeeper item)
-	  return (shopkeeper item)))
