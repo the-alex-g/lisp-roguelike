@@ -11,9 +11,9 @@
  (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger")
  (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2)
  (defsecretequipment healing-potion
-     ((blue-potion :color 34)
-      (green-potion :color 32)
-      (red-potion :color 31))
+     ((blue-potion :color 'blue)
+      (green-potion :color 'green)
+      (red-potion :color 'red))
    ((healing (roll 2 4))) :inherit potion))
 (defequipment kobold-meat ()
   :sustenance (roll 1 10 5) :inherit food :description "recovers 6-15 hunger")
@@ -34,7 +34,7 @@
 			 (find-dc 10)
 			 (avoid-dc 10)
 			 (searchedp nil))
-  :solidp nil :color 31 :hiddenp t)
+  :solidp nil :color 'red :hiddenp t)
 
 (defactor corpse #\c (loot) :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
@@ -42,13 +42,13 @@
 
 ;; ENEMIES
 
-(defenemy goblin #\g () :color 32 :health (roll 1 4 1) :equips (make-dagger) :dex 1 :align 'e
+(defenemy goblin #\g () :color 'green :health (roll 1 4 1) :equips (make-dagger) :dex 1 :align 'e
   :meat (make-goblin-meat) :idle #'wander
   :loot `(((50 ,(make-gold 1)))))
 (defenemy goblin-archer #\g () :inherit goblin :equips (make-crude-bow))
-(defenemy kobold #\k () :color 91 :health (roll 1 4 1) :equips (make-dagger) :str 1 :dex 1 :armor 1
+(defenemy kobold #\k () :color 'dark-red :health (roll 1 4 1) :equips (make-dagger) :str 1 :dex 1 :armor 1
   :meat (make-kobold-meat) :align 'e :idle #'wander)
-(defenemy troll #\T () :color 96 :health (roll 2 8) :equips (make-warclub)
+(defenemy troll #\T () :color 39 :health (roll 2 8) :equips (make-warclub)
   :str 2 :dex -1 :armor 1 :spd 3/4 :con 2 :meat (roll 2 10 20) :align 'e)
 (defenemy shopkeeper #\U ((domain 4) (enragedp nil)) :color 'purple :health (roll 3 10 5)
   :equips `(,(make-sword-+1) ,(make-sword-+1)))

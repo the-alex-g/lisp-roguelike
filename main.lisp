@@ -5,7 +5,7 @@
 (load "class-definitions.lisp")
 
 (defparameter *player*
-  (make-instance 'player :health 20 :name "player" :color 31 :illumination 5 :char #\@))
+  (make-instance 'player :health 20 :name "player" :color 'red :illumination 5 :char #\@))
 
 (mapc #'load
       (list "class-methods.lisp"

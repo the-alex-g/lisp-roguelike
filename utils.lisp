@@ -298,9 +298,11 @@
        (let ((result (iterate (list ,start))))
 	 ,@body))))
 
-(defun apply-colors (arg colors)
-  (format nil "~c[~{~d~^;~}m~a~0@*~c[40;37m"
-	  #\esc (ensure-list colors)
+(defun apply-color (arg color &key (bg nil))
+  (format nil "~c[~d;5;~dm~a~0@*~c[40;37m"
+	  #\esc
+	  (if bg 48 38)
+	  (if (numberp color) color (color color))
 	  arg))
 
 (defun damage-string (atk)
