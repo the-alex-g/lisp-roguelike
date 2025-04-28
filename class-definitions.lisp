@@ -3,6 +3,7 @@
 (defstruct layer
   (solid-actors (make-hash-table :test #'equal))
   (non-solid-actors (make-hash-table :test #'equal))
+  (terrain (make-hash-table :test #'equal))
   glowing-actors
   up-ladder-pos
   down-ladder-pos)
@@ -28,6 +29,7 @@
    (armor :initform 0 :initarg :armor :accessor armor)
    (evasion :initform 0 :initarg :evd :writer (setf evasion))
    (max-health :initform 10 :reader max-health)
+   (idle-time :initform 0 :accessor idle-time)
    (equipment :initform (make-hash-table) :accessor equipment)
    (alignment :initform 'n :initarg :align :writer (setf alignment))
    (slot-nums :initform '((hand 2) (misc 3) (body 1)) :initarg :slot-nums :accessor slot-nums)

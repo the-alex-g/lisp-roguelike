@@ -9,6 +9,9 @@
 (defun non-solid-actors ()
   (layer-non-solid-actors *current-layer*))
 
+(defun terrain-table ()
+  (layer-terrain *current-layer*))
+
 (defun glowing-actors ()
   (layer-glowing-actors *current-layer*))
 
@@ -27,24 +30,18 @@
 (defun remove-glowing (actor)
   (setf (glowing-actors) (remove actor (glowing-actors))))
 
-(defun solid (pos)
-  (gethash pos (solid-actors)))
+(defmacro def-layer-accessors (name source)
+  `(progn (defun ,name (pos)
+	    (gethash pos (,source)))
+	  (defun (setf ,name) (value pos)
+	    (setf (gethash pos (,source)) value))
+	  (defun ,(read-from-string (format nil "remove-~a" name)) (pos)
+	    (remhash pos (,source)))))
 
-(defun (setf solid) (value pos)
-  (setf (gethash pos (solid-actors)) value))
+(def-layer-accessors terrain terrain-table)
+(def-layer-accessors solid solid-actors)
+(def-layer-accessors non-solid non-solid-actors)
 
-(defun remove-solid (pos)
-  (remhash pos (solid-actors)))
-
-(defun non-solid (pos)
-  (gethash pos (non-solid-actors)))
-
-(defun (setf non-solid) (value pos)
-  (setf (gethash pos (non-solid-actors)) value))
-
-(defun remove-non-solid (pos)
-  (remhash pos (non-solid-actors)))
-    
 (defun contents (pos)
   (or (solid pos) (non-solid pos)))
 
@@ -86,6 +83,8 @@
     (setf (layer-down-ladder-pos *current-layer*) down-ladder-pos)
     (place-walls cells)
     (populate-dungeon cells spawn-list 20)
+    (loop for cell in cells
+	  do (setf (terrain cell) #\.))
     cells))
 
 (defun add-layer (spawn-list)

@@ -25,6 +25,9 @@
       (slot-value obj 'name)
       (cover-name obj)))
 
+(defmethod stationaryp ((obj creature))
+  nil)
+
 (defgeneric sell-price (item)
   (:method ((item equipment))
     (ash (price item) -1)))

@@ -127,6 +127,34 @@
 	  (test +right+ 'actor nil)
 	  (test '(2 . 0) 'obstacle nil)))))
 
+(defun test-priority-lists ()
+  (flag "testing priority lists")
+  (print-test "appending works"
+	      (equal (priority-append '((2 . b) (4 . d)) '((1 . a) (3 . c)))
+		     '((1 . a) (2 . b) (3 . c) (4 . d))))
+  (print-test "adding works"
+	      (equal (priority-add '((1 . a) (2 . b)) '(3 . c))
+		     '((1 . a) (2 . b) (3 . c)))))
+
+(defun test-a-star ()
+  (flag "testing a*")
+  (with-clean-board
+    (labels ((print-explored-cells (cells &optional path)
+	       (loop for y from -1 to 6
+		     do (format t "~{~c~}~%"
+				(loop for x from -1 to 11
+				      collect (cond ((or (equal (cons x y) +zero+)
+							 (equal (cons x y) '(10 . 5)))
+						     #\*)
+						    ((member (cons x y) path :test #'equal)
+						     #\@)
+						    ((gethash (cons x y) cells)
+						     #\#)
+						    (t
+						     #\.)))))))
+      (multiple-value-bind (path cells) (dijkstra +zero+ '(10 . 5) (lambda (pos) 1))
+	(print-explored-cells cells path)))))
+
 (defun test-throw ()
   (flag "testing throwing")
   (with-clean-board
@@ -236,6 +264,8 @@
   (test-shops)
   (test-throw)
   (test-secret-equipment)
+  (test-priority-lists)
+  (test-a-star)
   (flag "testing tests")
   (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
 	      (= *tests-failed* 0)

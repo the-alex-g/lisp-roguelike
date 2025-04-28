@@ -105,6 +105,10 @@
   (sqrt (+ (square (car vector))
 	   (square (cdr vector)))))
 
+(defun manhattan (a b)
+  (+ (abs (- (car a) (car b)))
+     (abs (- (cdr a) (cdr b)))))
+
 (defun distance (a b &key (exactp nil))
   (if exactp
       (vec-length (vec- a b))
@@ -270,22 +274,50 @@
      (loop for m in modifiers
 	   sum m)))
 
+(defun priority-add (list new-item &optional (priority 0 priorityp))
+  (unless priorityp
+    (setf priority (car new-item))
+    (setf new-item (cdr new-item)))
+  (if list
+      (do ((old-items list (cdr old-items))
+	   (collectedp nil)
+	   (new-items nil (cons (car old-items)
+				(if (and (not collectedp)
+					 (< priority (caar old-items)))
+				    (progn (setf collectedp t)
+					   (cons (cons priority new-item) new-items))
+				    new-items))))
+	  ((not old-items) (reverse (if collectedp
+					new-items
+					(cons (cons priority new-item) new-items)))))
+      (list (cons priority new-item))))
+
+(defun priority-append (list1 list2)
+  (if (car list2)
+      (priority-append (priority-add list1 (car list2)) (cdr list2))
+      list1))
+
 (defmacro flood-fill (start (value-to-store exit-condition
 			     &key (solid t) (stop-for-occupied t) (go-until nil))
 		      &body body)
   `(let ((cells (make-hash-table :test #'equal)))
      (setf (gethash ,start cells) t)
      (labels ((occupiedp (pos)
-		(,(if solid 'solid 'non-solid) pos))
+		(and (,(if solid 'solid 'non-solid) pos)
+		     ,stop-for-occupied))
+	      (valid-neighbor-p (pos)
+		(and pos
+		     (not (gethash pos cells))
+		     (not (wallp (solid pos)))
+		     (or (not (occupiedp pos))
+			 (equal pos ,go-until))))
 	      (neighbors (pos)
 		(loop for direction in +directions+
-		      unless (let ((cell-pos (vec+ pos direction)))
-			       (or (gethash cell-pos cells)
-				   (wallp (solid cell-pos))
-				   (and (occupiedp cell-pos)
-					(not (equal cell-pos ,go-until))
-					,stop-for-occupied)))
-			collect (vec+ pos direction)))
+		      with neighbors = nil
+		      do (let* ((cell-pos (vec+ pos direction)))
+			   (when (valid-neighbor-p cell-pos)
+			     (push cell-pos neighbors)))
+		      finally (return neighbors)))
 	      (iterate (frontier)
 		(when (car frontier)
 		  (let* ((current (car frontier))
@@ -297,6 +329,49 @@
 			  (iterate (append (cdr frontier) neighbors))))))))
        (let ((result (iterate (list ,start))))
 	 ,@body))))
+
+(defgeneric stationaryp (obj)
+  (:method (obj) obj))
+
+(defun a-star (start end heuristic)
+  (let ((cells (make-hash-table :test #'equal))
+	(costs (make-hash-table :test #'equal)))
+    (setf (gethash start cells) t)
+    (setf (gethash start costs) 0)
+    (labels ((valid-neighbor-p (cost pos)
+	       (or (equal pos end)
+		   (and pos
+			(or (not (gethash pos costs))
+			    (< cost (gethash pos costs)))
+			(not (wallp (solid pos)))
+			(not (stationaryp (solid pos))))))
+	     (neighbors (of)
+	       (loop for direction in +directions+
+		     with neighbors = nil
+		     do (let* ((cell-pos (vec+ (cdr of) direction))
+			       (cell-cost (+ (gethash (cdr of) costs)
+					     (funcall heuristic cell-pos))))
+			  (when (valid-neighbor-p cell-cost cell-pos)
+			    (push (cons cell-cost cell-pos) neighbors)))
+		     finally (return neighbors)))
+	      (iterate (frontier)
+		(when (cdar frontier)
+		  (let* ((current (cdar frontier))
+			 (neighbors (neighbors (car frontier))))
+		    (or (equal current end)
+			(iterate (priority-append (cdr frontier)
+						  (mapcar (lambda (n)
+							    (setf (gethash (cdr n) cells) current)
+							    (setf (gethash (cdr n) costs) (car n))
+							    (cons (+ (car n) (manhattan (cdr n) end))
+								  (cdr n)))
+							  neighbors))))))))
+      (values (if (iterate (list (cons 0 start)))
+		  (do ((pos end (gethash pos cells))
+		       (path nil (cons pos path)))
+		      ((equal pos start) path))
+		  (list start))
+	      cells))))
 
 (defun apply-color (arg color &key (bg nil))
   (format nil "~c[~d;5;~dm~a~0@*~c[40;37m"
