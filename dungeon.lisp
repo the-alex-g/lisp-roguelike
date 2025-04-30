@@ -93,7 +93,7 @@
     (initialize-board spawn-list)))
 
 (defun place (obj pos &key (solid t))
-  (flood-fill pos (t (unless (occupiedp current) current) 
+  (flood-fill pos (t (unless (occupiedp current) current)
 		     :stop-for-occupied nil
 		     :solid solid)
     (when result

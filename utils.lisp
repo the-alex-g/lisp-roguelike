@@ -303,13 +303,12 @@
   `(let ((cells (make-hash-table :test #'equal)))
      (setf (gethash ,start cells) t)
      (labels ((occupiedp (pos)
-		(and (,(if solid 'solid 'non-solid) pos)
-		     ,stop-for-occupied))
+		(,(if solid 'solid 'non-solid) pos))
 	      (valid-neighbor-p (pos)
 		(and pos
 		     (not (gethash pos cells))
 		     (not (wallp (solid pos)))
-		     (or (not (occupiedp pos))
+		     (or (not (and (occupiedp pos) ,stop-for-occupied))
 			 (equal pos ,go-until))))
 	      (neighbors (pos)
 		(loop for direction in +directions+

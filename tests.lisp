@@ -152,7 +152,7 @@
 						     #\#)
 						    (t
 						     #\.)))))))
-      (multiple-value-bind (path cells) (dijkstra +zero+ '(10 . 5) (lambda (pos) 1))
+      (multiple-value-bind (path cells) (a-star +zero+ '(10 . 5) (lambda (pos) 1))
 	(print-explored-cells cells path)))))
 
 (defun test-throw ()
