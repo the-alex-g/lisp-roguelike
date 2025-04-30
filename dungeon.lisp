@@ -1,3 +1,5 @@
+(load "noise.lisp")
+
 (defparameter *board-size* '(60 . 20))
 (defparameter *layers* '())
 (defparameter *current-layer* (make-layer))
@@ -85,7 +87,10 @@
 
 (defun generate-terrain (cells)
   (loop for cell in cells
-	do (setf (terrain cell) 'standard)))
+	do (let ((noise (vec-noise cell :wavelength 5)))
+	     (setf (terrain cell)
+		   (cond ((< noise 0.25) 'difficult)
+			 (t 'standard))))))
 
 (defun initialize-board (spawn-list)
   (let* ((dungeon (generate-dungeon *board-size* 4))
