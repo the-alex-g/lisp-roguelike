@@ -63,3 +63,8 @@
 (defstatus evil :duration 10)
 (defstatus good :duration 10)
 (defstatus neutral :duration 10)
+
+;; TERRAINS
+
+(defterrain 'standard #\.)
+(defterrain 'difficult #\. :cost 2 :color 'green)

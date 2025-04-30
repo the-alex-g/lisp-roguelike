@@ -2,6 +2,15 @@
 (defparameter *layers* '())
 (defparameter *current-layer* (make-layer))
 (defparameter *current-depth* 0)
+(defparameter *terrain-costs* (make-hash-table))
+(defparameter *terrain-colors* (make-hash-table))
+(defparameter *terrain-characters* (make-hash-table))
+
+(defun defterrain (name character &key (cost 1) (color 7))
+  (setf (gethash name *terrain-characters*) character)
+  (setf (gethash name *terrain-costs*) cost)
+  (setf (gethash name *terrain-colors*) color)
+  name)
 
 (defun solid-actors ()
   (layer-solid-actors *current-layer*))
@@ -74,6 +83,10 @@
 		     ;; put a wall down
 		     do (setf (solid (cons x y)) 'wall))))
 
+(defun generate-terrain (cells)
+  (loop for cell in cells
+	do (setf (terrain cell) 'standard)))
+
 (defun initialize-board (spawn-list)
   (let* ((dungeon (generate-dungeon *board-size* 4))
 	 (cells (pos-flatten dungeon))
@@ -87,8 +100,7 @@
     (setf (layer-down-ladder-pos *current-layer*) down-ladder-pos)
     (place-walls cells)
     (populate-dungeon cells spawn-list 20)
-    (loop for cell in cells
-	  do (setf (terrain cell) #\.))
+    (generate-terrain cells)
     cells))
 
 (defun add-layer (spawn-list)
