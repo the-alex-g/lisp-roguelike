@@ -38,21 +38,29 @@
   `(with-owned-item (setf .time. 0)
      ,@body))
 
-(defaction (#\4 #\h) 1 "move left" (move *player* +left+))
+(defaction (#\4 #\h) 1 "move left"
+  (setf .time. (move *player* +left+)))
 
-(defaction (#\6 #\l) 1 "move right" (move *player* +right+))
+(defaction (#\6 #\l) 1 "move right"
+  (setf .time. (move *player* +right+)))
 
-(defaction (#\8 #\k) 1 "move up" (move *player* +up+))
+(defaction (#\8 #\k) 1 "move up"
+  (setf .time. (move *player* +up+)))
 
-(defaction (#\2 #\j) 1 "move down" (move *player* +down+))
+(defaction (#\2 #\j) 1 "move down"
+  (setf .time. (move *player* +down+)))
 
-(defaction (#\9 #\u) 1 "move up-right" (move *player* '(1 . -1)))
+(defaction (#\9 #\u) 1 "move up-right"
+  (setf .time. (move *player* '(1 . -1))))
 
-(defaction (#\7 #\y) 1 "move up-left" (move *player* '(-1 . -1)))
+(defaction (#\7 #\y) 1 "move up-left"
+  (setf .time. (move *player* '(-1 . -1))))
 
-(defaction (#\3 #\n) 1 "move down-right" (move *player* '(1 . 1)))
+(defaction (#\3 #\n) 1 "move down-right"
+  (setf .time. (move *player* '(1 . 1))))
 
-(defaction (#\1 #\b) 1 "move down-left" (move *player* '(-1 . 1)))
+(defaction (#\1 #\b) 1 "move down-left"
+  (setf .time. (move *player* '(-1 . 1))))
 
 (defaction #\P 1 "wait" t)
 

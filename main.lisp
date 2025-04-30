@@ -54,8 +54,7 @@
 
 (defgeneric movement-cost (object)
   (:method ((position list))
-    (apply #'+ (mapcar #'movement-cost
-		       (list (solid position) (non-solid position) (terrain position)))))
+    (apply #'+ (mapcar #'movement-cost (contents position :all t))))
   (:method ((obj (eql nil))) 0)
   (:method ((terrain character))
     1)
@@ -260,6 +259,14 @@
 		      damage)))))
 
 (defgeneric move-into (passive active)
+  (:method ((passive (eql nil)) active))
+  (:method ((position list) active)
+    (let ((cost (movement-cost position)))
+      (print (contents position :all t))
+      (mapc (lambda (p)
+	      (move-into p active))
+	    (contents position :all t))
+      cost))
   (:method ((passive creature) (active player))
     (when (if (hostilep passive active)
 	      t
@@ -285,16 +292,17 @@
 
 (defgeneric reposition (obj new-pos)
   (:method :around ((obj creature) new-pos)
-    (unless (has-status-p obj 'immobilized)
-      (call-next-method)))
+    (if (has-status-p obj 'immobilized)
+	1
+	(call-next-method)))
   (:method ((obj actor) new-pos)
-    (let ((collider (solid new-pos)))
-      (if collider
-	  (move-into collider obj)
-	  (progn (remove-solid (pos obj))
-		 (setf (solid new-pos) obj)
-		 (setf (pos obj) new-pos)
-		 (move-into (non-solid new-pos) obj))))))
+    (let ((collider (solid new-pos))
+	  (cost (move-into new-pos obj)))
+      (unless collider
+	(remove-solid (pos obj))
+	(setf (solid new-pos) obj)
+	(setf (pos obj) new-pos))
+      (if collider 1 cost))))
 
 (defgeneric move (obj direction)
   (:method :around ((obj player) direction)
@@ -355,12 +363,14 @@
       (when closest-hostile
 	(setf (target-pos obj) (pos closest-hostile))))
     (loop while (>= (energy obj) 1)
-	  do (decf (energy obj))
-	  if (target-pos obj)
-	    do (call-next-method)
-	  else
-	    if (idle-behavior obj)
-	      do (funcall (idle-behavior obj) obj)))
+	  do (decf (energy obj)
+		   (let ((result (cond ((target-pos obj)
+					(call-next-method))
+				       ((idle-behavior obj)
+					(funcall (idle-behavior obj) obj)))))
+		     (if (numberp result)
+			 result
+			 1)))))
   (:method ((obj shopkeeper))
     (when (enragedp obj)
       (call-next-method)))
@@ -387,7 +397,8 @@
 			  (hostilep target obj))
 		     (attack target obj))))
 	    ((not afraidp)
-	     (step-on-path path obj))))
+	     (step-on-path path obj)))))
+  (:method :after ((obj enemy))
     (if (<= (distance (pos obj) (target-pos obj)) 1)
 	(setf (target-pos obj) nil))))
 
@@ -602,8 +613,7 @@
 					    (display-char actor))
 					   ((visiblep pos (pos *player*)) #\.)
 					   (t #\space))))
-		     (or (nth (1+ y) player-lines)
-			 "")))))
+		     (or (nth (1+ y) player-lines) "")))))
 
 (defun print-game ()
   (clear-screen)

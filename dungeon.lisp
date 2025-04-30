@@ -42,8 +42,12 @@
 (def-layer-accessors solid solid-actors)
 (def-layer-accessors non-solid non-solid-actors)
 
-(defun contents (pos)
-  (or (solid pos) (non-solid pos)))
+(defun contents (pos &key (all nil))
+  (if all
+      (list (solid pos)
+	    (non-solid pos)
+	    (terrain pos))
+      (or (solid pos) (non-solid pos))))
 
 (defun down-ladder-pos ()
   (layer-down-ladder-pos *current-layer*))
