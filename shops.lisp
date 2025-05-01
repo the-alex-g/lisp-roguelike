@@ -12,19 +12,6 @@
 (defun place-shop-item (pos shopkeeper)
   (setf (shopkeeper (funcall (get-shop-item-constructor) pos)) shopkeeper))
 
-(defun get-shop-position (cells &key start)
-  (unless start
-    (setf start (randnth cells)))
-  (flet ((adjacent-empty-cells (pos)
-	   (loop for direction in +directions+
-		 when (let ((new-pos (vec+ direction pos)))
-			(and (member new-pos cells :test #'equal)
-			     (not (solid pos))))
-		   sum 1)))
-    (flood-fill start (t (if (= (adjacent-empty-cells current) 8) current))
-      (or result
-	  start))))
-
 (defmethod make-shopkeeper :around (pos)
   (let ((shopkeeper (call-next-method)))
     (loop for x from (- (car pos) (domain shopkeeper)) to (+ (car pos) (domain shopkeeper))

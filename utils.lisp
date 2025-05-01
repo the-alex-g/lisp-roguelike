@@ -11,6 +11,7 @@
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 (defparameter *fake-input* nil)
+(defparameter *terminal-size* '(80 . 31))
 
 (setf (gethash +left+ +direction-names+) "west")
 (setf (gethash +right+ +direction-names+) "east")
@@ -158,17 +159,42 @@
 	  do (setf best-point p)
 	finally (return best-point)))
 
+(defun string-length (string)
+  (do ((chars (coerce string 'list) (cdr chars))
+       (collecting t (let ((new-val (cond ((eq (car chars) #\esc)
+					   nil)
+					  ((eq (car chars) #\m)
+					   t)
+					  (t
+					   collecting))))
+		       (unless (eq new-val collecting)
+			 (decf size)
+			 (incf trimmed-chars))
+		       new-val))
+       (trimmed-chars 0 (if collecting trimmed-chars (1+ trimmed-chars)))
+       (size 0 (if collecting (1+ size) size)))
+      ((not chars) (values size trimmed-chars))))
+
+(defun max-dimensions (string-list)
+  (do ((max-width 0)
+       (max-size 0)
+       (items string-list (cdr items)))
+      ((not items) (values max-size max-width))
+    (multiple-value-bind (size trim-size) (string-length (car items))
+      (setf max-width (max max-width (+ size trim-size)))
+      (setf max-size (max max-size size)))))
+
 (defun column-print (list-of-items
 		     &key
 		       (indexp nil) (columns 2) (fit-screen t)
 		       (print-function #'print-to-screen))
-  (let ((tab-length (+ (loop for item in list-of-items maximizing (length item))
-		       (if indexp 5 2))))
-    (if (> tab-length 40)
+  (multiple-value-bind (item-width tab-length) (max-dimensions list-of-items)
+    (if (> item-width (/ (car *terminal-size*) 2))
 	(setf columns 1)
 	(when fit-screen
 	  (setf columns
-		(floor (/ (if indexp 78 80) tab-length)))))
+		(floor (/ (- (car *terminal-size*) (if indexp 2 0))
+			  item-width)))))
     (funcall print-function
 	      "~{~@?~}"
 	      (do ((remaining-items list-of-items (cdr remaining-items))

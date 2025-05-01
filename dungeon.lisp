@@ -8,6 +8,24 @@
 (defparameter *terrain-colors* (make-hash-table))
 (defparameter *terrain-characters* (make-hash-table))
 
+(defun get-spawn-position (cells restrictions &key start)
+  (unless start
+    (setf start (randnth cells)))
+  (flet ((adjacent-empty-cells (pos)
+	   (loop for direction in +directions+
+		 when (let ((new-pos (vec+ direction pos)))
+			(and (member new-pos cells :test #'equal)
+			     (not (solid pos))))
+		   sum 1)))
+    (flood-fill start (t (when (cond ((numberp restrictions)
+				      (>= (adjacent-empty-cells current)
+					  restrictions))
+				     ((listp restrictions)
+				      (member (adjacent-empty-cells current) restrictions)))
+			   current))
+      (or result
+	  start))))
+
 (defun defterrain (name character &key (cost 1) (color 7))
   (setf (gethash name *terrain-characters*) character)
   (setf (gethash name *terrain-costs*) cost)
@@ -92,8 +110,19 @@
 		   (cond ((< noise 0.25) 'difficult)
 			 (t 'standard))))))
 
-(defun initialize-board (spawn-list)
+(defun furnish-dungeon (rooms furniture)
+  (mapc (lambda (room)
+	  (loop repeat (random (max 1 (floor (/ (length room) 8))))
+		do (let ((function (car (eval-weighted-list furniture))))
+		     (funcall function
+			      (get-spawn-position
+			       room
+			       (gethash function *neighbors-required* 0))))))
+	rooms))
+
+(defun initialize-board (hazards furniture)
   (let* ((dungeon (generate-dungeon *board-size* 4))
+	 (rooms (car dungeon))
 	 (cells (pos-flatten dungeon))
 	 (up-ladder-pos (randnth cells))
 	 (down-ladder-pos (randnth (loop for cell in cells
@@ -104,14 +133,15 @@
     (setf (layer-up-ladder-pos *current-layer*) up-ladder-pos)
     (setf (layer-down-ladder-pos *current-layer*) down-ladder-pos)
     (place-walls cells)
-    (populate-dungeon cells spawn-list 20)
+    (furnish-dungeon rooms furniture)
+    (populate-dungeon cells hazards 20)
     (generate-terrain cells)
     cells))
 
-(defun add-layer (spawn-list)
+(defun add-layer (hazards furniture)
   (let ((*current-layer* (make-layer)))
     (push *current-layer* *layers*)
-    (initialize-board spawn-list)))
+    (initialize-board hazards furniture)))
 
 (defun place (obj pos &key (solid t))
   (flood-fill pos (t (unless (occupiedp current) current)

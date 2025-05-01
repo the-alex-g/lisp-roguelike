@@ -241,7 +241,7 @@
 	    do (loop for x below 6
 		     do (format t "~:[ ~;#~]" (member (cons x y) cells :test #'equal)))
 	    do (terpri))
-      (let ((shop-pos (get-shop-position cells :start '(5 . 4))))
+      (let ((shop-pos (get-spawn-position cells 8 :start '(5 . 4))))
 	(print-test "shop positions correctly (shop at ~a)"
 		    (equal shop-pos '(1 . 1))
 		    shop-pos))))

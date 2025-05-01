@@ -14,6 +14,7 @@
    (pos :initform +zero+ :initarg :pos :accessor pos)
    (name :initform "" :initarg :name :accessor name)
    (color :initform 15 :initarg :color :writer (setf color))
+   (bg-color :initform nil :initarg :bg-color :writer (setf bg-color))
    (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)
    (description :initform nil :initarg :description :writer (setf description))))
 

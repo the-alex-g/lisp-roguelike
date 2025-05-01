@@ -39,6 +39,8 @@
 (defactor corpse #\c (loot) :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
 (defactor pit-trap #\! () :inherit trap :solidp nil)
+(defactor table #\space () :solidp nil :bg-color '(2 1 0) :neighbors 8)
+(defactor brazier #\u () :solidp t :color '(5 4 0) :illumination 3 :neighbors '(5 3))
 
 ;; ENEMIES
 

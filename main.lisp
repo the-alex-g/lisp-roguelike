@@ -2,6 +2,7 @@
 (ql:quickload :trivial-raw-io)
 
 (load "utils.lisp")
+(load "colors.lisp")
 (load "class-definitions.lisp")
 
 (defparameter *player*
@@ -255,7 +256,7 @@
 		      (name trap))
 	(call-next-method)))
   (:method ((trap pit-trap) (activator creature))
-    (let ((damage (damage activator (roll 1 6) 'bludgeoning)))
+    (let ((damage (damage activator (roll 1 6) '(bludgeoning))))
       (when (playerp activator)
 	(print-to-log "you triggered a ~a and took ~d damage"
 		      (name trap)
@@ -645,14 +646,18 @@
 			    (25 make-goblin-archer)))
 		       (25 make-kobold)))
 		  (25 make-troll)))
-	     (25 make-pit-trap)))
+	     (25 make-pit-trap))
+	   '((50 make-table)
+	     (50 make-brazier)))
 
 (let ((cells (add-layer '((75 ((75 ((25 make-goblin-archer)
 				    (75 make-goblin)))
 			       (25 make-kobold)))
-			  (25 make-pit-trap)))))
+			  (25 make-pit-trap))
+			'((50 make-table)
+			  (50 make-brazier)))))
   (setf *current-layer* (car *layers*))
-  (place *player* (pos (make-shopkeeper (get-shop-position cells)))))
+  (place *player* (pos (make-shopkeeper (get-spawn-position cells 8)))))
 (equip (make-sword) *player*)
 (loop repeat 2 do (add-to-inventory (make-dagger)))
 

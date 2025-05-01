@@ -1,3 +1,5 @@
+(defparameter *neighbors-required* (make-hash-table))
+
 ;; initialize helper functions for macros
 (labels ((build-slot (slt) ; creates slot information for new slots
 	     (list (if (listp slt)
@@ -68,12 +70,14 @@
   (defmacro defactor (name display-char new-slots
 		      &rest keys
 		      &key (inherit 'actor) ((:name name-override) nil name-overriden-p)
-			(solidp t)
+			(solidp t) (neighbors 0)
 		      &allow-other-keys)
     (remf keys :inherit)
     (remf keys :solidp)
     (remf keys :name)
-    `(progn (defclass ,name (,inherit) (,@(mapcan #'build-slot new-slots)
+    (remf keys :neighbors)
+    `(progn (setf (gethash ',(constructor name) *neighbors-required*) ,neighbors)
+	    (defclass ,name (,inherit) (,@(mapcan #'build-slot new-slots)
 					,@(reinit-slots keys nil nil)
 					,(if name-overriden-p
 					     `(name :initform ,name-override)
