@@ -41,6 +41,22 @@
 (defmethod kill :after ((obj enemy))
   (gain-experience (xp obj)))
 
+(defmethod kill :after ((obj equipment))
+  (when (shopkeeper obj)
+    (let ((debt (make-debt)))
+      (print-to-log "you owe the shopkeeper ~d gold for destroying the ~a"
+		    (price obj)
+		    (name obj))
+      (setf (price debt) (price obj))
+      (setf (shopkeeper debt) (shopkeeper obj))
+      (add-to-inventory debt))))
+
+(defmethod remove-from-inventory ((item debt) &key (selling nil) &allow-other-keys)
+  (if selling
+      (call-next-method)
+      (print-to-log "you can't get rid of debt that easily")))
+
+
 (defun apply-default-colors ()
   (format t "~c[40;37m" #\esc))
 
@@ -166,6 +182,7 @@
 	(visiblep (pos obj) from))))
 
 (defgeneric attack (defender attacker)
+  (:method (defender attacker))
   (:method :after ((defender shopkeeper) (attacker player))
     (setf (enragedp defender) t))
   (:method :after ((defender creature) (attacker player))
@@ -334,10 +351,11 @@
 		   (or (> (distance new-pos (pos *shopkeeper*))
 			  (domain *shopkeeper*))
 		       (not (visiblep (pos *shopkeeper*) new-pos))))
-	      (when (confirmp  "if you move there, you will be stealing from the shopkeeper~
+	      (if (confirmp  "if you move there, you will be stealing from the shopkeeper~
                                 ~%do you want to move anyway?")
-		(steal-items)
-		(call-next-method))
+		  (progn (steal-items)
+			 (call-next-method))
+		  0)
 	      (call-next-method)))
 	(call-next-method)))
   (:method :after ((obj creature) direction)

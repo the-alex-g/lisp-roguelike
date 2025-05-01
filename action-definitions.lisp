@@ -78,8 +78,8 @@
 
 (defaction #\D 1 "drop an item"
   (with-time-safe-item-from-inventory
-      (remove-from-inventory item)
-    (place item (pos *player*) :solid nil)))
+      (when (remove-from-inventory item)
+	(place item (pos *player*) :solid nil))))
 
 (defaction #\e 1 "equip an item"
   (with-time-safe-item-from-inventory

@@ -22,6 +22,7 @@
 (defequipment fist () :atk '(1 3 -1 0 bludgeoning) :inherit weapon :break-chance -100)
 (defequipment gold (amount) :solidp nil :color 'yellow :char #\*)
 (defequipment crude-bow () :inherit bow :atk '(1 3 0 -1 piercing) :break-chance 3)
+(defequipment debt () :break-chance -100000)
 
 (defun make-gold (&optional (amount 1))
   (let ((gold (make-instance 'gold)))

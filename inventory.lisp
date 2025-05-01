@@ -53,23 +53,24 @@
 	(loop for item in *inventory*
 	      thereis (shopkeeper item))))
 
-(defun remove-from-inventory (item &key (exact-match-p t))
-  (if exact-match-p
-      (progn (setf *inventory*
-		   (remove item *inventory* :test #'equal))
-	     (update-shopkeeper)
-	     item)
-      (do ((inventory *inventory* (cdr inventory))
-	   (new-inventory nil (if (and (not removed-item)
-				       (names-equal-p (car inventory) item))
-				  (progn (setf removed-item (car inventory))
-					 new-inventory)
-				  (cons (car inventory) new-inventory)))
-	   (removed-item nil))
-	  ((not inventory)
-	   (progn (setf *inventory* (reverse new-inventory))
-		  (update-shopkeeper)
-		  removed-item)))))
+(defgeneric remove-from-inventory (item &key &allow-other-keys)
+  (:method ((item equipment) &key (exact-match-p t) &allow-other-keys)
+    (if exact-match-p
+	(progn (setf *inventory*
+		     (remove item *inventory* :test #'equal))
+	       (update-shopkeeper)
+	       item)
+	(do ((inventory *inventory* (cdr inventory))
+	     (new-inventory nil (if (and (not removed-item)
+					 (names-equal-p (car inventory) item))
+				    (progn (setf removed-item (car inventory))
+					   new-inventory)
+				    (cons (car inventory) new-inventory)))
+	     (removed-item nil))
+	    ((not inventory)
+	     (progn (setf *inventory* (reverse new-inventory))
+		    (update-shopkeeper)
+		    removed-item))))))
 
 (defun in-inventoryp (item)
   (loop for i in (get-inventory)
@@ -228,7 +229,7 @@
 				collect item)))
     (if sellable-items
 	(flet ((sell (i)
-		 (remove-from-inventory i)
+		 (remove-from-inventory i :selling t)
 		 (incf *gold* (sell-price i))
 		 (setf (shopkeeper i) shopkeeper)
 		 (place i (pos shopkeeper) :solid nil)))

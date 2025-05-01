@@ -334,8 +334,9 @@
 		(and pos
 		     (not (gethash pos cells))
 		     (not (wallp (solid pos)))
-		     (or (not (and (occupiedp pos) ,stop-for-occupied))
-			 (equal pos ,go-until))))
+		     ,(if stop-for-occupied
+			  `(or (not (occupiedp pos)) (equal pos ,go-until))
+			  t)))
 	      (neighbors (pos)
 		(loop for direction in +directions+
 		      with neighbors = nil
@@ -346,9 +347,8 @@
 	      (iterate (frontier)
 		(when (car frontier)
 		  (let* ((current (car frontier))
-			 (neighbors (neighbors current))
-			 (exit-condition ,exit-condition))
-		    (or exit-condition
+			 (neighbors (neighbors current)))
+		    (or ,exit-condition
 			(progn
 			  (mapc (lambda (n) (setf (gethash n cells) ,value-to-store)) neighbors)
 			  (iterate (append (cdr frontier) neighbors))))))))
