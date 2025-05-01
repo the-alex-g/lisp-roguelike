@@ -9,6 +9,7 @@
 
 (mapc #'load
       (list "class-methods.lisp"
+	    "masking.lisp"
 	    "bsp-dungeon.lisp"
 	    "dungeon.lisp"
 	    "terminal.lisp"
@@ -20,6 +21,8 @@
 	    "alignment.lisp"
 	    "leveling.lisp"
 	    "action-definitions.lisp"))
+
+(define-mask-set '(slashing piercing bludgeoning acid lightning cold fire holy unholy necrotic))
 
 (defparameter *print-surroundings-mode* 'my-space)
 
@@ -75,7 +78,7 @@
 	 (make-attack :dmg (roll num die (str attacker) dmg-bonus)
 		      :to-hit (roll 1 20 to-hit (dex attacker))
 		      :source (name attacker)
-		      :types (ensure-list types)
+		      :types (make-mask (ensure-list types))
 		      :statuses (ensure-list statuses))))
   (defgeneric get-attack (weapon attacker)
     (:method ((weapon equipment) (attacker creature))
@@ -84,17 +87,17 @@
       (apply #'generate-attack attacker weapon))))
 
 (defun damage-modifier (defender damage-types)
-  (labels ((calculate-damage-modifier (mod types)
-	     (if types
-		 (calculate-damage-modifier
-		  (* mod (cond ((absorbp defender (car types)) -1)
-			       ((immunep defender (car types)) 0)
-			       ((resistp defender (car types)) 0.5)
-			       ((vulnerablep defender (car types)) 2)
-			       (t 1)))
-		  (cdr types))
-		 mod)))
-    (calculate-damage-modifier 1 (ensure-list damage-types))))
+  (unless (numberp damage-types)
+    (setf damage-types (make-mask damage-types)))
+  (let* ((traits (list (absorbances defender)
+		       (resistances defender)
+		       (vulnerabilities defender)
+		       (immunities defender)))
+	 (others (lognot (apply #'logior traits))))
+    (/ (loop for trait in (append traits (list others))
+	     for modifier in '(-1 1/2 2 0 1)
+	     sum (* (mask trait damage-types) modifier))
+       (logcount damage-types))))
 
 (defun damage (defender amount types &optional statuses)
   (let* ((base-damage (max 1 (- amount (armor defender))))
@@ -262,7 +265,6 @@
   (:method ((passive (eql nil)) active))
   (:method ((position list) active)
     (let ((cost (movement-cost position)))
-      (print (contents position :all t))
       (mapc (lambda (p)
 	      (move-into p active))
 	    (contents position :all t))

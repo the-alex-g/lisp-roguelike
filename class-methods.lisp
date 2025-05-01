@@ -113,22 +113,6 @@
   (:method ((obj creature))
     "killing it"))
 
-(defgeneric resistp (obj type)
-  (:method ((obj creature) type)
-    (member type (resistances obj))))
-
-(defgeneric immunep (obj type)
-  (:method ((obj creature) type)
-    (member type (immunities obj))))
-
-(defgeneric vulnerablep (obj type)
-  (:method ((obj creature) type)
-    (member type (vulnerabilities obj))))
-
-(defgeneric absorbp (obj type)
-  (:method ((obj creature) type)
-    (member type (absorbances obj))))
-
 (defgeneric weapons (obj)
   (:method ((obj creature))
     (let ((held-items (gethash 'hand (equipment obj))))
@@ -195,3 +179,22 @@
 	  (remove status
 		  (statuses (target status)))))
   (:method (status)))
+
+(macrolet ((define-damage-mod-accessors (name)
+	     `(progn (defgeneric ,name (obj)
+		       (:method ((obj creature))
+			 (let ((damage-types (slot-value obj ',name)))
+			   (if (numberp damage-types)
+			       damage-types
+			       (let ((mask (make-mask damage-types)))
+				 (setf (,name obj) mask)
+				 mask)))))
+		     (defgeneric (setf ,name) (value obj)
+		       (:method ((value number) (obj creature))
+			 (setf (slot-value obj ',name) value))
+		       (:method ((value list) (obj creature))
+			 (setf (slot-value obj ',name) (make-mask value)))))))
+  (define-damage-mod-accessors resistances)
+  (define-damage-mod-accessors immunities)
+  (define-damage-mod-accessors absorbances)
+  (define-damage-mod-accessors vulnerabilities))
