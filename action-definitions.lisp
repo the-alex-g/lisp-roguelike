@@ -1,6 +1,5 @@
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
-(defparameter *game-over-p* nil)
 
 (defmacro defaction ((&rest keys) time description &body body)
   (let ((key (gensym))
@@ -23,12 +22,6 @@
 	  ,@body
 	  (print-to-screen "~2%press any key to return to game")
 	  (custom-read-char)))
-
-(defun resolve-action (input)
-  (let ((action (gethash input *actions*)))
-    (if action
-	(funcall action)
-	0)))
 
 (defmacro with-time-safe-item-from-inventory (&body body)
   `(with-item-from-inventory (setf .time. 0)

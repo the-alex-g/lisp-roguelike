@@ -38,3 +38,6 @@
      (unwind-protect
 	  (progn ,@body)
        (escape-code #\m 0))))
+
+(defun apply-default-colors ()
+  (format t "~c[40;37m" #\esc))

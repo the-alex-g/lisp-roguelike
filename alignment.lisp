@@ -10,24 +10,6 @@
 	   (apply-to obj (make-evil-status))
 	   'e))))
 
-(defgeneric alignment (obj)
-  (:method ((obj creature))
-    (let ((alignment (slot-value obj 'alignment)))
-      (cond ((has-status-p obj 'neutral)
-	     'n)
-	    ((eq alignment 'n)
-	     (apply-alignment-status obj))
-	    ((has-status-p obj 'evil)
-	     'e)
-	    ((has-status-p obj 'good)
-	     'g)
-	    ((eq alignment 'e)
-	     'e)
-	    ((eq alignment 'g)
-	     'g)
-	    (t
-	     'n)))))
-
 (defun evilp (obj)
   (eq (alignment obj) 'e))
 
@@ -36,18 +18,6 @@
 
 (defun neutralp (obj)
   (eq (alignment obj) 'n))
-
-(defgeneric hostilep (obj to)
-  (:method (obj to) nil)
-  (:method ((obj creature) (to creature))
-    (or (and (evilp obj) (goodp to))
-	(and (evilp to) (goodp obj))))
-  (:method ((obj shopkeeper) (to player))
-    (enragedp obj))
-  (:method ((obj shopkeeper) (to creature))
-    nil)
-  (:method ((obj creature) (to shopkeeper))
-    nil))
 
 (defun is-hostile-in-los-of-p (obj)
   (loop for actor being the hash-values of (solid-actors)

@@ -357,49 +357,6 @@
        (let ((result (iterate (list ,start))))
 	 ,@body))))
 
-(defgeneric stationaryp (obj)
-  (:method (obj) obj))
-
-(defun a-star (start end heuristic)
-  (let ((cells (make-hash-table :test #'equal))
-	(costs (make-hash-table :test #'equal)))
-    (setf (gethash start cells) t)
-    (setf (gethash start costs) 0)
-    (labels ((valid-neighbor-p (cost pos)
-	       (or (equal pos end)
-		   (and pos
-			(or (not (gethash pos costs))
-			    (< cost (gethash pos costs)))
-			(not (wallp (solid pos)))
-			(not (stationaryp (solid pos))))))
-	     (neighbors (of)
-	       (loop for direction in +directions+
-		     with neighbors = nil
-		     do (let* ((cell-pos (vec+ (cdr of) direction))
-			       (cell-cost (+ (gethash (cdr of) costs)
-					     (funcall heuristic cell-pos))))
-			  (when (valid-neighbor-p cell-cost cell-pos)
-			    (push (cons cell-cost cell-pos) neighbors)))
-		     finally (return neighbors)))
-	      (iterate (frontier)
-		(when (cdar frontier)
-		  (let* ((current (cdar frontier))
-			 (neighbors (neighbors (car frontier))))
-		    (or (equal current end)
-			(iterate (priority-append (cdr frontier)
-						  (mapcar (lambda (n)
-							    (setf (gethash (cdr n) cells) current)
-							    (setf (gethash (cdr n) costs) (car n))
-							    (cons (+ (car n) (manhattan (cdr n) end))
-								  (cdr n)))
-							  neighbors))))))))
-      (values (if (iterate (list (cons 0 start)))
-		  (do ((pos end (gethash pos cells))
-		       (path nil (cons pos path)))
-		      ((equal pos start) path))
-		  (list start))
-	      cells))))
-
 (defun apply-color (arg color &key (bg nil)
 				(function (lambda (&rest args) (apply #'format nil args))))
   (funcall function "~c[~d;5;~dm~a~0@*~c[40;37m" #\esc
@@ -438,3 +395,7 @@
        (if zero
 	   (cons +zero+ +directions+)
 	   +directions+)))
+
+(defun has-status-p (obj status-name)
+  (loop for status in (statuses obj)
+	  thereis (eq status-name (type-of status))))

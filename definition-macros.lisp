@@ -1,5 +1,3 @@
-(defparameter *neighbors-required* (make-hash-table))
-
 ;; initialize helper functions for macros
 (labels ((build-slot (slt) ; creates slot information for new slots
 	     (list (if (listp slt)

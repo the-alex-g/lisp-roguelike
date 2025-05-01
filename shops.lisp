@@ -11,14 +11,3 @@
 
 (defun place-shop-item (pos shopkeeper)
   (setf (shopkeeper (funcall (get-shop-item-constructor) pos)) shopkeeper))
-
-(defmethod make-shopkeeper :around (pos)
-  (let ((shopkeeper (call-next-method)))
-    (loop for x from (- (car pos) (domain shopkeeper)) to (+ (car pos) (domain shopkeeper))
-	  do (loop for y from (- (cdr pos) (domain shopkeeper))
-		     to (+ (cdr pos) (domain shopkeeper))
-		   when (and (= (random 6) 0)
-			     (not (equal (cons x y) pos))
-			     (visiblep (cons x y) shopkeeper))
-		     do (place-shop-item (cons x y) shopkeeper)))
-    shopkeeper))

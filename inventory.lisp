@@ -53,24 +53,6 @@
 	(loop for item in *inventory*
 	      thereis (shopkeeper item))))
 
-(defgeneric remove-from-inventory (item &key &allow-other-keys)
-  (:method ((item equipment) &key (exact-match-p t) &allow-other-keys)
-    (if exact-match-p
-	(progn (setf *inventory*
-		     (remove item *inventory* :test #'equal))
-	       (update-shopkeeper)
-	       item)
-	(do ((inventory *inventory* (cdr inventory))
-	     (new-inventory nil (if (and (not removed-item)
-					 (names-equal-p (car inventory) item))
-				    (progn (setf removed-item (car inventory))
-					   new-inventory)
-				    (cons (car inventory) new-inventory)))
-	     (removed-item nil))
-	    ((not inventory)
-	     (progn (setf *inventory* (reverse new-inventory))
-		    (update-shopkeeper)
-		    removed-item))))))
 
 (defun in-inventoryp (item)
   (loop for i in (get-inventory)
@@ -79,21 +61,6 @@
 (defun num-in-inventory (item)
   (loop for i in *inventory*
 	count (names-equal-p i item)))
-
-(defgeneric add-to-inventory (item)
-  (:method ((item equipment))
-    (if (in-inventoryp item)
-	(setf *inventory*
-	      ;; put the new item next to others with the same name
-	      (loop for i in *inventory*
-		    with needs-collecting = t
-		    when (and needs-collecting (names-equal-p item i))
-		      collect item
-		      and do (setf needs-collecting nil)
-		    collect i))
-	(setf *inventory* (append *inventory* (list item))))
-    (when (shopkeeper item)
-      (setf *shopkeeper* (shopkeeper item)))))
 
 (defun reorder-inventory ()
   ;; recreate the inventory to group like items
@@ -158,61 +125,6 @@
 
 (defun equippedp (item creature)
   (member item (gethash (equip-slot item) (equipment creature)) :test #'equal))
-
-(defgeneric unequip (item actor &key to)
-  (:method (item actor &key to))
-  (:method :after ((item equipment) (actor player) &key (to 'inventory))
-    (declare (ignore actor))
-    (cond ((eq to 'inventory)
-	   (add-to-inventory item))
-	  ((eq to 'ground)
-	   (place item (pos *player*) :solid nil))))
-  (:method :after ((item equipment) (actor creature) &key to)
-    (declare (ignore to))
-    (setf (gethash (equip-slot item) (equipment actor))
-	  (remove item (gethash (equip-slot item) (equipment actor)) :test #'equal))))
-
-(defgeneric equip (item actor)
-  (:method (item actor))
-  (:method :around ((item equipment) (actor player))
-    (if (shopkeeper item)
-	(progn (print-to-log "you must buy that before equipping it")
-	       nil)
-	(let ((result (call-next-method)))
-	  (when result
-	    (remove-from-inventory item))
-	  result)))
-  (:method :around ((item equipment) (actor creature))
-    (let* ((current-equips (gethash (equip-slot item) (equipment actor)))
-	   (equips-size (loop for i in current-equips
-			      sum (size i)))
-	   (max-equips (cadr (assoc (equip-slot item) (slot-nums actor)))))
-      (flet ((equip-item ()
-	       (push item (gethash (equip-slot item) (equipment actor)))
-	       (when (next-method-p)
-		 (call-next-method))
-	       t))
-	(when max-equips
-	  (if (<= (+ equips-size (size item)) max-equips)
-	      (equip-item)
-	      (labels ((get-items-to-unequip (&optional item-list (size 0))
-			 (if (<= (+ (size item) equips-size (- size)) max-equips)
-			     item-list
-			     (let ((item-to-replace (get-item-from-list (gethash (equip-slot item)
-										 (equipment actor))
-									:naming-function #'name
-									:ignoring item-list
-									:test #'equal
-									:what "item to replace")))
-			       (if item-to-replace
-				   (get-items-to-unequip (cons item-to-replace item-list)
-							 (+ size (size item-to-replace)))
-				   nil)))))
-		(let ((items-to-unequip (get-items-to-unequip)))
-		  (when items-to-unequip
-		    (mapc (lambda (i) (unequip i actor)) items-to-unequip)
-		    (equip-item)
-		    items-to-unequip)))))))))
 
 (defun get-items-with-name-of (item &key (limit -1))
   (do ((inventory *inventory* (cdr inventory))
