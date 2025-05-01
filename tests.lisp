@@ -5,7 +5,7 @@
      ,@body))
 
 (defun print-test (string passedp &rest args)
-  (format t "~&~:[FAIL~;PASS~]: ~?" passedp string args)
+  (format t "~&~:[~c[31mFAIL~;~c[32mPASS~]~:*~c[0m: ~?" passedp #\esc string args)
   (unless passedp
     (incf *tests-failed*)))
 
@@ -139,7 +139,7 @@
 	  (test +right+ 'actor nil)
 	  (test +zero+ nil 'item-1)
 	  (place item-2 +zero+ :solid nil)
-	  (test (car +directions+) nil 'item-2)
+	  (test (car (last +directions+)) nil 'item-2)
 	  (place obstacle '(2 . 0))
 	  (move actor +right+)
 	  (test +right+ 'actor nil)

@@ -329,7 +329,9 @@
   `(let ((cells (make-hash-table :test #'equal)))
      (setf (gethash ,start cells) t)
      (labels ((occupiedp (pos)
-		(,(if solid 'solid 'non-solid) pos))
+	        (if ,solid
+		    (solid pos)
+		    (or (non-solid pos) (wallp (solid pos)))))
 	      (valid-neighbor-p (pos)
 		(and pos
 		     (not (gethash pos cells))
