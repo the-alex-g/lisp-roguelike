@@ -5,7 +5,10 @@
   (:method ((obj enemy))
     (drop-corpse obj))
   (:method :before ((obj actor))
-    (remove-solid (pos obj))
+    (print-to-log "killing ~a" (name obj))
+    (if (equal (solid (pos obj)) obj)
+	(remove-solid (pos obj))
+	(remove-non-solid (pos obj)))
     (remove-glowing obj)))
 
 (defgeneric wallp (obj)

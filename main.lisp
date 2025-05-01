@@ -306,6 +306,10 @@
       cost))
   (:method ((passive table) (active creature))
     (apply-to active (make-elevated-status)))
+  (:method ((passive breakable) (active player))
+    (when (and (equal (solid (pos passive)) passive)
+	       (confirmp "do you want to attack the ~a?" (name passive)))
+      (attack passive active)))
   (:method ((passive creature) (active player))
     (when (if (hostilep passive active)
 	      t
@@ -618,11 +622,19 @@
 			(max-hunger *player*))
 	 (log-to-string "GOLD ~d" *gold*))))
 
+(defgeneric surrounding-name (obj)
+  (:method ((obj equipment))
+    (log-to-string "~a~:[~; (~d gold)~]"
+		   (name obj)
+		   (shopkeeper obj)
+		   (price obj)))
+  (:method ((obj actor)) (name obj)))
+
 (defun print-surroundings ()
   (if (eq *print-surroundings-mode* 'my-space)
       (let ((obj (non-solid (pos *player*))))
 	(when (and obj (not (hiddenp obj)))
-	  (print-to-screen "you are standing over a ~a~%" (name obj))))
+	  (print-to-screen "you are standing over a ~a~%" (surrounding-name obj))))
       (flet ((printp (obj)
 	       (not (or (eq *print-surroundings-mode* 'none)
 			(not obj)
