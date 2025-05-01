@@ -6,8 +6,6 @@
 (defparameter +directions+ (list +up+ +right+ +down+ +left+
 				 '(1 . 1) '(1 . -1) '(-1 . 1) '(-1 . -1)))
 (defparameter +direction-names+ (make-hash-table :test #'equal))
-(defparameter *log* '(nil "welcome to this game!"))
-(defparameter *max-log-size* 100)
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 (defparameter *fake-input* nil)
@@ -57,30 +55,9 @@
 	       (t item))))
     (apply #'format nil control-string (mapcar #'convert-to-string args))))
 
-(defun print-to-log (control-string &rest args)
-  (setf (cdr *log*)
-	(append (cdr *log*)
-		(list (apply #'log-to-string control-string args)))))
-
-(defun print-log ()
-  (loop for item in (cdr *log*)
-	do (format t "~a~%" item))
-  (setf (car *log*)
-	(do ((item-list (reverse (append (car *log*) (cdr *log*))) (cdr item-list))
-	     (new-list nil (cons (car item-list) new-list))
-	     (index 0 (1+ index)))
-	    ((or (not item-list)
-		 (>= index *max-log-size*))
-	     new-list)))
-  (setf (cdr *log*) '()))
-
 (defun print-to-screen (control-string &rest args)
   (princ (apply #'log-to-string control-string args))
   (force-output))
-
-(defun print-history ()
-  (loop for item in (car *log*)
-	do (print-to-screen "~a~%" item)))
 
 (defun square (number)
   (expt number 2))

@@ -4,6 +4,7 @@
 (load "masking.lisp")
 (load "generic-functions.lisp")
 (load "utils.lisp")
+(load "log.lisp")
 (load "colors.lisp")
 (load "class-definitions.lisp")
 

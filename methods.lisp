@@ -67,8 +67,9 @@
 (defmethod trigger :around ((trap trap) activator)
   (setf (hiddenp trap) nil)
   (if (>= (roll 1 20 (dex activator)) (avoid-dc trap))
-      (print-to-log "you triggered a ~a but dodged out of the way"
-		    (name trap))
+      (progn (print-to-log "you triggered a ~a but dodged out of the way"
+			   (name trap))
+	     (flag-warning))
       (call-next-method)))
 
 (defmethod trigger ((trap pit-trap) (activator creature))
@@ -76,7 +77,8 @@
     (when (playerp activator)
       (print-to-log "you triggered a ~a and took ~d damage"
 		    (name trap)
-		    damage))))
+		    damage)
+      (flag-alert))))
 
 (defmethod move-into ((passive table) (active creature))
   (apply-to active (make-elevated-status)))
@@ -505,6 +507,7 @@
    (LAMBDA (WEAPON)
      (WHEN (BREAKSP WEAPON)
        (PRINT-TO-LOG "your ~a breaks!" (NAME WEAPON))
+       (flag-alert)
        (UNEQUIP WEAPON *PLAYER* :TO 'THE-ABYSS)))
    (WEAPONS ATTACKER)))
 
