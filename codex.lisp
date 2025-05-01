@@ -62,6 +62,7 @@
 (defstatus frightened)
 (defstatus brave)
 (defstatus immobilized)
+(defstatus elevated :duration -1)
 (defstatus evil :duration 10)
 (defstatus good :duration 10)
 (defstatus neutral :duration 10)

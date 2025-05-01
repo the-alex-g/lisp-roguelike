@@ -73,7 +73,9 @@
   (:method :before ((subj creature) (obj status))
     (setf (target obj) subj)
     (push obj (statuses subj)))
-  (:method (subj obj)))
+  (:method (subj obj))
+  (:method ((subj creature) (obj elevated))
+    (incf (dex subj))))
 
 (flet ((generate-attack (attacker num die &optional dmg-bonus to-hit types statuses)
 	 (make-attack :dmg (roll num die (str attacker) dmg-bonus)
@@ -247,6 +249,9 @@
 		(name item)
 		(sustenance item)))
 
+(defmethod remove-status ((status elevated))
+  (decf (dex (target status))))
+
 (defgeneric trigger (object activator)
   (:method (object activator))
   (:method :around ((trap trap) activator)
@@ -270,6 +275,8 @@
 	      (move-into p active))
 	    (contents position :all t))
       cost))
+  (:method ((passive table) (active creature))
+    (apply-to active (make-elevated-status)))
   (:method ((passive creature) (active player))
     (when (if (hostilep passive active)
 	      t
@@ -358,6 +365,10 @@
 	    (call-next-method))
 	  (decf (duration obj))
 	  (act obj))))
+  (:method ((obj elevated))
+    (let ((f (non-solid (pos (target obj)))))
+      (unless (and f (eq (name f) 'table))
+	(remove-status obj))))
   (:method ((obj resting))
     (incf (hunger (target obj)))
     (incf (health (target obj))))
