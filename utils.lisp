@@ -398,12 +398,10 @@
 		  (list start))
 	      cells))))
 
-(defun apply-color (arg color &key (bg nil))
-  (format nil "~c[~d;5;~dm~a~0@*~c[40;37m"
-	  #\esc
-	  (if bg 48 38)
-	  (if (numberp color) color (color color))
-	  arg))
+(defun apply-color (arg color &key (bg nil)
+				(function (lambda (&rest args) (apply #'format nil args))))
+  (funcall function "~c[~d;5;~dm~a~0@*~c[40;37m" #\esc
+	   (if bg 48 38) (if (numberp color) color (color color)) arg))
 
 (defun damage-string (atk)
   (setf (nth 4 atk) (ensure-list (nth 4 atk)))

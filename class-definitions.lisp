@@ -14,9 +14,14 @@
    (pos :initform +zero+ :initarg :pos :accessor pos)
    (name :initform "" :initarg :name :accessor name)
    (color :initform 15 :initarg :color :writer (setf color))
-   (bg-color :initform nil :initarg :bg-color :writer (setf bg-color))
    (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)
    (description :initform nil :initarg :description :writer (setf description))))
+
+(defclass breakable (actor)
+  ((break-chance :initform 50 :initarg :break-chance :accessor break-chance)))
+
+(defclass furniture (breakable)
+  ((bg-color :initform nil :initarg :bg-color :writer (setf bg-color))))
 
 (defclass creature (actor)
   ((dex :initform 0 :initarg :dex :accessor dex)
@@ -56,9 +61,8 @@
    (loot :initform nil :accessor loot :initarg :loot)
    (morale :initform 6 :accessor morale :initarg :morale)))
 
-(defclass equipment (actor)
+(defclass equipment (breakable)
   ((atk :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
-   (break-chance :initform 50 :initarg :break-chance :accessor break-chance)
    (range :initform 1 :initarg :range :accessor range)
    (size :initform 1 :initarg :size :accessor size)
    (price :initform 2 :initarg :price :accessor price)

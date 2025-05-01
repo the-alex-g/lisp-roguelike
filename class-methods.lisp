@@ -4,7 +4,7 @@
   (:method (obj))
   (:method ((obj enemy))
     (drop-corpse obj))
-  (:method :before ((obj creature))
+  (:method :before ((obj actor))
     (remove-solid (pos obj))
     (remove-glowing obj)))
 
@@ -52,7 +52,7 @@
       color)))
 
 (defgeneric bg-color (obj)
-  (:method ((obj actor))
+  (:method ((obj furniture))
     (when (slot-value obj 'bg-color)
       (color (slot-value obj 'bg-color))))
   (:method ((pos list))
@@ -90,7 +90,9 @@
 
 (defgeneric deadp (obj)
   (:method ((obj creature))
-    (= (health obj) 0)))
+    (= (health obj) 0))
+  (:method ((obj breakable))
+    (>= (break-chance obj) 100)))
 
 (defmethod (setf health) (value (obj creature))
   (if (> value 0)
@@ -128,7 +130,9 @@
   
 (defgeneric death (obj)
   (:method ((obj creature))
-    "killing it"))
+    "killing it")
+  (:method ((obj breakable))
+    "destroying it"))
 
 (defgeneric weapons (obj)
   (:method ((obj creature))

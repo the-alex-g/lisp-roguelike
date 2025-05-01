@@ -28,7 +28,7 @@
     (setf (amount gold) amount)
     gold))
 
-;; ACTORS
+;; FURNITURE
 
 (defabstract actor trap ((trigger-chance 100)
 			 (find-dc 10)
@@ -39,8 +39,9 @@
 (defactor corpse #\c (loot) :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
 (defactor pit-trap #\! () :inherit trap :solidp nil)
-(defactor table #\space () :solidp nil :bg-color '(2 1 0) :neighbors 8)
-(defactor brazier #\u () :solidp t :color '(5 4 0) :illumination 3 :neighbors '(5 3))
+(defactor table #\space () :solidp nil :bg-color '(2 1 0)
+  :neighbors 8 :inherit furniture)
+(defactor brazier #\u () :color '(5 4 0) :illumination 3 :neighbors '(5 3) :inherit breakable)
 
 ;; ENEMIES
 
