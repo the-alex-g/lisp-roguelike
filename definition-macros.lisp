@@ -92,14 +92,15 @@
 			  &key
 			    (inherit 'equipment inheritp)
 			    (allocate-class nil allocate-class-p)
-			    (char #\?)
+			    (char #\? charp)
 			  &allow-other-keys)
     (when inheritp
       (remf keys :inherit))
     (when allocate-class-p
       (remf keys :allocate-class))
-    (remf keys :char)
-    (setf (getf keys :display-char) char)
+    (when charp
+      (remf keys :char)
+      (setf (getf keys :display-char) char))
     `(progn
        ;; define equipment class
        (defclass ,name (,inherit) (,@(mapcan #'build-slot new-slots)
@@ -113,7 +114,10 @@
 	 (place (,(constructor name)) pos :solid nil))))
   
 
-  (defmacro defabstract (inherit name new-slots &rest keys)
+  (defmacro defabstract (inherit name new-slots &rest keys &key (char #\? charp) &allow-other-keys)
+    (when charp
+      (remf keys :char)
+      (setf (getf keys :display-char) char))
     `(defclass ,name (,inherit)
        (,@(mapcan #'build-slot new-slots)
 	,@(reinit-slots keys nil nil)))))

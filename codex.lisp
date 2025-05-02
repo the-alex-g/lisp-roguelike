@@ -4,12 +4,12 @@
 (defabstract equipment weapon () :weaponp t :break-chance 2)
 
 (add-to-shop
- (defequipment sword () :atk '(1 6 0 0 slashing) :inherit weapon)
- (defequipment sword-+1 () :atk '(1 6 1 1 slashing) :inherit weapon :break-chance 1)
- (defequipment dagger () :atk '(1 4 0 0 piercing) :inherit weapon)
- (defequipment bow () :atk '(1 4 0 0 piercing) :inherit weapon :range 4 :size 2)
+ (defequipment sword () :atk '(1 6 0 0 slashing) :inherit weapon :char #\^)
+ (defequipment sword-+1 () :atk '(1 6 1 1 slashing) :inherit weapon :break-chance 1 :char #\^)
+ (defequipment dagger () :atk '(1 4 0 0 piercing) :inherit weapon :char #\^)
+ (defequipment bow () :atk '(1 4 0 0 piercing) :inherit weapon :range 4 :char #\) :size 2)
  (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger")
- (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2)
+ (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2 :char #\&)
  (defsecretequipment healing-potion
      ((blue-potion :color 'blue)
       (green-potion :color 'green)
