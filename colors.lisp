@@ -25,13 +25,13 @@
 	(list r g b))
       '(0 0 0)))
 
-(defun darken (color &optional (weight 1/6))
+(defun darken (color &optional (weight 1/6) (minimum 0))
   (cond ((<= 16 color 231)
 	 (let ((rgb (get-rgb color)))
 	   (apply #'calculate-color
-		  (mapcar (lambda (value) (max 0 (round (- value (* weight 6))))) rgb))))
+		  (mapcar (lambda (value) (max minimum (round (lerp value 0 weight)))) rgb))))
 	((> color 232)
-	 (max 232 (- color (round (lerp 0 (- color 232) weight)))))
+	 (max 232 minimum (- color (round (lerp 0 (- color 232) weight)))))
 	(t color)))
 
 (labels ((color-name (color number)

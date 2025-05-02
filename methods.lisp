@@ -31,6 +31,8 @@
       (and (= *current-depth* (1- (length *layers*)))
 	   (= 1 (direction obj)))))
 
+(defmethod hiddenp ((obj symbol)) t)
+
 (defmethod name ((obj ladder))
   (cond ((= -1 (direction obj))
 	 'ladder-leading-up)
@@ -555,7 +557,7 @@
 
 (DEFMETHOD WALLP ((OBJ SYMBOL)) (EQ OBJ 'WALL))
 
-(DEFMETHOD WALLP ((OBJ CHARACTER)) (OR (EQ OBJ #\|) (EQ OBJ #\-)))
+(DEFMETHOD WALLP ((OBJ CHARACTER)) (member obj '(#\- #\| #\O)))
 
 (DEFMETHOD SELL-PRICE ((ITEM EQUIPMENT)) (ASH (PRICE ITEM) -1))
 
@@ -580,6 +582,8 @@
       (BG-COLOR (NON-SOLID POS))
       (BG-COLOR (TERRAIN POS))))
 
+(defmethod display-char ((obj character) &key &allow-other-keys) obj)
+
 (DEFMETHOD DISPLAY-CHAR ((OBJ ACTOR) &key darken &allow-other-keys)
   (LET ((TEXT
          (IF (EQ (COLOR OBJ) 30)
@@ -594,11 +598,20 @@
             (APPLY-COLOR TEXT (BG-COLOR (POS OBJ)) :BG T)
             TEXT))))
 
-(DEFMETHOD DISPLAY-CHAR ((POS LIST) &key &allow-other-keys)
+(DEFMETHOD DISPLAY-CHAR ((POS LIST) &key has-los-p &allow-other-keys)
   (IF (WALLP POS)
-      (IF (AND (WALLP (VEC+ POS +UP+)) (WALLP (VEC+ POS +DOWN+)))
-          (SETF (SOLID POS) #\|)
-          (SETF (SOLID POS) #\-))
+      (apply-color (let ((wall-up (wallp (vec+ pos +up+)))
+			 (wall-down (wallp (vec+ pos +down+))))
+		     (cond ((AND wall-up wall-down)
+			    (SETF (SOLID POS) #\|))
+			   ((or (wallp (vec+ pos +left+)) (wallp (vec+ pos +right+))
+				wall-up wall-down)
+			    (SETF (SOLID POS) #\-))
+			   (t
+			    (setf (solid pos) #\O))))
+		   (if has-los-p
+		       (darken 255 (darkness pos) 240)
+		       240))
       (DISPLAY-CHAR (TERRAIN POS) :darken (darkness pos))))
 
 (DEFMETHOD DISPLAY-CHAR ((OBJ SYMBOL) &key darken &allow-other-keys)

@@ -93,6 +93,9 @@
 	when (= (random sparseness) 0)
 	  do (spawn-object cell spawn-list)))
 
+(defun make-wall (pos)
+  (setf (solid pos) 'wall))
+
 (defun place-walls (cells)
   (loop for x from -1 to (1+ (car *board-size*))
 	do (loop for y from -1 to (1+ (cdr *board-size*))
@@ -102,7 +105,7 @@
 		   when (loop for direction in +directions+
 				thereis (member (vec+ (cons x y) direction) cells :test #'equal))
 		     ;; put a wall down
-		     do (setf (solid (cons x y)) 'wall))))
+		     do (make-wall (cons x y)))))
 
 (defun generate-terrain (cells)
   (loop for cell in cells

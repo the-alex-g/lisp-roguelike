@@ -13,7 +13,7 @@
    (illumination :initform 0 :initarg :illumination :reader illumination)
    (pos :initform +zero+ :initarg :pos :accessor pos)
    (name :initform "" :initarg :name :accessor name)
-   (color :initform 15 :initarg :color :writer (setf color))
+   (color :initform 255 :initarg :color :writer (setf color))
    (hiddenp :initform nil :initarg :hiddenp :accessor hiddenp)
    (description :initform nil :initarg :description :writer (setf description))))
 

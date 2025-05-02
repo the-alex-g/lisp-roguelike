@@ -101,7 +101,7 @@
 
 (defun generate-lightmap (glowing-actors)
   (flet ((light-strength (distance light)
-	   (- 1 (expt (/ distance light) 2))))
+	   (- 1 (square (/ distance light)))))
     (let ((lightmap (make-hash-table :test #'equal :size (* 100 (length glowing-actors)))))
       (loop for light-source in glowing-actors
 	    do (let ((light (illumination light-source)))
@@ -287,13 +287,17 @@
 	  do (format t "~{~a~}~a~%"
 		     (loop for x from -1 to (1+ (car *board-size*))
 			   collect (let* ((pos (cons x y))
-					  (actor (contents pos)))
+					  (actor (contents pos))
+					  (has-los-p (visiblep pos (pos *player*))))
 				     (cond ((characterp actor)
-					    actor)
-					   ((and actor (visiblep actor (pos *player*)))
+					    (apply-color actor
+							 (if has-los-p
+							     (darken 255 (darkness pos) 240)
+							     240)))
+					   ((and actor (not (hiddenp actor)) has-los-p)
 					    (display-char actor :darken (darkness pos)))
-					   ((visiblep pos (pos *player*))
-					    (display-char pos))
+					   (has-los-p
+					    (display-char pos :has-los-p has-los-p))
 					   (t #\space))))
 		     (or (nth (1+ y) player-lines) "")))))
 
@@ -339,14 +343,14 @@
 		       (25 make-kobold)))
 		  (25 make-troll)))
 	     (25 make-pit-trap))
-	   '((50 make-table)
-	     (50 make-brazier)))
+	   '((50 make-brazier)
+	     (50 make-wall)))
 
 (let ((cells (add-layer '((75 ((75 ((25 make-goblin-archer)
 				    (75 make-goblin)))
 			       (25 make-kobold)))
 			  (25 make-pit-trap))
-			'((50 make-table)
+			'((50 make-wall)
 			  (50 make-brazier)))))
   (setf *current-layer* (car *layers*))
   (place *player* (pos (make-shopkeeper (get-spawn-position cells 8)))))

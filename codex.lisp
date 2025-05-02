@@ -50,7 +50,7 @@
   :meat (make-goblin-meat) :idle #'wander
   :loot `(((50 ,(make-gold 1)))))
 (defenemy goblin-archer #\g () :inherit goblin :equips (make-crude-bow))
-(defenemy kobold #\k () :color 'red-3 :health (roll 1 4 1) :equips (make-dagger)
+(defenemy kobold #\k () :color '(4 1 0) :health (roll 1 4 1) :equips (make-dagger)
   :str 1 :dex 1 :armor 1 :meat (make-kobold-meat) :align 'e :idle #'wander)
 (defenemy troll #\T () :color '(0 3 5) :health (roll 2 8) :equips (make-warclub)
   :str 2 :dex -1 :armor 1 :spd 3/4 :con 2 :meat (roll 2 10 20) :align 'e)
