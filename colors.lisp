@@ -17,6 +17,23 @@
 (defun calculate-color (r g b)
   (+ 16 (* r 36) (* g 6) b))
 
+(defun get-rgb (color)
+  (if (<= 16 color 231)
+      (let* ((r (floor (/ (- color 16) 36)))
+	     (g (floor (/ (- color 16 (* r 36)) 6)))
+	     (b (- color 16 (* r 36) (* g 6))))
+	(list r g b))
+      '(0 0 0)))
+
+(defun darken (color &optional (weight 1/6))
+  (cond ((<= 16 color 231)
+	 (let ((rgb (get-rgb color)))
+	   (apply #'calculate-color
+		  (mapcar (lambda (value) (max 0 (round (- value (* weight 6))))) rgb))))
+	((> color 232)
+	 (max 232 (- color (round (lerp 0 (- color 232) weight)))))
+	(t color)))
+
 (labels ((color-name (color number)
 	   (read-from-string (format nil "~a-~d" color number)))
 	 (add-color (name number)

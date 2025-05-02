@@ -9,10 +9,10 @@
 (defparameter *terrain-characters* (make-hash-table))
 (defparameter *neighbors-required* (make-hash-table))
 
-(defun defterrain (name character &key (cost 1) (color 7))
+(defun defterrain (name character &key (cost 1) (color 255))
   (setf (gethash name *terrain-characters*) character)
   (setf (gethash name *terrain-costs*) cost)
-  (setf (gethash name *terrain-colors*) color)
+  (setf (gethash name *terrain-colors*) (color color))
   name)
 
 (defun solid-actors ()

@@ -27,8 +27,8 @@
   (:method (obj) nil)
   (:method ((obj symbol)) nil))
 
-(defgeneric display-char (obj)
-  (:method ((obj character)) obj))
+(defgeneric display-char (obj &key &allow-other-keys)
+  (:method ((obj character) &key &allow-other-keys) obj))
 
 (defgeneric deadp (obj))
   
@@ -132,3 +132,5 @@ is occupied, the object is not actually moved. Returns the cost of the movement.
 (defgeneric (setf con) (value obj))
 
 (defgeneric (setf hunger) (value obj))
+
+(defgeneric (setf illumination) (value obj))

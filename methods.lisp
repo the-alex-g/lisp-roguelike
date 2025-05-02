@@ -142,9 +142,11 @@
       (remove-glowing obj)))
   (setf (slot-value obj 'illumination) value))
 
+(defmethod illumination ((pos list))
+  (gethash pos *lightmap* 0))
+
 (defmethod stationaryp ((obj creature))
   nil)
-
 
 (defmethod act ((obj elevated))
   (let ((f (non-solid (pos (target obj)))))
@@ -578,27 +580,32 @@
       (BG-COLOR (NON-SOLID POS))
       (BG-COLOR (TERRAIN POS))))
 
-(DEFMETHOD DISPLAY-CHAR ((OBJ ACTOR))
+(DEFMETHOD DISPLAY-CHAR ((OBJ ACTOR) &key darken &allow-other-keys)
   (LET ((TEXT
          (IF (EQ (COLOR OBJ) 30)
              (SLOT-VALUE OBJ 'DISPLAY-CHAR)
-             (APPLY-COLOR (SLOT-VALUE OBJ 'DISPLAY-CHAR) (COLOR OBJ)))))
+             (APPLY-COLOR (SLOT-VALUE OBJ 'DISPLAY-CHAR)
+			  (if darken
+			      (darken (COLOR OBJ) darken)
+			      (color obj))))))
     (IF (BG-COLOR OBJ)
         (APPLY-COLOR TEXT (BG-COLOR OBJ) :BG T)
         (IF (BG-COLOR (POS OBJ))
             (APPLY-COLOR TEXT (BG-COLOR (POS OBJ)) :BG T)
             TEXT))))
 
-(DEFMETHOD DISPLAY-CHAR ((POS LIST))
+(DEFMETHOD DISPLAY-CHAR ((POS LIST) &key &allow-other-keys)
   (IF (WALLP POS)
       (IF (AND (WALLP (VEC+ POS +UP+)) (WALLP (VEC+ POS +DOWN+)))
           (SETF (SOLID POS) #\|)
           (SETF (SOLID POS) #\-))
-      (DISPLAY-CHAR (TERRAIN POS))))
+      (DISPLAY-CHAR (TERRAIN POS) :darken (darkness pos))))
 
-(DEFMETHOD DISPLAY-CHAR ((OBJ SYMBOL))
+(DEFMETHOD DISPLAY-CHAR ((OBJ SYMBOL) &key darken &allow-other-keys)
   (APPLY-COLOR (GETHASH OBJ *TERRAIN-CHARACTERS*)
-               (GETHASH OBJ *TERRAIN-COLORS*)))
+               (if darken
+		   (darken (GETHASH OBJ *TERRAIN-COLORS*) darken)
+		   (gethash obj *terrain-colors*))))
 
 (DEFMETHOD DEADP ((OBJ CREATURE)) (= (HEALTH OBJ) 0))
 

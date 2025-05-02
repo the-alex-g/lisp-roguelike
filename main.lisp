@@ -97,14 +97,28 @@
 		(setf (gethash key memos) new-val)
 		new-val)))))))
 
-(defun illuminatedp (pos)
-  (loop for light-source in (glowing-actors)
-	  thereis (<= (distance pos (pos light-source) :exactp t)
-		      (illumination light-source))))
+(defparameter *lightmap* (make-hash-table :test #'equal))
 
-(defun show-colors ()
-  (loop for code below 111
-	do (format t "~c[~dmCODE ~:*~d~0@*~c[0m~%" #\esc code)))
+(defun generate-lightmap (glowing-actors)
+  (flet ((light-strength (distance light)
+	   (- 1 (expt (/ distance light) 2))))
+    (let ((lightmap (make-hash-table :test #'equal :size (* 100 (length glowing-actors)))))
+      (loop for light-source in glowing-actors
+	    do (let ((light (illumination light-source)))
+		 (loop for x from (- light) to light
+		       do (loop for y from (- light) to light
+				when (and (<= (vec-length (cons x y)) light)
+					  (has-los (vec+ (cons x y) (pos light-source))
+						   (pos light-source)))
+				  do (let ((pos (vec+ (cons x y) (pos light-source))))
+				       (setf (gethash pos lightmap)
+					     (min 1 (+ (gethash pos lightmap 0)
+						       (light-strength (vec-length (cons x y))
+								       light)))))))))
+      lightmap)))
+
+(defun illuminatedp (pos)
+  (> (illumination pos) 0))
 
 (defconsume quaff potion)
 (defconsume eat)
@@ -263,6 +277,9 @@
 			    (when (printp obj)
 			      (list (name obj) "in your space"))))))))
 
+(defun darkness (pos)
+  (- 1 (illumination pos)))
+
 (defun print-board ()
   (apply-default-colors)
   (let ((player-lines (get-player-lines)))
@@ -274,7 +291,7 @@
 				     (cond ((characterp actor)
 					    actor)
 					   ((and actor (visiblep actor (pos *player*)))
-					    (display-char actor))
+					    (display-char actor :darken (darkness pos)))
 					   ((visiblep pos (pos *player*))
 					    (display-char pos))
 					   (t #\space))))
@@ -282,6 +299,7 @@
 
 (defun print-game ()
   (clear-screen)
+  (setf *lightmap* (generate-lightmap (glowing-actors)))
   (print-board)
   (print-surroundings)
   (print-log))

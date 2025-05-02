@@ -11,16 +11,16 @@
  (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger")
  (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2 :char #\&)
  (defsecretequipment healing-potion
-     ((blue-potion :color 'blue)
-      (green-potion :color 'green)
-      (red-potion :color 'red))
+     ((blue-potion :color 'blue-4)
+      (green-potion :color 'green-4)
+      (red-potion :color 'red-4))
    ((healing (roll 2 4))) :inherit potion))
 (defequipment kobold-meat ()
   :sustenance (roll 1 10 5) :inherit food :description "recovers 6-15 hunger")
 (defequipment goblin-meat ()
   :sustenance (roll 2 10 10) :inherit food :description "recovers 12-30 hunger")
 (defequipment fist () :atk '(1 3 -1 0 bludgeoning) :inherit weapon :break-chance -100)
-(defequipment gold (amount) :solidp nil :color 'yellow :char #\*)
+(defequipment gold (amount) :solidp nil :color 'yellow-4 :char #\*)
 (defequipment crude-bow () :inherit bow :atk '(1 3 0 -1 piercing) :break-chance 3)
 (defequipment debt () :break-chance -100000)
 
@@ -46,15 +46,15 @@
 
 ;; ENEMIES
 
-(defenemy goblin #\g () :color 'green :health (roll 1 4 1) :equips (make-dagger) :dex 1 :align 'e
+(defenemy goblin #\g () :color 'green-4 :health (roll 1 4 1) :equips (make-dagger) :dex 1 :align 'e
   :meat (make-goblin-meat) :idle #'wander
   :loot `(((50 ,(make-gold 1)))))
 (defenemy goblin-archer #\g () :inherit goblin :equips (make-crude-bow))
-(defenemy kobold #\k () :color 'dark-red :health (roll 1 4 1) :equips (make-dagger) :str 1 :dex 1 :armor 1
-  :meat (make-kobold-meat) :align 'e :idle #'wander)
-(defenemy troll #\T () :color 39 :health (roll 2 8) :equips (make-warclub)
+(defenemy kobold #\k () :color 'red-3 :health (roll 1 4 1) :equips (make-dagger)
+  :str 1 :dex 1 :armor 1 :meat (make-kobold-meat) :align 'e :idle #'wander)
+(defenemy troll #\T () :color '(0 3 5) :health (roll 2 8) :equips (make-warclub)
   :str 2 :dex -1 :armor 1 :spd 3/4 :con 2 :meat (roll 2 10 20) :align 'e)
-(defenemy shopkeeper #\U ((domain 4) (enragedp nil)) :color 'purple :health (roll 3 10 5)
+(defenemy shopkeeper #\U ((domain 4) (enragedp nil)) :color 'purple-4 :health (roll 3 10 5)
   :equips `(,(make-sword-+1) ,(make-sword-+1)))
 (defenemy ally #\A () :align 'g :health 6 :equips (make-sword) :idle #'smart-wander)
 
@@ -72,4 +72,4 @@
 ;; TERRAINS
 
 (defterrain 'standard #\.)
-(defterrain 'difficult #\. :cost 2 :color 'green)
+(defterrain 'difficult #\. :cost 2 :color 'green-4)
