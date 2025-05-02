@@ -71,5 +71,5 @@
 
 ;; TERRAINS
 
-(defterrain 'standard #\.)
+(defterrain 'standard #\. :color 250)
 (defterrain 'difficult #\. :cost 2 :color 'green-4)

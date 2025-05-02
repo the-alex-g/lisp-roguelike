@@ -54,7 +54,8 @@
   (:method (obj) nil))
 
 (defgeneric movement-cost (object)
-  (:method (object) 0))
+  (:method (object) 0)
+  (:method ((object (eql nil))) 0))
 
 (defgeneric apply-to (subj obj)
   (:method (subj obj)))
