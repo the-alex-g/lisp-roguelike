@@ -105,16 +105,14 @@
     (let ((lightmap (make-hash-table :test #'equal :size (* 100 (length glowing-actors)))))
       (loop for light-source in glowing-actors
 	    do (let ((light (illumination light-source)))
-		 (loop for x from (- light) to light
-		       do (loop for y from (- light) to light
-				when (and (<= (vec-length (cons x y)) light)
-					  (has-los (vec+ (cons x y) (pos light-source))
-						   (pos light-source)))
-				  do (let ((pos (vec+ (cons x y) (pos light-source))))
-				       (setf (gethash pos lightmap)
-					     (min 1 (+ (gethash pos lightmap 0)
-						       (light-strength (vec-length (cons x y))
-								       light)))))))))
+		 (loop-in-circle light
+				 when (has-los (vec+ (cons x y) (pos light-source))
+					       (pos light-source))
+				 do (let ((pos (vec+ (cons x y) (pos light-source))))
+				      (setf (gethash pos lightmap)
+					    (min 1 (+ (gethash pos lightmap 0)
+						      (light-strength (vec-length (cons x y))
+								      light))))))))
       lightmap)))
 
 (defun illuminatedp (pos)

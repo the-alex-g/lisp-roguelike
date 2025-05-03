@@ -62,6 +62,13 @@
 (defun square (number)
   (expt number 2))
 
+(defmacro loop-in-circle (radius &body body)
+  (let ((chord (gensym)))
+    `(loop for x from (- ,radius) to ,radius
+	   do (let ((,chord (max 1 (round (sqrt (- (square ,radius) (square x)))))))
+		(loop for y from (- ,chord) to ,chord
+		      ,@body)))))
+
 (defun vec+ (&rest vectors)
   (loop for v in vectors
 	sum (car v) into x
