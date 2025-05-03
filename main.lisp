@@ -9,7 +9,15 @@
 (load "class-definitions.lisp")
 
 (defparameter *player*
-  (make-instance 'player :health 20 :name "player" :color 'red :illumination 5 :char #\@))
+  (make-instance 'player
+		 :types '(good)
+		 :allies '(good)
+		 :enemies '(evil)
+		 :health 20
+		 :name "player"
+		 :color 'red
+		 :illumination 5
+		 :char #\@))
 
 (mapc #'load
       (list "bsp-dungeon.lisp"
@@ -124,14 +132,11 @@
 (defun step-on-path (path obj)
   (reposition obj (car path)))
 
-(defun flee-direction (obj path)
-  (vec- (pos obj) (car path)))
+(defun fear-of (foe pos)
+  (/ (level foe) (max 1 (distance pos (pos foe) :exactp t))))
 
-(defun flee (obj path)
-  (move obj (flee-direction obj path)))
-
-(defun can-flee (obj path)
-  (not (solid (vec+ (pos obj) (flee-direction obj path)))))
+(defun flee (obj heuristic)
+  (reposition obj (get-best-direction (pos obj) heuristic)))
 
 (defun target-too-close-p (obj range)
   (<= (distance (pos obj) (target-pos obj)) (/ range 2)))
@@ -140,18 +145,15 @@
   (let ((target-position (pos *player*))
 	(target-list
 	  (apply #'append
-		 (loop for y from (- range) to range
-		       collect (loop for x from (- range) to range
-				     with pos = +zero+
-				     do (setf pos (vec+ (cons x y)
-							(pos *player*)))
-				     when (and (visiblep pos (pos *player*))
-					       (<= (distance (pos *player*) pos)
-						   range)
-					       (contents pos)
-					       (not (wallp (contents pos)))
-					       (not (equal (contents pos) *player*)))
-				       collect (contents pos))))))
+		 (loop-in-circle range
+				 with pos = +zero+
+				 do (setf pos (vec+ (cons x y)
+						    (pos *player*)))
+				 when (and (visiblep pos (pos *player*))
+					   (contents pos)
+					   (not (wallp (contents pos)))
+					   (not (equal (contents pos) *player*)))
+				 collect (contents pos)))))
     (if (or target-list
 	    (eq initial-mode 'free-form))
 	(labels ((two-key-targeting ()

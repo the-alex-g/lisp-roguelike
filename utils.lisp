@@ -65,7 +65,7 @@
 (defmacro loop-in-circle (radius &body body)
   (let ((chord (gensym)))
     `(loop for x from (- ,radius) to ,radius
-	   do (let ((,chord (max 1 (round (sqrt (- (square ,radius) (square x)))))))
+	   do (let ((,chord (max 1 (floor (sqrt (- (square ,radius) (square x)))))))
 		(loop for y from (- ,chord) to ,chord
 		      ,@body)))))
 
@@ -87,12 +87,14 @@
   (cons (* (car vector) scalar) (* (cdr vector) scalar)))
 
 (defun vec-length (vector)
-  (sqrt (+ (square (car vector))
-	   (square (cdr vector)))))
+  (max (abs (car vector)) (abs (cdr vector))))
+;  (sqrt (+ (square (car vector))
+;	   (square (cdr vector)))))
 
 (defun manhattan (a b)
-  (+ (abs (- (car a) (car b)))
-     (abs (- (cdr a) (cdr b)))))
+  (distance a b))
+  ;(+ (abs (- (car a) (car b)))
+  ;   (abs (- (cdr a) (cdr b)))))
 
 (defun distance (a b &key (exactp nil))
   (if exactp

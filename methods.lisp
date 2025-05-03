@@ -150,19 +150,6 @@
 (defmethod stationaryp ((obj creature))
   nil)
 
-(defmethod act ((obj elevated))
-  (let ((f (non-solid (pos (target obj)))))
-    (unless (and f (eq (name f) 'table))
-      (remove-status obj))))
-
-(defmethod act ((obj resting))
-  (incf (hunger (target obj)))
-  (incf (health (target obj))))
-
-(defmethod act ((obj shopkeeper))
-  (when (enragedp obj)
-    (call-next-method)))
-
 (defmethod equip :around ((item equipment) (actor player))
   (if (shopkeeper item)
       (progn (print-to-log "you must buy that before equipping it")
@@ -272,73 +259,107 @@
 (defmethod throw-at :after ((target list) (item equipment) thrower)
   (place item target :solid nil))
 
-(defmethod update ((obj status))
-    (incf (energy obj) (/ (spd obj) (spd *player*)))
-    (act obj))
-
 (defmethod update :before ((obj creature))
   (mapc #'update (statuses obj))
   (incf (idle-time obj)))
+
+(defmethod update :around ((obj status))
+  (incf (energy obj) (/ (spd obj) (spd *player*)))
+  (loop while (and (>= (energy obj) 1)
+		   (not (= (duration obj) 0)))
+	do (decf (energy obj))
+	do (call-next-method)
+	do (decf (duration obj))
+	finally (if (= (duration obj) 0)
+		    (remove-status obj))))
+
+(defmethod update ((obj elevated))
+  (let ((f (non-solid (pos (target obj)))))
+    (unless (and f (eq (name f) 'table))
+      (remove-status obj))))
+
+(defmethod update ((obj resting))
+  (when (playerp (target obj))
+    (incf (hunger (target obj))))
+  (incf (health (target obj)))
+  (when (or (= (health (target obj)) (max-health (target obj)))
+	    (and (slot-exists-p obj 'target-pos) (target-pos obj)))
+    (remove-status obj)))
 
 (defmethod update ((obj player))
   (decf (hunger obj) (/ 1 (spd *player*))))
 
 (defmethod update ((obj enemy))
   (incf (energy obj) (/ (spd obj) (spd *player*)))
-  (act obj))
-
-(defmethod act :around ((obj status))
-    (if (= (duration obj) 0) ; = 0 so that a status with negative duration is permanent
-	(remove-status obj)
-	(when (>= (energy obj) 1)
-	  (decf (energy obj))
-	  (when (next-method-p)
-	    (call-next-method))
-	  (decf (duration obj))
-	  (act obj))))
-
-(defmethod act :around ((obj enemy))
-  (let ((closest-hostile (get-hostile-in-los-of obj)))
-    (when closest-hostile
-      (setf (target-pos obj) (pos closest-hostile))))
   (loop while (>= (energy obj) 1)
 	do (decf (energy obj)
-		 (let ((result (cond ((target-pos obj)
-				      (call-next-method))
-				     ((idle-behavior obj)
-				      (funcall (idle-behavior obj) obj)))))
+		 (let ((result (act obj)))
 		   (if (numberp result)
 		       result
 		       1)))))
 
-(defmethod act ((obj enemy))
-  (let* ((primary (car (weapons obj)))
-	 (bravep (has-status-p obj 'brave))
-	 (afraidp (has-status-p obj 'frightened))
-	 (path (find-path (pos obj) (target-pos obj))))
-    (cond ((and (<= (health obj) (/ (max-health obj) 2))
-		(not afraidp)
-		(not bravep))
-	   (let ((morale-roll (roll 3 6)))
-	     (if (>= (morale obj) morale-roll)
-		 (apply-to obj (make-brave-status :duration morale-roll))
-		 (apply-to obj (make-frightened-status :duration morale-roll)))))
-	  ((and (can-flee obj path)
-		(or (target-too-close-p obj (range primary))
-		    afraidp))
-	   (flee obj path))
-	  ((<= (distance (pos obj) (target-pos obj))
-	       (range primary))
-	   (let ((target (solid (target-pos obj))))
-	     (when (and target
-			(hostilep target obj))
-	       (attack target obj))))
-	  ((not afraidp)
-	   (step-on-path path obj)))))
+(defmethod level ((obj creature))
+  (* (1+ (str obj))
+     (/ (health obj) (max-health obj))))
 
-(defmethod act :after ((obj enemy))
-  (if (equal (pos obj) (target-pos obj))
-      (setf (target-pos obj) nil)))
+(defmethod act :around ((obj shopkeeper) &key &allow-other-keys)
+  (when (enragedp obj)
+    (call-next-method)))
+
+(defmethod act :around ((obj enemy) &key &allow-other-keys)
+  (multiple-value-bind (foes allies) (get-actors obj 5
+						 (hostilep actor obj)
+						 (alliedp actor obj))
+    (let* ((allied-strength (+ (level obj)
+			       (morale obj)
+			       (loop for ally in allies
+				     sum (fear-of ally (pos obj)))))
+	   (fearsome-foes (loop for foe in foes
+				when (> (level foe) allied-strength)
+				  collect foe))
+	   (fear (loop for foe in fearsome-foes sum (fear-of foe (pos obj)))))
+;      (when (visiblep obj *player*)
+;	(print-to-log "fear: ~d   strength: ~d" fear allied-strength))
+      (flet ((heuristic (pos)
+	       (+ (movement-cost pos)
+		  (loop for foe in fearsome-foes
+			sum (fear-of foe pos)))))
+;		  (- (loop for ally in allies
+;			   sum (fear-of ally pos))))))
+	(if (< fear allied-strength)
+	    (call-next-method obj :foes foes :allied-strength allied-strength :heuristic #'heuristic)
+	    (flee obj #'heuristic))))))
+
+(defmethod act ((obj enemy) &key foes allied-strength heuristic &allow-other-keys)
+  (let ((target (get-closest-of-list obj (or (loop for foe in foes
+						   when (<= (level foe) allied-strength)
+						     collect foe)
+					     foes)))
+	(primary (car (weapons obj))))
+    (when target
+      (setf (target-pos obj) (pos target)))
+    (cond ((has-status-p obj 'resting)
+	   ;; if resting, do nothing
+	   nil)
+	  ((and target (<= (distance (pos obj) (pos target)) (range primary)))
+	   ;; if has target and target is in range, attack
+	   (attack target obj))
+	  ((and (not target) (< (health obj) (/ (max-health obj) 2)))
+	   ;; if injured and no target, rest
+	   (apply-to obj (make-resting-status)))
+	  ((target-pos obj)
+	   ;; if knows about a target, move towards it
+	   (step-on-path (a-star (pos obj) (target-pos obj) heuristic) obj))
+	  ((< (health obj) (max-health obj))
+	   ;; damaged at all
+	   (apply-to obj (make-resting-status)))
+	  (t
+	   ;; idle
+	   (funcall (idle-behavior obj) obj)))))
+
+(defmethod act :after ((obj enemy) &key &allow-other-keys)
+  (when (equal (pos obj) (target-pos obj))
+    (setf (target-pos obj) nil)))
 
 (defmethod move :around ((obj player) direction)
   (if *shopkeeper*
@@ -466,6 +487,9 @@
 (DEFMETHOD APPLY-TO :BEFORE ((SUBJ CREATURE) (OBJ STATUS))
   (SETF (TARGET OBJ) SUBJ)
   (PUSH OBJ (STATUSES SUBJ)))
+
+(defmethod apply-to :before ((subj enemy) (obj resting))
+  (setf (target-pos subj) nil))
 
 (DEFMETHOD DAMAGE ((DEFENDER CREATURE) AMOUNT TYPES &OPTIONAL STATUSES)
   (LET* ((BASE-DAMAGE (MAX 1 (- AMOUNT (ARMOR DEFENDER))))
@@ -685,17 +709,13 @@
 	   'n))))
 
 (defmethod hostilep ((obj creature) (to creature))
-  (or (and (evilp obj) (goodp to))
-      (and (evilp to) (goodp obj))))
+  (maskp (types obj) (enemies to)))
 
 (defmethod hostilep ((obj shopkeeper) (to player))
   (enragedp obj))
 
-(defmethod hostilep ((obj shopkeeper) (to creature))
-  nil)
-
-(defmethod hostilep ((obj creature) (to shopkeeper))
-  nil)
+(defmethod alliedp ((obj creature) (to creature))
+  (maskp (types obj) (allies to)))
 
 (defmethod make-shopkeeper :around (pos)
   (let ((shopkeeper (call-next-method)))
@@ -708,7 +728,7 @@
 		     do (place-shop-item (cons x y) shopkeeper)))
     shopkeeper))
 
-(macrolet ((define-damage-mod-accessors (&rest names)
+(macrolet ((define-mask-accessors (&rest names)
 	     `(progn
 		,@(loop for name in names
 			collect `(defmethod (setf ,name) ((value number) (obj creature))
@@ -716,12 +736,13 @@
 			collect `(defmethod (setf ,name) ((value list) (obj creature))
 				   (setf (slot-value obj ',name) (make-mask value)))
 			collect `(defmethod ,name ((obj creature))
-				   (let ((damage-types (slot-value obj ',name)))
-				     (if (numberp damage-types)
-					 damage-types
-					 (let ((mask (make-mask damage-types)))
+				   (let ((value (slot-value obj ',name)))
+				     (if (numberp value)
+					 value
+					 (let ((mask (make-mask value)))
 					   (setf (,name obj) mask)
 					   mask))))))))
-  (define-damage-mod-accessors resistances immunities absorbances vulnerabilities))
+  (define-mask-accessors resistances immunities absorbances vulnerabilities
+    allies enemies types))
 
 (defmethod playerp ((obj player)) t)

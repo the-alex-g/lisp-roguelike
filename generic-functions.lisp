@@ -1,8 +1,9 @@
-(macrolet ((definition-utility (&rest names)
+(macrolet ((define-setter-getter-pairs (&rest names)
 	     `(progn ,@(loop for name in names
 			     collect `(defgeneric (setf ,name) (value obj))
 			     collect `(defgeneric ,name (obj))))))
-  (definition-utility resistances immunities absorbances vulnerabilities))
+  (define-setter-getter-pairs resistances immunities
+    absorbances vulnerabilities allies enemies types))
 
 (defgeneric drop-corpse (obj))
 
@@ -96,12 +97,13 @@ is occupied, the object is not actually moved. Returns the cost of the movement.
 (defgeneric move (obj direction)
   (:documentation "moves object in direction using #'reposition. Returns the cost of the movement."))
 
-(defgeneric act (obj)
-  (:documentation "performs an action until obj has run out of energy")
-  (:method (obj)))
+(defgeneric act (obj &key &allow-other-keys)
+  (:documentation "performs an action and returns action's cost")
+  (:method (obj &key &allow-other-keys)))
 
 (defgeneric update (obj)
-  (:documentation "increments energy and calls #'act")
+  (:documentation "increments energy
+on enemies, calls #'act until object runs out of energy")
   (:method (obj)))
 
 (defgeneric throw-at (target obj thrower)
@@ -125,6 +127,9 @@ is occupied, the object is not actually moved. Returns the cost of the movement.
 (defgeneric hostilep (obj to)
   (:method (obj to) nil))
 
+(defgeneric alliedp (obj to)
+  (:method (obj to) nil))
+
 (defgeneric stationaryp (obj)
   (:method (obj) obj))
 
@@ -135,3 +140,6 @@ is occupied, the object is not actually moved. Returns the cost of the movement.
 (defgeneric (setf hunger) (value obj))
 
 (defgeneric (setf illumination) (value obj))
+
+(defgeneric level (obj)
+  (:method (obj) 0))

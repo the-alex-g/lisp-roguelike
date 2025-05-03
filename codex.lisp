@@ -46,17 +46,41 @@
 
 ;; ENEMIES
 
-(defenemy goblin #\g () :color 'green-4 :health (roll 1 4 1) :equips (make-dagger) :dex 1 :align 'e
-  :meat (make-goblin-meat) :idle #'wander
+(define-mask-set '(good evil goblin troll kobold))
+
+(defenemy goblin #\g ()
+  :types '(goblin evil)
+  :allies '(goblin troll)
+  :enemies '(good)
+  :color 'green-4
+  :health (roll 1 4 1)
+  :equips (make-dagger)
+  :dex 1
+  :meat (make-goblin-meat)
   :loot `(((50 ,(make-gold 1)))))
-(defenemy goblin-archer #\g () :inherit goblin :equips (make-crude-bow))
-(defenemy kobold #\k () :color '(4 1 0) :health (roll 1 4 1) :equips (make-dagger)
-  :str 1 :dex 1 :armor 1 :meat (make-kobold-meat) :align 'e :idle #'wander)
-(defenemy troll #\T () :color '(0 3 5) :health (roll 2 8) :equips (make-warclub)
-  :str 2 :dex -1 :armor 1 :spd 3/4 :con 2 :meat (roll 2 10 20) :align 'e)
+(defenemy goblin-archer #\g ()
+  :inherit goblin
+  :equips (make-crude-bow)
+  :morale -0.5)
+(defenemy kobold #\k ()
+  :types '(kobold evil)
+  :allies '(kobold)
+  :enemies '(good troll)
+  :color '(4 1 0)
+  :health (roll 1 4 1)
+  :equips (make-dagger)
+  :str 1 :dex 1 :armor 1
+  :meat (make-kobold-meat))
+(defenemy troll #\T ()
+  :type '(troll evil)
+  :enemies '(good)
+  :color '(0 3 5)
+  :health (roll 2 8)
+  :equips (make-warclub)
+  :str 2 :dex -1 :armor 1 :spd 3/4 :con 2
+  :meat (roll 2 10 20))
 (defenemy shopkeeper #\U ((domain 4) (enragedp nil)) :color 'purple-4 :health (roll 3 10 5)
   :equips `(,(make-sword-+1) ,(make-sword-+1)))
-(defenemy ally #\A () :align 'g :health 6 :equips (make-sword) :idle #'smart-wander)
 
 ;; STATUSES
 
@@ -65,9 +89,6 @@
 (defstatus brave)
 (defstatus immobilized)
 (defstatus elevated :duration -1)
-(defstatus evil :duration 10)
-(defstatus good :duration 10)
-(defstatus neutral :duration 10)
 
 ;; TERRAINS
 
