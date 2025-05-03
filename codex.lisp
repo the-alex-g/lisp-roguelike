@@ -46,7 +46,7 @@
 
 ;; ENEMIES
 
-(define-mask-set '(good evil goblin troll kobold))
+(define-mask-set '(good evil goblin troll kobold sprout))
 
 (defenemy goblin #\g ()
   :types '(goblin evil)
@@ -67,6 +67,7 @@
   :allies '(kobold)
   :enemies '(good troll)
   :color '(4 1 0)
+  :natural-weapons '(1 3 0 0 piercing)
   :health (roll 1 4 1)
   :equips (make-dagger)
   :str 1 :dex 1 :armor 1
@@ -79,7 +80,25 @@
   :equips (make-warclub)
   :str 2 :dex -1 :armor 1 :spd 3/4 :con 2
   :meat (roll 2 10 20))
-(defenemy shopkeeper #\U ((domain 4) (enragedp nil)) :color 'purple-4 :health (roll 3 10 5)
+(defenemy sprout #\% ()
+  :types '(sprout)
+  :allies '(sprout)
+  :enemies (mask-all '(sprout))
+  :color '(1 5 0)
+  :health (roll 1 4)
+  :int -4
+  :morale 'fearless
+  :natural-weapons '(1 1 0 0 slashing)
+  :vulnerable '(fire slashing)
+  :resist '(bludgeoning piercing))
+(defenemy sprout-hulk #\H ()
+  :inherit sprout
+  :health (roll 4 4 2)
+  :natural-weapons '(1 8 0 0 bludgeoning)
+  :str 2 :dex -1)
+(defenemy shopkeeper #\U ((domain 4) (enragedp nil))
+  :color 'purple-4
+  :health (roll 3 10 5)
   :equips `(,(make-sword-+1) ,(make-sword-+1)))
 
 ;; STATUSES

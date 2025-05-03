@@ -2,10 +2,33 @@
   (declare (ignore obj))
   t)
 
+(defmethod playerp ((obj player))
+  (declare (ignore obj))
+  t)
+
 (defmethod drop-corpse ((obj enemy))
   (let ((corpse (make-corpse (pos obj))))
     (setf (name corpse) (log-to-string "~a corpse" (name obj)))
     (setf (loot corpse) (get-loot obj))))
+
+(defmethod get-loot ((obj enemy))
+  (let ((loot '()))
+    (when (meat obj)
+      (push (meat obj) loot))
+    (loop for item in (loot obj)
+	  if (and item (atom item))
+	    do (push item loot)
+	  else
+	    do (let ((bit (eval-weighted-list item)))
+		 (when (car bit)
+		   (mapc (lambda (b) (push b loot)) bit))))
+    (loop for item-list being the hash-values of (equipment obj)
+	  do (loop for item in item-list
+		   unless (breaksp item 50)
+		     do (push item loot)))
+    loot))
+
+(defmethod drop-corpse ((obj sprout)))
 
 (defmethod kill :after ((obj enemy))
   (gain-experience (xp obj)))
@@ -41,9 +64,6 @@
 
 (defmethod apply-to ((subj creature) (obj elevated))
   (incf (dex subj)))
-
-(defmethod attack :after ((defender shopkeeper) (attacker player))
-  (setf (enragedp defender) t))
 
 (defmethod pickup :around ((item gold))
   (remove-non-solid (pos item))
@@ -82,24 +102,6 @@
 		    damage)
       (flag-alert))))
 
-(defmethod move-into ((passive table) (active creature))
-  (apply-to active (make-elevated-status)))
-
-(defmethod move-into ((passive trap) (active player))
-    (when (< (random 100) (trigger-chance passive))
-      (trigger passive active)))
-
-(defmethod move-into ((passive shopkeeper) (active player))
-  (if (enragedp passive)
-      (attack passive active)
-      (let ((action (get-item-from-list '(attack sell buy) :what 'option)))
-	(cond ((eq action 'attack)
-	       (attack passive active))
-	      ((eq action 'sell)
-	       (sell-item passive))
-	      ((eq action 'buy)
-	       (checkout))))))
-
 (defmethod evasion ((obj creature))
   (max 1 (+ 5 (dex obj) (slot-value obj 'evasion))))
 
@@ -111,11 +113,18 @@
       (cover-name obj)))
 
 (defmethod (setf health) (value (obj creature))
+  (cond ((<= value 0)
+	 (setf (slot-value obj 'health) 0)
+	 (kill obj))
+	((slot-boundp obj 'max-health)
+	 (setf (slot-value obj 'health) (min value (max-health obj))))
+	(t
+	  (setf (slot-value obj 'max-health) (health obj))
+	  (setf (slot-value obj 'health) value))))
+
+(defmethod (setf health) (value (obj sprout-hulk))
   (if (> value 0)
-      (if (slot-boundp obj 'max-health)
-	  (setf (slot-value obj 'health) (min value (max-health obj)))
-	  (progn (setf (slot-value obj 'max-health) (health obj))
-		 (setf (slot-value obj 'health) value)))
+      (setf (slot-value obj 'health) value)
       (progn (setf (slot-value obj 'health) 0)
 	     (kill obj))))
 
@@ -289,6 +298,10 @@
 (defmethod update ((obj player))
   (decf (hunger obj) (/ 1 (spd *player*))))
 
+(defmethod update :around ((obj creature))
+  (unless (deadp obj)
+    (call-next-method)))
+
 (defmethod update ((obj enemy))
   (incf (energy obj) (/ (spd obj) (spd *player*)))
   (loop while (>= (energy obj) 1)
@@ -310,25 +323,26 @@
   (multiple-value-bind (foes allies) (get-actors obj 5
 						 (hostilep actor obj)
 						 (alliedp actor obj))
-    (let* ((allied-strength (+ (level obj)
-			       (morale obj)
-			       (loop for ally in allies
-				     sum (fear-of ally (pos obj)))))
-	   (fearsome-foes (loop for foe in foes
-				when (> (level foe) allied-strength)
-				  collect foe))
-	   (fear (loop for foe in fearsome-foes sum (fear-of foe (pos obj)))))
-;      (when (visiblep obj *player*)
-;	(print-to-log "fear: ~d   strength: ~d" fear allied-strength))
-      (flet ((heuristic (pos)
-	       (+ (movement-cost pos)
-		  (loop for foe in fearsome-foes
-			sum (fear-of foe pos)))))
-;		  (- (loop for ally in allies
-;			   sum (fear-of ally pos))))))
-	(if (< fear allied-strength)
-	    (call-next-method obj :foes foes :allied-strength allied-strength :heuristic #'heuristic)
-	    (flee obj #'heuristic))))))
+    (if (eq (morale obj) 'fearless)
+	(call-next-method obj :foes foes :allies allies)
+	(let* ((allied-strength (+ (level obj)
+				   (morale obj)
+				   (loop for ally in allies
+					 sum (fear-of ally (pos obj)))))
+	       (fearsome-foes (loop for foe in foes
+				    when (> (level foe) allied-strength)
+				      collect foe))
+	       (fear (loop for foe in fearsome-foes sum (fear-of foe (pos obj)))))
+;	  (when (visiblep obj *player*)
+;	    (print-to-log "fear: ~d   strength: ~d" fear allied-strength))
+	  (flet ((heuristic (pos)
+		   (+ (movement-cost pos)
+		      (loop for foe in fearsome-foes
+			    sum (fear-of foe pos)))))
+	    (if (< fear allied-strength)
+		(call-next-method obj :foes foes :allied-strength allied-strength
+				      :heuristic #'heuristic :allies allies)
+		(flee obj #'heuristic)))))))
 
 (defmethod act ((obj enemy) &key foes allied-strength heuristic &allow-other-keys)
   (let ((target (get-closest-of-list obj (or (loop for foe in foes
@@ -356,6 +370,18 @@
 	  (t
 	   ;; idle
 	   (funcall (idle-behavior obj) obj)))))
+
+(defmethod act ((obj sprout) &key allies foes)
+  (let ((target (or (get-closest-of-list obj allies)
+		    (get-closest-of-list obj foes))))
+    (when target
+      (step-on-path (a-star (pos obj) (pos target) (lambda (pos) 1)) obj))))
+
+(defmethod act ((obj sprout-hulk) &key allies foes)
+  (let ((target (or (get-closest-of-list obj foes)
+		    (get-closest-of-list obj allies))))
+    (when target
+      (step-on-path (a-star (pos obj) (pos target) (lambda (pos) 1)) obj))))
 
 (defmethod act :after ((obj enemy) &key &allow-other-keys)
   (when (equal (pos obj) (target-pos obj))
@@ -398,9 +424,7 @@
   (let ((collider (solid new-pos))
 	(cost (move-into new-pos obj)))
     (unless collider
-      (remove-solid (pos obj))
-      (setf (solid new-pos) obj)
-      (setf (pos obj) new-pos))
+      (force-movement obj new-pos))
     (if collider 1 cost)))
 
 (defmethod move-into ((position list) active)
@@ -416,7 +440,7 @@
     (attack passive active)))
 
 (defmethod move-into ((passive creature) (active player))
-  (when (if (hostilep passive active)
+  (when (if (hostilep active passive)
 	    t
 	    (confirmp "that creature does not appear hostile. Do you want to attack it?"))
     (attack passive active)))
@@ -424,6 +448,49 @@
 (defmethod move-into ((passive creature) (active creature))
   (when (hostilep passive active)
     (attack passive active)))
+
+(defmethod move-into ((passive table) (active creature))
+  (apply-to active (make-elevated-status)))
+
+(defmethod move-into ((passive sprout) (active sprout))
+  (remove-solid (pos passive))
+  (remove-solid (pos active))
+  (setf (health (make-sprout-hulk (pos passive)))
+	(+ (health passive) (health active)))
+  (setf (deadp passive) t)
+  (setf (deadp active) t)
+  (when (visiblep (pos passive) *player*)
+    (print-to-log "two sprouts combine to form a sprout hulk")))
+
+(defmethod move-into ((passive sprout) (active sprout-hulk))
+  (force-movement active (pos passive))
+  (setf (deadp passive) t)
+  (incf (health active) (health passive))
+  (when (visiblep (pos passive) *player*)
+    (print-to-log "the sprout hulk absorbs a smaller sprout"))
+  (movement-cost (pos passive)))
+
+(defmethod move-into ((passive sprout-hulk) (active sprout))
+  (remove-solid (pos active))
+  (setf (deadp active) t)
+  (incf (health passive) (health active))
+  (when (visiblep (pos passive) *player*)
+    (print-to-log "the sprout hulk absorbs a smaller sprout")))
+
+(defmethod move-into ((passive trap) (active player))
+    (when (< (random 100) (trigger-chance passive))
+      (trigger passive active)))
+
+(defmethod move-into ((passive shopkeeper) (active player))
+  (if (enragedp passive)
+      (attack passive active)
+      (let ((action (get-item-from-list '(attack sell buy) :what 'option)))
+	(cond ((eq action 'attack)
+	       (attack passive active))
+	      ((eq action 'sell)
+	       (sell-item passive))
+	      ((eq action 'buy)
+	       (checkout))))))
 
 (defmethod heal ((actor player) amount &key to-print &allow-other-keys)
   (let ((previous-health (health actor)))
@@ -507,6 +574,16 @@
   (INCF (BREAK-CHANCE DEFENDER) (* 5 AMOUNT))
   AMOUNT)
 
+(defmethod damage :around ((defender sprout-hulk) amount types &optional statuses)
+  (let ((damage (call-next-method)))
+    (when (> damage 0)
+      (setf (health (make-sprout (do ((index (random 16) (mod (1+ index) 16))
+				      (new-pos nil (vec+ (pos defender)
+							 (rotate '(2 . 0) (* 1/8 index pi)))))
+				     ((and new-pos (visiblep new-pos (pos defender)))
+				      new-pos))))
+	    damage))))
+
 (DEFMETHOD VISIBLEP ((POS LIST) (FROM LIST))
   (AND (HAS-LOS POS FROM) (ILLUMINATEDP POS)))
 
@@ -522,22 +599,25 @@
       NIL
       (VISIBLEP (POS OBJ) FROM)))
 
-(DEFMETHOD ATTACK (DEFENDER ATTACKER))
+(defmethod attack :after ((defender shopkeeper) (attacker player))
+  (setf (enragedp defender) t))
 
-(DEFMETHOD ATTACK :AFTER ((DEFENDER CREATURE) (ATTACKER PLAYER))
-  (UNLESS (HOSTILEP DEFENDER ATTACKER) (APPLY-TO DEFENDER (MAKE-EVIL-STATUS))))
+(DEFMETHOD ATTACK :AFTER ((DEFENDER CREATURE) (ATTACKER creature))
+  (UNLESS (HOSTILEP ATTACKER defender)
+    (setf (enemies defender) (logior (types attacker) (enemies defender)))))
 
 (DEFMETHOD ATTACK :AROUND ((DEFENDER CREATURE) ATTACKER)
   (UNLESS (DEADP DEFENDER) (CALL-NEXT-METHOD)))
 
-(DEFMETHOD ATTACK :AFTER (DEFENDER (ATTACKER PLAYER))
+(DEFMETHOD ATTACK :AFTER (DEFENDER (ATTACKER creature))
   (MAPC
    (LAMBDA (WEAPON)
      (WHEN (BREAKSP WEAPON)
-       (PRINT-TO-LOG "your ~a breaks!" (NAME WEAPON))
-       (flag-alert)
-       (UNEQUIP WEAPON *PLAYER* :TO 'THE-ABYSS)))
-   (WEAPONS ATTACKER)))
+       (when (playerp attacker)
+	 (PRINT-TO-LOG "your ~a breaks!" (NAME WEAPON))
+	 (flag-alert))
+       (UNEQUIP WEAPON attacker :TO 'THE-ABYSS)))
+   (WEAPONS ATTACKER :equipped-only t)))
 
 (DEFMETHOD ATTACK ((DEFENDER BREAKABLE) (ATTACK ATTACK))
   (PRINT-TO-LOG "~a hit ~a for ~d damage~:[~;, ~a~]" (ATTACK-SOURCE ATTACK)
@@ -648,18 +728,38 @@
 
 (DEFMETHOD DEADP ((OBJ BREAKABLE)) (>= (BREAK-CHANCE OBJ) 100))
 
+(defmethod (setf deadp) (value (obj creature))
+  (when value
+    (setf (health obj) 0)))
+
 (DEFMETHOD DEATH ((OBJ CREATURE)) "killing it")
 
 (DEFMETHOD DEATH ((OBJ BREAKABLE)) "destroying it")
 
-(DEFMETHOD WEAPONS ((OBJ CREATURE))
-  (LET ((HELD-ITEMS (GETHASH 'HAND (EQUIPMENT OBJ))))
+(DEFMETHOD WEAPONS ((OBJ CREATURE) &key (equipped-only nil) &allow-other-keys)
+  (LET ((HELD-ITEMS (GETHASH 'HAND (EQUIPMENT OBJ)))
+	(natural-weapons (natural-weapons obj)))
     (COND ((= (LENGTH HELD-ITEMS) 1) HELD-ITEMS)
-          ((= (LENGTH HELD-ITEMS) 0) (LIST (MAKE-FIST)))
-          (T
-           (LOOP FOR EQUIPMENT IN HELD-ITEMS
-                 WHEN (WEAPONP EQUIPMENT)
-                 COLLECT EQUIPMENT)))))
+	  ((> (LENGTH HELD-ITEMS) 1)
+	   (LOOP FOR EQUIPMENT IN HELD-ITEMS
+		 WHEN (WEAPONP EQUIPMENT)
+		   COLLECT EQUIPMENT))
+	  (equipped-only nil)
+	  ((not natural-weapons)
+	   (list (make-fist)))
+	  ((listp (car natural-weapons))
+	   natural-weapons)
+	  (t
+	   (list natural-weapons)))))
+
+(defmethod range ((obj list))
+  (or (loop for key in obj
+	    with collecting = nil
+	    when collecting
+	      return key
+	    when (eq key :range)
+	      do (setf collecting t))
+      1))
 
 (DEFMETHOD DESCRIPTION ((OBJ EQUIPMENT))
   (LOG-TO-STRING "takes ~d ~a slots~%deals ~a as a weapon~:[~;~%~:*~a~]"
@@ -688,8 +788,11 @@
   (apply #'generate-attack attacker (atk weapon)))
 
 (defmethod get-attack ((weapon list) (attacker creature))
-  (apply #'generate-attack attacker weapon))
-
+  (apply #'generate-attack attacker (or (loop for i in weapon
+					      when (keywordp i)
+						return trimmed-weapon
+					      collect i into trimmed-weapon)
+					weapon)))
 
 (defmethod alignment ((obj creature))
   (let ((alignment (slot-value obj 'alignment)))
@@ -744,5 +847,3 @@
 					   mask))))))))
   (define-mask-accessors resistances immunities absorbances vulnerabilities
     allies enemies types))
-
-(defmethod playerp ((obj player)) t)

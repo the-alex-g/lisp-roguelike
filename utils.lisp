@@ -86,10 +86,15 @@
 (defun vec* (vector scalar)
   (cons (* (car vector) scalar) (* (cdr vector) scalar)))
 
-(defun vec-length (vector)
-  (max (abs (car vector)) (abs (cdr vector))))
-;  (sqrt (+ (square (car vector))
-;	   (square (cdr vector)))))
+(defun vec-length (vector &key (exactp nil))
+  (if exactp
+      (sqrt (+ (square (car vector))
+	       (square (cdr vector))))
+      (max (abs (car vector)) (abs (cdr vector)))))
+
+(defun rotate (vector radians)
+  (cons (round (- (* (cos radians) (car vector)) (* (sin radians) (cdr vector))))
+	(round (+ (* (sin radians) (car vector)) (* (cos radians) (cdr vector))))))
 
 (defun manhattan (a b)
   (distance a b))

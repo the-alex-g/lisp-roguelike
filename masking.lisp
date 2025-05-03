@@ -10,7 +10,8 @@
   (apply #'+ (loop for mask in values
 		   collect (gethash mask *masks*))))
 
-(defun mask-all () (logand))
+(defun mask-all (&optional exceptions)
+  (lognot (make-mask exceptions)))
 
 (defun mask (a b &key (match :any))
   (logcount (cond ((eq match :any)

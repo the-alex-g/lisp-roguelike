@@ -32,11 +32,13 @@
   (:method ((obj character) &key &allow-other-keys) obj))
 
 (defgeneric deadp (obj))
-  
+
+(defgeneric (setf deadp) (value obj))
+
 (defgeneric death (obj)
   (:documentation "a string describing the object's destruction"))
 
-(defgeneric weapons (obj))
+(defgeneric weapons (obj &key &allow-other-keys))
 
 (defgeneric description (obj))
 
@@ -86,7 +88,8 @@
   (:method (object activator)))
 
 (defgeneric move-into (passive active)
-  (:documentation "resolves any effects that occur when active moves into passive")
+  (:documentation "resolves any effects that occur when active moves into passive and returns cost
+of interaction")
   (:method ((passive (eql nil)) active))
   (:method (passive active)))
 
@@ -143,3 +146,5 @@ on enemies, calls #'act until object runs out of energy")
 
 (defgeneric level (obj)
   (:method (obj) 0))
+
+(defgeneric get-loot (obj))

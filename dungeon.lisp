@@ -160,6 +160,11 @@
     (add-glowing obj))
   obj)
 
+(defun force-movement (obj new-pos)  
+  (remove-solid (pos obj))
+  (setf (solid new-pos) obj)
+  (setf (pos obj) new-pos))
+
 (defun a-star (start end heuristic)
   (let ((cells (make-hash-table :test #'equal))
 	(costs (make-hash-table :test #'equal)))

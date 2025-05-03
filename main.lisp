@@ -45,23 +45,6 @@
 	       :types (make-mask (ensure-list types))
 	       :statuses (ensure-list statuses)))
 
-(defun get-loot (obj)
-  (let ((loot '()))
-    (when (meat obj)
-      (push (meat obj) loot))
-    (loop for item in (loot obj)
-	  if (and item (atom item))
-	    do (push item loot)
-	  else
-	    do (let ((bit (eval-weighted-list item)))
-		 (when (car bit)
-		   (mapc (lambda (b) (push b loot)) bit))))
-    (loop for item-list being the hash-values of (equipment obj)
-	  do (loop for item in item-list
-		   unless (breaksp item 50)
-		     do (push item loot)))
-    loot))
-
 (defun find-path (from to)
   (a-star from to #'movement-cost))
 
