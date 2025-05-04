@@ -16,7 +16,7 @@
 
 (defun get-equipped-items ()
   (let ((equipped-items
-	  (flatten (loop for item-list being the hash-keys of (equipment *player*)
+	  (flatten (loop for item-list being the hash-values of (equipment *player*)
 			 collect item-list))))
     (if *inventory-filter*
 	(loop for item in equipped-items

@@ -23,6 +23,7 @@
 (defequipment gold (amount) :solidp nil :color 'yellow-4 :char #\*)
 (defequipment crude-bow () :inherit bow :atk '(1 3 0 -1 piercing) :break-chance 3)
 (defequipment debt () :break-chance -100000)
+(defequipment sprout-bomb () :char #\* :color '(4 2 5) :break-chance 100)
 
 (defun make-gold (&optional (amount 1))
   (let ((gold (make-instance 'gold)))
@@ -88,9 +89,12 @@
   :health (roll 1 4)
   :int -4
   :morale 'fearless
-  :natural-weapons '(1 1 0 0 slashing)
   :vulnerable '(fire slashing)
-  :resist '(bludgeoning piercing))
+  :resist '(bludgeoning piercing)
+  :natural-weapons '(1 1 0 0 slashing))
+(defenemy grenadier-sprout #\% ()
+  :inherit sprout
+  :color '(4 2 5))
 (defenemy sprout-hulk #\H ()
   :inherit sprout
   :health (roll 4 4 2)

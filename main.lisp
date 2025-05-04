@@ -45,6 +45,37 @@
 	       :types (make-mask (ensure-list types))
 	       :statuses (ensure-list statuses)))
 
+(defun explode-at (pos radius evd-dc amount types &optional statuses)
+  (let (results)
+    (loop-in-circle radius
+		    with contents = nil
+		    do (setf contents (contents (vec+ (cons x y) pos)))
+		    when (and contents (not (wallp contents)))
+		    do (push (list contents (damage contents
+						    (if (evadesp contents evd-dc)
+							(round (/ amount 2))
+							amount)
+						    (ensure-list types)
+						    (ensure-list statuses)))
+			     results))
+    results))
+
+(defun throw-sprout-bomb (target thrower)
+  (print-to-log "~:[a sprout bomb explodes~;~a threw a sprout bomb~]~
+                 ~2@*~:[~;, dealing ~:*~{~1{~:[~*~d damage to ~a~;~a it~]~}~#[~; and ~:;, ~]~}~]"
+		(visiblep thrower *player*)
+		(name thrower)
+		(loop for result in (explode-at target 1 10 (roll 1 4) 'bludgeoning)
+		      when (visiblep (car result) *player*)
+			collect (list (deadp (car result))
+				      (death (car result))
+				      (cadr result)
+				      (name (car result))))))
+
+;;; for use in in-game repl
+(defun pp (&optional (offset +zero+))
+  (vec+ (pos *player*) offset))
+
 (defun find-path (from to)
   (a-star from to #'movement-cost))
 

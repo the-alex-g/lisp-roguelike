@@ -65,7 +65,8 @@
 
 (defgeneric get-attack (weapon attacker))
 
-(defgeneric damage (defender amount types &optional statuses))
+(defgeneric damage (defender amount types &optional statuses)
+  (:method (defender amount types &optional statuses)))
 
 (defgeneric visiblep (pos from))
 
@@ -148,3 +149,6 @@ on enemies, calls #'act until object runs out of energy")
   (:method (obj) 0))
 
 (defgeneric get-loot (obj))
+
+(defgeneric evadesp (obj dc)
+  (:method (obj dc) nil))

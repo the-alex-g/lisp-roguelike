@@ -11,6 +11,11 @@
     (setf (name corpse) (log-to-string "~a corpse" (name obj)))
     (setf (loot corpse) (get-loot obj))))
 
+(defmethod drop-corpse ((obj sprout)))
+
+(defmethod drop-corpse ((obj grenadier-sprout))
+  (make-sprout-bomb-pickup (pos obj)))
+
 (defmethod get-loot ((obj enemy))
   (let ((loot '()))
     (when (meat obj)
@@ -27,8 +32,6 @@
 		   unless (breaksp item 50)
 		     do (push item loot)))
     loot))
-
-(defmethod drop-corpse ((obj sprout)))
 
 (defmethod kill :after ((obj enemy))
   (gain-experience (xp obj)))
@@ -61,9 +64,6 @@
 	 'ladder-leading-up)
 	((= 1 (direction obj))
 	 'ladder-leading-down)))
-
-(defmethod apply-to ((subj creature) (obj elevated))
-  (incf (dex subj)))
 
 (defmethod pickup :around ((item gold))
   (remove-non-solid (pos item))
@@ -104,6 +104,9 @@
 
 (defmethod evasion ((obj creature))
   (max 1 (+ 5 (dex obj) (slot-value obj 'evasion))))
+
+(defmethod evadesp ((obj creature) dc)
+  (>= (roll 1 20 (dex obj)) dc))
 
 (defmethod name ((obj character)) "wall")
 (defmethod name ((obj symbol)) obj)
@@ -262,11 +265,17 @@
 (defmethod throw-at ((target creature) (item equipment) (thrower creature))
   (attack target (get-attack item thrower)))
 
-(defmethod throw-at :after ((target actor) (item equipment) thrower)
-  (place item (pos target) :solid nil))
+(defmethod throw-at ((target creature) (item sprout-bomb) (thrower creature))
+  (declare (ignore item))
+  (throw-sprout-bomb (pos target) thrower))
+
+(defmethod throw-at ((target list) (item sprout-bomb) (thrower creature))
+  (declare (ignore item))
+  (throw-sprout-bomb target thrower))
 
 (defmethod throw-at :after ((target list) (item equipment) thrower)
-  (place item target :solid nil))
+  (unless (breaksp item)
+    (place item target :solid nil)))
 
 (defmethod update :before ((obj creature))
   (mapc #'update (statuses obj))
@@ -371,17 +380,27 @@
 	   ;; idle
 	   (funcall (idle-behavior obj) obj)))))
 
-(defmethod act ((obj sprout) &key allies foes)
+(defmethod act ((obj sprout) &key allies foes &allow-other-keys)
   (let ((target (or (get-closest-of-list obj allies)
 		    (get-closest-of-list obj foes))))
     (when target
       (step-on-path (a-star (pos obj) (pos target) (lambda (pos) 1)) obj))))
 
-(defmethod act ((obj sprout-hulk) &key allies foes)
+(defmethod act ((obj sprout-hulk) &key allies foes &allow-other-keys)
   (let ((target (or (get-closest-of-list obj foes)
 		    (get-closest-of-list obj allies))))
     (when target
       (step-on-path (a-star (pos obj) (pos target) (lambda (pos) 1)) obj))))
+
+(defmethod act ((obj grenadier-sprout) &key allies foes &allow-other-keys)
+  (let ((ally (get-closest-of-list obj allies))
+	(foe  (get-closest-of-list obj foes)))
+    (cond (ally
+	   (step-on-path (a-star (pos obj) (pos ally) (lambda (pos) 1)) obj))
+	  ((and foe (< 1 (distance (pos foe) (pos obj)) 3))
+	   (throw-at foe (make-sprout-bomb) obj))
+	  (foe
+	   (step-on-path (a-star (pos obj) (pos foe) (lambda (pos) 1)) obj)))))
 
 (defmethod act :after ((obj enemy) &key &allow-other-keys)
   (when (equal (pos obj) (target-pos obj))
@@ -557,6 +576,9 @@
 
 (defmethod apply-to :before ((subj enemy) (obj resting))
   (setf (target-pos subj) nil))
+
+(defmethod apply-to ((subj creature) (obj elevated))
+  (incf (dex subj)))
 
 (DEFMETHOD DAMAGE ((DEFENDER CREATURE) AMOUNT TYPES &OPTIONAL STATUSES)
   (LET* ((BASE-DAMAGE (MAX 1 (- AMOUNT (ARMOR DEFENDER))))
@@ -810,6 +832,13 @@
 	   'g)
 	  (t
 	   'n))))
+
+(defmethod make-sprout :around (pos)
+  (let ((index (random 4)))
+    (cond ((= index 3)
+	   (make-grenadier-sprout pos))
+	  (t
+	   (call-next-method)))))
 
 (defmethod hostilep ((obj creature) (to creature))
   (maskp (types obj) (enemies to)))
