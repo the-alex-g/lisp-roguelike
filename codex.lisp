@@ -8,10 +8,11 @@
  (defequipment sword-+1 () :atk '(1 6 1 1 slashing) :inherit weapon :break-chance 1 :char #\^)
  (defequipment dagger () :atk '(1 4 0 0 piercing) :inherit weapon :char #\^)
  (defequipment bow () :atk '(1 4 0 0 piercing) :inherit weapon :range 4 :char #\) :size 2)
- (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger")
+ (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger"
+   :break-chance 100)
  (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2 :char #\&)
  (defsecretequipment healing-potion
-     ((blue-potion :color 'blue-4)
+     ((blue-potion :color '(0 1 5))
       (green-potion :color 'green-4)
       (red-potion :color 'red-4))
    ((healing (roll 2 4))) :inherit potion))
@@ -37,7 +38,8 @@
 			 (avoid-dc 10)
 			 (searchedp nil))
   :solidp nil :color 'red :hiddenp t)
-(defactor corpse #\c (loot) :solidp nil)
+(defactor corpse #\c (loot (decay-time 100)) :solidp nil)
+(defactor bones #\x () :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
 (defactor pit-trap #\! () :inherit trap :solidp nil)
 (defactor table #\space () :solidp nil :bg-color '(2 1 0)

@@ -205,6 +205,6 @@
 (defun steal-items ()
   (loop for item in *inventory*
 	when (shopkeeper item)
-	  do (push *player* (shopkeeper item))
+	  do (make-hostile (shopkeeper item) *player*)
 	  and do (setf (shopkeeper item) nil))
   (setf *shopkeeper* nil))

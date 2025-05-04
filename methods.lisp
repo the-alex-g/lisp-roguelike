@@ -9,7 +9,8 @@
 (defmethod drop-corpse ((obj enemy))
   (let ((corpse (make-corpse (pos obj))))
     (setf (name corpse) (log-to-string "~a corpse" (name obj)))
-    (setf (loot corpse) (get-loot obj))))
+    (setf (loot corpse) (get-loot obj))
+    corpse))
 
 (defmethod drop-corpse ((obj sprout)))
 
@@ -32,11 +33,6 @@
 		   unless (breaksp item 50)
 		     do (push item loot)))
     loot))
-
-(defmethod remove-from-inventory ((item debt) &key (selling nil) &allow-other-keys)
-  (if selling
-      (call-next-method)
-      (print-to-log "you can't get rid of debt that easily")))
 
 (defmethod hiddenp ((obj ladder))
   (or (and (= *current-depth* 0)
@@ -218,6 +214,12 @@
   (when (shopkeeper item)
     (setf *shopkeeper* (shopkeeper item))))
 
+(defmethod remove-from-inventory ((item debt) &key (selling nil) &allow-other-keys)
+  (if selling
+      (call-next-method)
+      (progn (print-to-log "you can't get rid of debt that easily")
+	     nil)))
+
 (defmethod remove-from-inventory ((item equipment) &key (exact-match-p t) &allow-other-keys)
   (if exact-match-p
       (progn (setf *inventory*
@@ -276,6 +278,12 @@
 	finally (if (= (duration obj) 0)
 		    (remove-status obj))))
 
+(defmethod update ((obj corpse))
+  (decf (decay-time obj))
+  (when (= (decay-time obj) 0)
+    (remove-non-solid (pos obj))
+    (drop-bones obj)))
+
 (defmethod update ((obj elevated))
   (let ((f (non-solid (pos (target obj)))))
     (unless (and f (eq (name f) 'table))
@@ -310,10 +318,11 @@
      (/ (health obj) (max-health obj))))
 
 (defmethod act :around ((obj shopkeeper) &key &allow-other-keys)
-  (cond ((setf (targets obj)
-	       (loop for target in (targets obj)
-		     unless (deadp target)
-		       collect target))
+  (setf (targets obj)
+	(loop for target in (targets obj)
+	      unless (deadp target)
+		collect target))
+  (cond ((targets obj)
 	 (move-towards (pos (car (targets obj))) obj #'movement-cost))
 	((not (equal (pos obj) (home obj)))
 	 (move-towards (home obj) obj #'movement-cost))))
@@ -455,7 +464,7 @@
     (attack passive active)))
 
 (defmethod move-into ((passive creature) (active creature))
-  (when (hostilep passive active)
+  (when (hostilep active passive)
     (attack passive active)))
 
 (defmethod move-into ((passive table) (active creature))
@@ -585,13 +594,8 @@
   (damage-amount damage))
 
 (defmethod damage :after ((defender creature) (damage damage))
-  (unless (or (attack-p damage)
-	      (hostilep (damage-source damage) defender))
-    (setf (enemies defender) (logior (types (damage-source damage)) (enemies defender)))))
-
-(defmethod damage :after ((defender shopkeeper) (damage damage))
-  (unless (member (damage-source damage) (targets defender) :test #'equal)
-    (push (damage-source damage) (targets defender))))
+  (when (slot-exists-p (damage-source damage) 'types)
+    (make-hostile defender (damage-source damage))))
 
 (defmethod damage :after (defender (damage damage))
   (when (deadp defender)
@@ -622,6 +626,13 @@
       NIL
       (VISIBLEP (POS OBJ) FROM)))
 
+(defmethod make-hostile ((obj shopkeeper) (to creature))
+  (unless (member to (targets obj) :test #'equal)
+    (push to (targets obj))))
+
+(defmethod make-hostile ((obj creature) (to creature))
+  (setf (enemies obj) (logior (types to) (enemies obj))))
+
 (DEFMETHOD ATTACK :AROUND ((DEFENDER CREATURE) ATTACKER)
   (UNLESS (DEADP DEFENDER) (CALL-NEXT-METHOD)))
 
@@ -635,18 +646,13 @@
        (UNEQUIP WEAPON attacker :TO 'THE-ABYSS)))
    (WEAPONS ATTACKER :equipped-only t)))
 
-(defmethod attack :after ((defender shopkeeper) (attack attack))
-  (unless (member (damage-source attack) (targets defender) :test #'equal)
-    (push (damage-source attack) (targets defender))))
-
 (defmethod attack :after ((defender creature) (attack attack))
-  (when (and (damage-source attack)
-	     (not (hostilep (damage-source attack) defender)))
-    (setf (enemies defender) (logior (types (damage-source attack)) (enemies defender)))))
+  (when (slot-exists-p (damage-source attack) 'types)
+    (make-hostile defender (damage-source attack))))
 
 (DEFMETHOD ATTACK ((DEFENDER BREAKABLE) (ATTACK ATTACK))
   (PRINT-TO-LOG "~a hit ~a for ~d damage~:[~;, ~a~]" (name (damage-source ATTACK))
-                (NAME DEFENDER) (DAMAGE DEFENDER attack NIL)
+                (NAME DEFENDER) (DAMAGE DEFENDER attack)
                 (DEADP DEFENDER)
 		(DEATH DEFENDER)))
 
@@ -760,9 +766,11 @@
 		   (darken (GETHASH OBJ *TERRAIN-COLORS*) darken)
 		   (gethash obj *terrain-colors*))))
 
-(DEFMETHOD DEADP ((OBJ CREATURE)) (= (HEALTH OBJ) 0))
+(DEFMETHOD DEADP ((OBJ CREATURE))
+  (= (HEALTH OBJ) 0))
 
-(DEFMETHOD DEADP ((OBJ BREAKABLE)) (>= (BREAK-CHANCE OBJ) 100))
+(DEFMETHOD DEADP ((OBJ BREAKABLE))
+  (>= (BREAK-CHANCE OBJ) 100))
 
 (defmethod (setf deadp) (value (obj creature))
   (when value
@@ -816,7 +824,7 @@
 
 (DEFMETHOD BREAKSP ((OBJ EQUIPMENT) &OPTIONAL (OFFSET 0))
   (< (RANDOM 100)
-     (MAX (MIN 1 (BREAK-CHANCE OBJ)) (- (BREAK-CHANCE OBJ) OFFSET))))
+     (MAX (MIN 1 (BREAK-CHANCE OBJ)) (+ (BREAK-CHANCE OBJ) OFFSET))))
 
 (DEFMETHOD REMOVE-STATUS :AFTER ((STATUS STATUS))
   (SETF (STATUSES (TARGET STATUS)) (REMOVE STATUS (STATUSES (TARGET STATUS)))))

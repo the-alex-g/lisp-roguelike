@@ -56,6 +56,16 @@
 		  (= (length (statuses enemy)) 1))
       (my-attack "killing" attack3 0))))
 
+(defun test-corpse-decays ()
+  (flag "TESTING CORPSE DECAYS")
+  (with-clean-board
+      (let ((corpse (drop-corpse (make-goblin '(-10 . -10)))))
+	(loop repeat (decay-time corpse)
+	      do (update corpse))
+	(print-test "it decayed" (eq (type-of (non-solid (pos corpse))) 'bones))
+	(print-test "it's named correctly"
+		    (string= (name (non-solid (pos corpse))) "goblin bones")))))
+
 (defun test-vector-math ()
   (flag "TESTING VECTOR MATH")
   (flet ((test (test value function &rest args)
@@ -251,8 +261,7 @@
 	     (shop-sword (make-sword-+1))
 	     (*inventory* (list (make-sword) shop-sword))
 	     (*shop-items* (list #'make-sword))
-	     (*gold* 1)
-	     (counter 0))
+	     (*gold* 1))
 	(setf (shopkeeper shop-sword) shopkeeper)
 	(checkout)
 	(print-test "can't buy item that's too expensive"
@@ -265,18 +274,17 @@
 	(checkout)
 	(print-test "bought item"
 		    (not (shopkeeper shop-sword)))
+	(print-test "shopkeeper not hostile" (not (hostilep shopkeeper *player*)))
 	(attack shopkeeper (make-attack :source *player* :to-hit 0 :types '(slashing)))
 	(place *player* '(2 . 2))
 	(print-test "shopkeeper becomes hostile even on a miss"
 		    (hostilep shopkeeper *player*))
-	(loop until (or (deadp *player*)
-			(> counter 100))
+	(loop repeat 100 until (deadp *player*)
 	      do (act shopkeeper)
-	      do (incf counter))
+	      finally (act shopkeeper))
 	(print-test "shopkeeper kills player" (deadp *player*))
-	(loop until (or (equal (pos shopkeeper) (home shopkeeper))
-			(> counter 200))
-	      do (incf counter)
+	(print-test "shopkeeper no longer hostile" (not (hostilep shopkeeper *player*)))
+	(loop repeat 100 until (equal (pos shopkeeper) (home shopkeeper))
 	      do (act shopkeeper))
 	(print-test "shopkeeper goes home" (equal (pos shopkeeper) (home shopkeeper))))))
 
@@ -304,6 +312,7 @@
   (test-secret-equipment)
   (test-priority-lists)
   (test-a-star)
+  (test-corpse-decays)
   (flag "testing tests")
   (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
 	      (= *tests-failed* 0)

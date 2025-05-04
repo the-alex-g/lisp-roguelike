@@ -38,6 +38,14 @@
 
 (setf (slot-value *player* 'max-health) (health *player*))
 
+(defun drop-bones (from)
+  (let ((bones (make-bones (pos from))))
+    (loop for loot in (loot from)
+	  unless (breaksp loot 50)
+	    do (place loot (pos from) :solid nil))
+    (setf (name bones) (concatenate 'string (subseq (name from) 0 (- (length (name from)) 6))
+				    "bones"))))
+
 (defun generate-attack (attacker num die &optional dmg-bonus to-hit types statuses)
   (make-attack :amount (roll num die (str attacker) dmg-bonus)
 	       :to-hit (roll 1 20 to-hit (dex attacker))
@@ -154,17 +162,16 @@
 
 (defun choose-target (initial-mode range &key (can-switch-p t))
   (let ((target-position (pos *player*))
-	(target-list
-	  (apply #'append
-		 (loop-in-circle range
-				 with pos = +zero+
-				 do (setf pos (vec+ (cons x y)
-						    (pos *player*)))
-				 when (and (visiblep pos (pos *player*))
-					   (contents pos)
-					   (not (wallp (contents pos)))
-					   (not (equal (contents pos) *player*)))
-				 collect (contents pos)))))
+	target-list)
+    (loop-in-circle range
+		    with pos = +zero+
+		    do (setf pos (vec+ (cons x y)
+				       (pos *player*)))
+		    when (and (contents pos)
+			      (not (wallp (contents pos)))
+			      (visiblep (contents pos) (pos *player*))
+			      (not (equal (contents pos) *player*)))
+		    do (push (contents pos) target-list))
     (if (or target-list
 	    (eq initial-mode 'free-form))
 	(labels ((two-key-targeting ()
