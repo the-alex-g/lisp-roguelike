@@ -7,8 +7,8 @@
 
 (defgeneric drop-corpse (obj))
 
-(defgeneric kill (obj)
-  (:method (obj)))
+(defgeneric kill (obj killer)
+  (:method (obj killer)))
 
 (defgeneric wallp (obj)
   (:method (obj) nil))
@@ -65,8 +65,8 @@
 
 (defgeneric get-attack (weapon attacker))
 
-(defgeneric damage (defender amount types &optional statuses)
-  (:method (defender amount types &optional statuses)))
+(defgeneric damage (defender damage)
+  (:method (defender damage)))
 
 (defgeneric visiblep (pos from))
 

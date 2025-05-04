@@ -32,10 +32,10 @@
 (defun test-combat ()
   (flag "TESTING COMBAT")
   (let ((enemy (make-instance 'creature :name "enemy" :health 10))
-	(attack1 (make-attack :dmg 5 :to-hit 10 :types '(slashing)))
-	(attack2 (make-attack :dmg 5 :to-hit 5 :types '(slashing)))
-	(attack3 (make-attack :dmg 10 :to-hit 10 :types '(bludgeoning)))
-	(status-attack (make-attack :dmg 0 :to-hit 10 :types '(piercing)
+	(attack1 (make-attack :amount 5 :to-hit 10 :types '(slashing)))
+	(attack2 (make-attack :amount 5 :to-hit 5 :types '(slashing)))
+	(attack3 (make-attack :amount 10 :to-hit 10 :types '(bludgeoning)))
+	(status-attack (make-attack :amount 0 :to-hit 10 :types '(piercing)
 				    :statuses (list (make-instance 'status)))))
     (flet ((my-attack (text atk val)
 	     (format t "~&~:(~a~)" text)
@@ -65,7 +65,8 @@
     (test #'equal '(1 . 1) 'vec+ '(1 . 0) '(0 . 1))
     (test #'equal '(0 . 1) 'vec- '(1 . 1) '(1 . 0))
     (test #'equal '(-1 . -1) 'vec- '(1 . 1))
-    (test #'= 5.0 'vec-length '(3 . 4))))
+    (test #'= 5.0 (lambda (foo) (vec-length foo :exactp t)) '(3 . 4))
+    (test #'= 4 #'vec-length '(3 . 4))))
 
 (defun test-equipment ()
   (flag "TESTING EQUIPPING")
@@ -180,7 +181,7 @@
   (with-clean-board
     (let ((*player* (make-instance 'player :name 'actor))
 	  (*inventory* nil)
-	  (item (make-instance 'equipment :name 'item)))
+	  (item (make-instance 'equipment :name 'item :break-chance -100)))
       (flet ((test-inventory (value)
 	       (let ((inventory-names (mapcar #'name *inventory*)))
 		 (print-test "*inventory* = ~a" (equal inventory-names value) inventory-names)))
@@ -245,23 +246,39 @@
 	(print-test "shop positions correctly (shop at ~a)"
 		    (equal shop-pos '(1 . 1))
 		    shop-pos))))
-  (let* ((shopkeeper (make-shopkeeper +zero+))
-	 (shop-sword (make-sword-+1))
-	 (*inventory* (list (make-sword) shop-sword))
-	 (*shop-items* (list #'make-sword))
-	 (*gold* 1))
-    (setf (shopkeeper shop-sword) shopkeeper)
-    (checkout)
-    (print-test "can't buy item that's too expensive"
-		(shopkeeper shop-sword))
-    (with-fake-input #\0
-      (sell-item shopkeeper)
-      (print-test "sold item"
-		  (and (= *gold* 2)
-		       (= (length *inventory*) 1))))
-    (checkout)
-    (print-test "bought item"
-		(not (shopkeeper shop-sword)))))
+  (with-clean-board
+      (let* ((shopkeeper (make-shopkeeper +zero+))
+	     (shop-sword (make-sword-+1))
+	     (*inventory* (list (make-sword) shop-sword))
+	     (*shop-items* (list #'make-sword))
+	     (*gold* 1)
+	     (counter 0))
+	(setf (shopkeeper shop-sword) shopkeeper)
+	(checkout)
+	(print-test "can't buy item that's too expensive"
+		    (shopkeeper shop-sword))
+	(with-fake-input #\0
+	  (sell-item shopkeeper)
+	  (print-test "sold item"
+		      (and (= *gold* 2)
+			   (= (length *inventory*) 1))))
+	(checkout)
+	(print-test "bought item"
+		    (not (shopkeeper shop-sword)))
+	(attack shopkeeper (make-attack :source *player* :to-hit 0 :types '(slashing)))
+	(place *player* '(2 . 2))
+	(print-test "shopkeeper becomes hostile even on a miss"
+		    (hostilep shopkeeper *player*))
+	(loop until (or (deadp *player*)
+			(> counter 100))
+	      do (act shopkeeper)
+	      do (incf counter))
+	(print-test "shopkeeper kills player" (deadp *player*))
+	(loop until (or (equal (pos shopkeeper) (home shopkeeper))
+			(> counter 200))
+	      do (incf counter)
+	      do (act shopkeeper))
+	(print-test "shopkeeper goes home" (equal (pos shopkeeper) (home shopkeeper))))))
 
 (defsecretequipment test-equipment ((cover-name :color 34 :char #\t)) () :color 31
   :char #\f)
@@ -291,4 +308,5 @@
   (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
 	      (= *tests-failed* 0)
 	      *tests-failed*)
-  (setf *tests-failed* 0))
+  (setf *tests-failed* 0)
+  (format t "~2%"))

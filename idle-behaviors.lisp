@@ -8,3 +8,5 @@
 		    (nth index +directions+)))
 	((not (solid (vec+ (pos obj) direction)))
 	 (move obj direction)))))
+
+(defun no-idle (obj))

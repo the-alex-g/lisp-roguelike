@@ -39,25 +39,20 @@
 (setf (slot-value *player* 'max-health) (health *player*))
 
 (defun generate-attack (attacker num die &optional dmg-bonus to-hit types statuses)
-  (make-attack :dmg (roll num die (str attacker) dmg-bonus)
+  (make-attack :amount (roll num die (str attacker) dmg-bonus)
 	       :to-hit (roll 1 20 to-hit (dex attacker))
-	       :source (name attacker)
+	       :source attacker
 	       :types (make-mask (ensure-list types))
 	       :statuses (ensure-list statuses)))
 
-(defun explode-at (pos radius evd-dc amount types &optional statuses)
+(defun explode-at (pos radius evd-dc damage)
   (let (results)
     (loop-in-circle radius
 		    with contents = nil
 		    do (setf contents (contents (vec+ (cons x y) pos)))
 		    when (and contents (not (wallp contents)))
-		    do (push (list contents (damage contents
-						    (if (evadesp contents evd-dc)
-							(round (/ amount 2))
-							amount)
-						    (ensure-list types)
-						    (ensure-list statuses)))
-			     results))
+		    unless (evadesp contents evd-dc)
+		    do (push (list contents (damage contents damage)) results))
     results))
 
 (defun throw-sprout-bomb (target thrower)
@@ -65,7 +60,9 @@
                  ~2@*~:[~;, dealing ~:*~{~1{~:[~*~d damage to ~a~;~a it~]~}~#[~; and ~:;, ~]~}~]"
 		(visiblep thrower *player*)
 		(name thrower)
-		(loop for result in (explode-at target 1 10 (roll 1 4) 'bludgeoning)
+		(loop for result in (explode-at target 1 10 (make-damage :amount (roll 1 4)
+									 :source thrower
+									 :types '(bludgeoning)))
 		      when (visiblep (car result) *player*)
 			collect (list (deadp (car result))
 				      (death (car result))
@@ -76,8 +73,8 @@
 (defun pp (&optional (offset +zero+))
   (vec+ (pos *player*) offset))
 
-(defun find-path (from to)
-  (a-star from to #'movement-cost))
+(defun move-towards (pos obj heuristic)
+  (step-on-path (a-star (pos obj) pos heuristic) obj))
 
 (defun damage-modifier (defender damage-types)
   (unless (numberp damage-types)
@@ -370,4 +367,8 @@
   (place *player* (pos (make-shopkeeper (get-spawn-position cells 8)))))
 (equip (make-sword) *player*)
 
-(start)
+(with-open-file (file "testingp.txt" :if-does-not-exist nil)
+  (if file
+      (progn (load "tests.lisp")
+	     (test))
+      (start)))

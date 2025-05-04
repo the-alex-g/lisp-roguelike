@@ -53,7 +53,6 @@
 	(loop for item in *inventory*
 	      thereis (shopkeeper item))))
 
-
 (defun in-inventoryp (item)
   (loop for i in (get-inventory)
 	  thereis (names-equal-p item i)))
@@ -206,6 +205,6 @@
 (defun steal-items ()
   (loop for item in *inventory*
 	when (shopkeeper item)
-	  do (setf (enragedp (shopkeeper item)) t)
+	  do (push *player* (shopkeeper item))
 	  and do (setf (shopkeeper item) nil))
   (setf *shopkeeper* nil))

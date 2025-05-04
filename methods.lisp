@@ -33,19 +33,6 @@
 		     do (push item loot)))
     loot))
 
-(defmethod kill :after ((obj enemy))
-  (gain-experience (xp obj)))
-
-(defmethod kill :after ((obj equipment))
-  (when (shopkeeper obj)
-    (let ((debt (make-debt)))
-      (print-to-log "you owe the shopkeeper ~d gold for destroying the ~a"
-		    (price obj)
-		    (name obj))
-      (setf (price debt) (price obj))
-      (setf (shopkeeper debt) (shopkeeper obj))
-      (add-to-inventory debt))))
-
 (defmethod remove-from-inventory ((item debt) &key (selling nil) &allow-other-keys)
   (if selling
       (call-next-method)
@@ -95,7 +82,9 @@
       (call-next-method)))
 
 (defmethod trigger ((trap pit-trap) (activator creature))
-  (let ((damage (damage activator (roll 1 6) '(bludgeoning))))
+  (let ((damage (damage activator (make-damage :source trap
+					       :amount (roll 1 6)
+					       :types '(bludgeoning)))))
     (when (playerp activator)
       (print-to-log "you triggered a ~a and took ~d damage"
 		    (name trap)
@@ -109,7 +98,9 @@
   (>= (roll 1 20 (dex obj)) dc))
 
 (defmethod name ((obj character)) "wall")
+
 (defmethod name ((obj symbol)) obj)
+
 (defmethod name ((obj secret-equipment))
   (if (identifiedp obj)
       (slot-value obj 'name)
@@ -117,8 +108,7 @@
 
 (defmethod (setf health) (value (obj creature))
   (cond ((<= value 0)
-	 (setf (slot-value obj 'health) 0)
-	 (kill obj))
+	 (setf (slot-value obj 'health) 0))
 	((slot-boundp obj 'max-health)
 	 (setf (slot-value obj 'health) (min value (max-health obj))))
 	(t
@@ -128,8 +118,7 @@
 (defmethod (setf health) (value (obj sprout-hulk))
   (if (> value 0)
       (setf (slot-value obj 'health) value)
-      (progn (setf (slot-value obj 'health) 0)
-	     (kill obj))))
+      (setf (slot-value obj 'health) 0)))
 
 (defmethod (setf con) (value (obj creature))
   (let ((dhealth (- value (con obj))))
@@ -265,13 +254,9 @@
 (defmethod throw-at ((target creature) (item equipment) (thrower creature))
   (attack target (get-attack item thrower)))
 
-(defmethod throw-at ((target creature) (item sprout-bomb) (thrower creature))
+(defmethod throw-at (target (item sprout-bomb) (thrower creature))
   (declare (ignore item))
   (throw-sprout-bomb (pos target) thrower))
-
-(defmethod throw-at ((target list) (item sprout-bomb) (thrower creature))
-  (declare (ignore item))
-  (throw-sprout-bomb target thrower))
 
 (defmethod throw-at :after ((target list) (item equipment) thrower)
   (unless (breaksp item)
@@ -325,8 +310,13 @@
      (/ (health obj) (max-health obj))))
 
 (defmethod act :around ((obj shopkeeper) &key &allow-other-keys)
-  (when (enragedp obj)
-    (call-next-method)))
+  (cond ((setf (targets obj)
+	       (loop for target in (targets obj)
+		     unless (deadp target)
+		       collect target))
+	 (move-towards (pos (car (targets obj))) obj #'movement-cost))
+	((not (equal (pos obj) (home obj)))
+	 (move-towards (home obj) obj #'movement-cost))))
 
 (defmethod act :around ((obj enemy) &key &allow-other-keys)
   (multiple-value-bind (foes allies) (get-actors obj 5
@@ -372,7 +362,7 @@
 	   (apply-to obj (make-resting-status)))
 	  ((target-pos obj)
 	   ;; if knows about a target, move towards it
-	   (step-on-path (a-star (pos obj) (target-pos obj) heuristic) obj))
+	   (move-towards (target-pos obj) obj heuristic))
 	  ((< (health obj) (max-health obj))
 	   ;; damaged at all
 	   (apply-to obj (make-resting-status)))
@@ -384,23 +374,23 @@
   (let ((target (or (get-closest-of-list obj allies)
 		    (get-closest-of-list obj foes))))
     (when target
-      (step-on-path (a-star (pos obj) (pos target) (lambda (pos) 1)) obj))))
+      (move-towards (pos target) obj (lambda (pos) 1)))))
 
 (defmethod act ((obj sprout-hulk) &key allies foes &allow-other-keys)
   (let ((target (or (get-closest-of-list obj foes)
 		    (get-closest-of-list obj allies))))
     (when target
-      (step-on-path (a-star (pos obj) (pos target) (lambda (pos) 1)) obj))))
+      (move-towards (pos target) obj (lambda (pos) 1)))))
 
 (defmethod act ((obj grenadier-sprout) &key allies foes &allow-other-keys)
   (let ((ally (get-closest-of-list obj allies))
 	(foe  (get-closest-of-list obj foes)))
     (cond (ally
-	   (step-on-path (a-star (pos obj) (pos ally) (lambda (pos) 1)) obj))
+	   (move-towards (pos ally) obj (lambda (pos) 1)))
 	  ((and foe (< 1 (distance (pos foe) (pos obj)) 3))
 	   (throw-at foe (make-sprout-bomb) obj))
 	  (foe
-	   (step-on-path (a-star (pos obj) (pos foe) (lambda (pos) 1)) obj)))))
+	   (move-towards (pos foe) obj (lambda (pos) 1))))))
 
 (defmethod act :after ((obj enemy) &key &allow-other-keys)
   (when (equal (pos obj) (target-pos obj))
@@ -412,7 +402,7 @@
 	(if (and (not (solid new-pos))
 		 (or (> (distance new-pos (pos *shopkeeper*))
 			(domain *shopkeeper*))
-		     (not (visiblep (pos *shopkeeper*) new-pos))))
+		     (not (visiblep (home *shopkeeper*) new-pos))))
 	    (if (confirmp  "if you move there, you will be stealing from the shopkeeper~
                                 ~%do you want to move anyway?")
 		(progn (steal-items)
@@ -501,7 +491,7 @@
       (trigger passive active)))
 
 (defmethod move-into ((passive shopkeeper) (active player))
-  (if (enragedp passive)
+  (if (hostilep passive active)
       (attack passive active)
       (let ((action (get-item-from-list '(attack sell buy) :what 'option)))
 	(cond ((eq action 'attack)
@@ -580,23 +570,34 @@
 (defmethod apply-to ((subj creature) (obj elevated))
   (incf (dex subj)))
 
-(DEFMETHOD DAMAGE ((DEFENDER CREATURE) AMOUNT TYPES &OPTIONAL STATUSES)
-  (LET* ((BASE-DAMAGE (MAX 1 (- AMOUNT (ARMOR DEFENDER))))
-         (MOD-DAMAGE (ROUND (* BASE-DAMAGE (DAMAGE-MODIFIER DEFENDER TYPES))))
+(DEFMETHOD DAMAGE ((DEFENDER CREATURE) (damage damage))
+  (LET* ((BASE-DAMAGE (MAX 1 (- (damage-amount damage) (ARMOR DEFENDER))))
+         (MOD-DAMAGE (ROUND (* BASE-DAMAGE (DAMAGE-MODIFIER DEFENDER (damage-types damage)))))
          (REAL-DAMAGE
           (COND ((= MOD-DAMAGE 0) 0) ((< MOD-DAMAGE 0) MOD-DAMAGE)
                 (T (MAX 1 MOD-DAMAGE)))))
     (DECF (HEALTH DEFENDER) REAL-DAMAGE)
-    (LOOP FOR STATUS IN STATUSES
-          DO (APPLY-TO DEFENDER STATUS))
+    (mapc (lambda (status) (apply-to defender status)) (damage-statuses damage))
     (MAX 0 REAL-DAMAGE)))
 
-(DEFMETHOD DAMAGE ((DEFENDER BREAKABLE) AMOUNT TYPES &OPTIONAL STATUSES)
-  (DECLARE (IGNORE TYPES STATUSES))
-  (INCF (BREAK-CHANCE DEFENDER) (* 5 AMOUNT))
-  AMOUNT)
+(DEFMETHOD DAMAGE ((DEFENDER BREAKABLE) (damage damage))
+  (INCF (BREAK-CHANCE DEFENDER) (* 5 (damage-amount damage)))
+  (damage-amount damage))
 
-(defmethod damage :around ((defender sprout-hulk) amount types &optional statuses)
+(defmethod damage :after ((defender creature) (damage damage))
+  (unless (or (attack-p damage)
+	      (hostilep (damage-source damage) defender))
+    (setf (enemies defender) (logior (types (damage-source damage)) (enemies defender)))))
+
+(defmethod damage :after ((defender shopkeeper) (damage damage))
+  (unless (member (damage-source damage) (targets defender) :test #'equal)
+    (push (damage-source damage) (targets defender))))
+
+(defmethod damage :after (defender (damage damage))
+  (when (deadp defender)
+    (kill defender (damage-source damage))))
+
+(defmethod damage :around ((defender sprout-hulk) (damage damage))
   (let ((damage (call-next-method)))
     (when (> damage 0)
       (setf (health (make-sprout (do ((index (random 16) (mod (1+ index) 16))
@@ -621,13 +622,6 @@
       NIL
       (VISIBLEP (POS OBJ) FROM)))
 
-(defmethod attack :after ((defender shopkeeper) (attacker player))
-  (setf (enragedp defender) t))
-
-(DEFMETHOD ATTACK :AFTER ((DEFENDER CREATURE) (ATTACKER creature))
-  (UNLESS (HOSTILEP ATTACKER defender)
-    (setf (enemies defender) (logior (types attacker) (enemies defender)))))
-
 (DEFMETHOD ATTACK :AROUND ((DEFENDER CREATURE) ATTACKER)
   (UNLESS (DEADP DEFENDER) (CALL-NEXT-METHOD)))
 
@@ -641,10 +635,20 @@
        (UNEQUIP WEAPON attacker :TO 'THE-ABYSS)))
    (WEAPONS ATTACKER :equipped-only t)))
 
+(defmethod attack :after ((defender shopkeeper) (attack attack))
+  (unless (member (damage-source attack) (targets defender) :test #'equal)
+    (push (damage-source attack) (targets defender))))
+
+(defmethod attack :after ((defender creature) (attack attack))
+  (when (and (damage-source attack)
+	     (not (hostilep (damage-source attack) defender)))
+    (setf (enemies defender) (logior (types (damage-source attack)) (enemies defender)))))
+
 (DEFMETHOD ATTACK ((DEFENDER BREAKABLE) (ATTACK ATTACK))
-  (PRINT-TO-LOG "~a hit ~a for ~d damage~:[~;, ~a~]" (ATTACK-SOURCE ATTACK)
-                (NAME DEFENDER) (DAMAGE DEFENDER (ATTACK-DMG ATTACK) NIL)
-                (WHEN (DEADP DEFENDER) (KILL DEFENDER) T) (DEATH DEFENDER)))
+  (PRINT-TO-LOG "~a hit ~a for ~d damage~:[~;, ~a~]" (name (damage-source ATTACK))
+                (NAME DEFENDER) (DAMAGE DEFENDER attack NIL)
+                (DEADP DEFENDER)
+		(DEATH DEFENDER)))
 
 (DEFMETHOD ATTACK (DEFENDER (ATTACKER CREATURE))
   (MAPC
@@ -656,12 +660,11 @@
 (DEFMETHOD ATTACK ((DEFENDER CREATURE) (ATTACK ATTACK))
   (IF (>= (ATTACK-TO-HIT ATTACK) (EVASION DEFENDER))
       (PRINT-TO-LOG "~:[~;~a hit ~a for ~d damage~:[~;, ~a~]~]"
-                    (VISIBLEP DEFENDER *PLAYER*) (ATTACK-SOURCE ATTACK)
+                    (VISIBLEP DEFENDER *PLAYER*) (name (damage-source ATTACK))
                     (NAME DEFENDER)
-                    (DAMAGE DEFENDER (ATTACK-DMG ATTACK) (ATTACK-TYPES ATTACK)
-                            (ATTACK-STATUSES ATTACK))
+                    (DAMAGE DEFENDER attack)
                     (DEADP DEFENDER) (DEATH DEFENDER))
-      (PRINT-TO-LOG "~a missed ~a" (ATTACK-SOURCE ATTACK) (NAME DEFENDER))))
+      (PRINT-TO-LOG "~a missed ~a" (name (damage-source ATTACK)) (NAME DEFENDER))))
 
 (DEFMETHOD PICKUP :AFTER ((ITEM EQUIPMENT))
   (REMOVE-NON-SOLID (POS ITEM))
@@ -669,15 +672,26 @@
   (ADD-TO-INVENTORY ITEM)
   (PRINT-TO-LOG "you picked up a ~a" (NAME ITEM)))
 
-(DEFMETHOD KILL (OBJ))
+(DEFMETHOD KILL ((OBJ ENEMY) killer) (DROP-CORPSE OBJ))
 
-(DEFMETHOD KILL ((OBJ ENEMY)) (DROP-CORPSE OBJ))
-
-(DEFMETHOD KILL :BEFORE ((OBJ ACTOR))
+(DEFMETHOD KILL :BEFORE ((OBJ ACTOR) killer)
   (IF (EQUAL (SOLID (POS OBJ)) OBJ)
       (REMOVE-SOLID (POS OBJ))
       (REMOVE-NON-SOLID (POS OBJ)))
   (REMOVE-GLOWING OBJ))
+
+(defmethod kill :after ((obj enemy) (killer player))
+  (gain-experience (xp obj)))
+
+(defmethod kill :after ((obj equipment) (killer player))
+  (when (shopkeeper obj)
+    (let ((debt (make-debt)))
+      (print-to-log "you owe the shopkeeper ~d gold for destroying the ~a"
+		    (price obj)
+		    (name obj))
+      (setf (price debt) (price obj))
+      (setf (shopkeeper debt) (shopkeeper obj))
+      (add-to-inventory debt))))
 
 (DEFMETHOD WALLP ((OBJ LIST)) (WALLP (SOLID OBJ)))
 
@@ -752,7 +766,8 @@
 
 (defmethod (setf deadp) (value (obj creature))
   (when value
-    (setf (health obj) 0)))
+    (setf (health obj) 0)
+    (kill obj 'death)))
 
 (DEFMETHOD DEATH ((OBJ CREATURE)) "killing it")
 
@@ -843,8 +858,8 @@
 (defmethod hostilep ((obj creature) (to creature))
   (maskp (types obj) (enemies to)))
 
-(defmethod hostilep ((obj shopkeeper) (to player))
-  (enragedp obj))
+(defmethod hostilep ((obj shopkeeper) (to creature))
+  (member to (targets obj) :test #'equal))
 
 (defmethod alliedp ((obj creature) (to creature))
   (maskp (types obj) (allies to)))
@@ -858,7 +873,10 @@
 			     (not (equal (cons x y) pos))
 			     (visiblep (cons x y) shopkeeper))
 		     do (place-shop-item (cons x y) shopkeeper)))
+    (setf (home shopkeeper) (pos shopkeeper))
     shopkeeper))
+
+(defmethod pos ((obj list)) obj)
 
 (macrolet ((define-mask-accessors (&rest names)
 	     `(progn
@@ -876,3 +894,5 @@
 					   mask))))))))
   (define-mask-accessors resistances immunities absorbances vulnerabilities
     allies enemies types))
+
+(defmethod (setf enemies) (value (obj shopkeeper)))

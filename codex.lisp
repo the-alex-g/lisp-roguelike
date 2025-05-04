@@ -37,7 +37,6 @@
 			 (avoid-dc 10)
 			 (searchedp nil))
   :solidp nil :color 'red :hiddenp t)
-
 (defactor corpse #\c (loot) :solidp nil)
 (defactor ladder #\# (direction) :solidp nil)
 (defactor pit-trap #\! () :inherit trap :solidp nil)
@@ -47,7 +46,7 @@
 
 ;; ENEMIES
 
-(define-mask-set '(good evil goblin troll kobold sprout))
+(define-mask-set '(good evil goblin troll kobold sprout demon))
 
 (defenemy goblin #\g ()
   :types '(goblin evil)
@@ -100,9 +99,12 @@
   :health (roll 4 4 2)
   :natural-weapons '(1 8 0 0 bludgeoning)
   :str 2 :dex -1)
-(defenemy shopkeeper #\U ((domain 4) (enragedp nil))
+(defenemy shopkeeper #\U ((domain 4) targets home)
+  :types '(demon)
   :color 'purple-4
   :health (roll 3 10 5)
+  :idle #'no-idle
+  :str 3 :dex 2 :int 4 :wis 3 :cha 4
   :equips `(,(make-sword-+1) ,(make-sword-+1)))
 
 ;; STATUSES

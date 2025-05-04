@@ -1,4 +1,11 @@
-(defstruct attack dmg to-hit source types statuses)
+(defstruct damage
+  (amount 0 :type fixnum)
+  source
+  types
+  (statuses nil :type list))
+
+(defstruct (attack (:include damage))
+  (to-hit 0 :type fixnum))
 
 (defstruct layer
   (solid-actors (make-hash-table :test #'equal))
