@@ -160,14 +160,24 @@
 		   'exit-repl
 		   (handler-case (eval (read-from-string input))
 		     (end-of-file () (read-and-eval input))))))
+	   (choose-restart (err)
+	     (format t "~%ERROR: ~a~%" (type-of err))
+	     (invoke-restart (get-item-from-list '(exit-repl keep-going crash)
+						 :exit-option nil
+						 :what 'restart-option)
+			     err))
 	   (my-repl ()
 	     (format t "~&>>> ")
 	     (force-output)
-	     (let ((result (read-and-eval nil)))
+	     (let ((result (restart-case (read-and-eval nil)
+			     (exit-repl (err) (declare (ignore err)) 'exit-repl)
+			     (keep-going (err) (declare (ignore err)) nil)
+			     (crash (err) (error 'crash-signalled-condition :error err)))))
 	       (unless (eq result 'exit-repl)
 		 (print result)
 		 (my-repl)))))
-    (my-repl)))
+    (handler-bind ((error #'choose-restart))
+      (my-repl))))
 
 (defaction #\? 0 "help"
   (on-new-screen
