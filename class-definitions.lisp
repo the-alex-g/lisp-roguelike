@@ -7,6 +7,11 @@
 (defstruct (attack (:include damage))
   (to-hit 0 :type fixnum))
 
+(defstruct spell
+  function
+  (requires-target-p nil)
+  name)
+
 (defstruct layer
   (solid-actors (make-hash-table :test #'equal))
   (non-solid-actors (make-hash-table :test #'equal))

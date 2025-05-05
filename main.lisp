@@ -29,6 +29,7 @@
 	    "idle-behaviors.lisp"
 	    "codex.lisp"
 	    "alignment.lisp"
+	    "spells.lisp"
 	    "leveling.lisp"))
 
 (define-mask-set '(slashing piercing bludgeoning acid lightning cold fire holy unholy necrotic))

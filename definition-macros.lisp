@@ -68,7 +68,7 @@
   (defmacro defactor (name display-char new-slots
 		      &rest keys
 		      &key (inherit 'actor) ((:name name-override) nil name-overriden-p)
-			(solidp t) (neighbors 0)
+			(solidp nil) (neighbors 0)
 		      &allow-other-keys)
     (remf keys :inherit)
     (remf keys :solidp)

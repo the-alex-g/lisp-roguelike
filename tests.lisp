@@ -12,6 +12,9 @@
 (defun flag (string)
   (format t "~2%~:@(~a~)~2%" string))
 
+(defun subheader (string)
+  (format t "~&~a~%" (apply-color string 'yellow-4)))
+
 (defun test-masks ()
   (flag "testing masks")
   (define-mask-set '(a b c d))
@@ -27,7 +30,15 @@
   (print-test "matching all" (= (mask (make-mask '(a b))
 				      (make-mask '(a b))
 				      :match :all)
-				2)))
+				2))
+  (with-clean-board
+    (let ((creature (make-goblin +zero+)))
+      (print-test "accessed value is a number" (numberp (allies creature)))
+      (setf (allies creature) 10)
+      (print-test "value can be changed to a number" (= (allies creature) 10))
+      (setf (allies creature) '(kobold evil))
+      (print-test "value can be changed to a list"
+		  (= (allies creature) (make-mask '(kobold evil)))))))
 
 (defun test-combat ()
   (flag "TESTING COMBAT")
@@ -38,7 +49,7 @@
 	(status-attack (make-attack :amount 0 :to-hit 10 :types '(piercing)
 				    :statuses (list (make-instance 'status)))))
     (flet ((my-attack (text atk val)
-	     (format t "~&~:(~a~)" text)
+	     (subheader text)
 	     (attack enemy atk)
 	     (print-test "health remaining: ~d" 
 			 (= (health enemy) val)
@@ -65,6 +76,35 @@
 	(print-test "it decayed" (eq (type-of (non-solid (pos corpse))) 'bones))
 	(print-test "it's named correctly"
 		    (string= (name (non-solid (pos corpse))) "goblin bones")))))
+
+(defun test-spells ()
+  (flag "testing spells")
+  (subheader "animate dead")
+  (with-clean-board
+      (place *player* +zero+)
+    (make-corpse '(2 . 0))
+    (make-corpse '(4 . 0))
+    (make-bones '(3 . 0))
+    (make-dagger-pickup '(-1 . 0))
+    (animate-dead *player*)
+    (print-test "animated corpse"
+		(eq (name (solid '(2 . 0))) 'zombie))
+    (print-test "corpse gone"
+		(not (non-solid '(2 . 0))))
+    (print-test "animated bones"
+		(eq (name (solid '(3 . 0))) 'skeleton))
+    (print-test "missed corpse"
+		(not (solid '(4 . 0))))
+    (let ((zombie (solid '(2 . 0)))
+	  (goblin (make-goblin '(1 . 1))))
+      (print-test "zombie aligned properly"
+		  (= (enemies zombie) (enemies *player*)))
+      (print-test "zombie hostile to goblin"
+		  (hostilep zombie goblin))
+      (print-test "goblin neutral to zombie"
+		  (not (hostilep goblin zombie)))
+      (print-test "zombie not hostile to player"
+		  (not (hostilep zombie *player*))))))
 
 (defun test-vector-math ()
   (flag "TESTING VECTOR MATH")
@@ -313,6 +353,7 @@
   (test-priority-lists)
   (test-a-star)
   (test-corpse-decays)
+  (test-spells)
   (flag "testing tests")
   (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
 	      (= *tests-failed* 0)

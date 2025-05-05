@@ -154,3 +154,9 @@ on enemies, calls #'act until object runs out of energy")
   (:method (obj dc) nil))
 
 (defgeneric make-hostile (obj to))
+
+(defgeneric reanimate (obj &optional master)
+  (:method (obj &optional master)))
+
+(defgeneric cast-spell (spell obj)
+  (:method (spell obj)))

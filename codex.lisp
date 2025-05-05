@@ -37,18 +37,24 @@
 			 (find-dc 10)
 			 (avoid-dc 10)
 			 (searchedp nil))
-  :solidp nil :color 'red :hiddenp t)
-(defactor corpse #\c (loot (decay-time 100)) :solidp nil)
-(defactor bones #\x () :solidp nil)
-(defactor ladder #\# (direction) :solidp nil)
-(defactor pit-trap #\! () :inherit trap :solidp nil)
-(defactor table #\space () :solidp nil :bg-color '(2 1 0)
-  :neighbors 8 :inherit furniture)
-(defactor brazier #\u () :color '(5 4 0) :illumination 3 :neighbors '(5 3) :inherit breakable)
+  :color 'red :hiddenp t)
+(defactor corpse #\c (loot (decay-time 100)))
+(defactor bones #\x ())
+(defactor ladder #\# (direction))
+(defactor pit-trap #\! () :inherit trap)
+(defactor table #\space () :bg-color '(2 1 0) :neighbors 8 :inherit furniture)
+(defactor brazier #\u () :color '(5 4 0) :illumination 3
+  :neighbors '(5 3) :inherit breakable :solidp t)
 
 ;; ENEMIES
 
-(define-mask-set '(good evil goblin troll kobold sprout demon))
+(define-mask-set '(good evil goblin troll kobold sprout demon undead))
+
+(defabstract enemy undead ()
+  :types '(undead evil)
+  :morale 'fearless
+  :allies '(undead)
+  :enemies (mask-all '(undead)))
 
 (defenemy goblin #\g ()
   :types '(goblin evil)
@@ -108,6 +114,17 @@
   :idle #'no-idle
   :str 3 :dex 2 :int 4 :wis 3 :cha 4
   :equips `(,(make-sword-+1) ,(make-sword-+1)))
+(defenemy zombie #\z ()
+  :inherit undead
+  :color '(2 3 2)
+  :health (roll 1 8)
+  :str 1 :con 1 :dex -2 :int -4 :wis -4 :cha -4 :spd 3/5)
+(defenemy skeleton #\s ()
+  :inherit undead
+  :color '(5 5 3)
+  :health (roll 1 6)
+  :vulnerable '(bludgeoning)
+  :int -4 :wis -4 :cha -4)
 
 ;; STATUSES
 

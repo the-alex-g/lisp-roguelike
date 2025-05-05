@@ -86,7 +86,7 @@
 (defun vec* (vector scalar)
   (cons (* (car vector) scalar) (* (cdr vector) scalar)))
 
-(defun vec-length (vector &key (exactp nil))
+(defun vec-length (vector &key exactp)
   (if exactp
       (sqrt (+ (square (car vector))
 	       (square (cdr vector))))
@@ -97,14 +97,12 @@
 	(round (+ (* (sin radians) (car vector)) (* (cos radians) (cdr vector))))))
 
 (defun manhattan (a b)
-  (distance a b))
-  ;(+ (abs (- (car a) (car b)))
-  ;   (abs (- (cdr a) (cdr b)))))
+;  (distance a b))
+  (+ (abs (- (car a) (car b)))
+     (abs (- (cdr a) (cdr b)))))
 
-(defun distance (a b &key (exactp nil))
-  (if exactp
-      (vec-length (vec- a b))
-      (floor (vec-length (vec- a b)))))
+(defun distance (a b &key exactp)
+  (vec-length (vec- a b) :exactp exactp))
 
 (defun randnth (lst)
   (if (listp lst)

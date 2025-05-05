@@ -1,3 +1,20 @@
+(macrolet ((define-mask-accessors (&rest names)
+	     `(progn
+		,@(loop for name in names
+			collect `(defmethod (setf ,name) ((value number) (obj creature))
+				   (setf (slot-value obj ',name) value))
+			collect `(defmethod (setf ,name) ((value list) (obj creature))
+				   (setf (slot-value obj ',name) (make-mask value)))
+			collect `(defmethod ,name ((obj creature))
+				   (let ((value (slot-value obj ',name)))
+				     (if (numberp value)
+					 value
+					 (let ((mask (make-mask value)))
+					   (setf (,name obj) mask)
+					   mask))))))))
+  (define-mask-accessors resistances immunities absorbances vulnerabilities
+    allies enemies types))
+
 (defmethod quaffablep ((obj potion))
   (declare (ignore obj))
   t)
@@ -329,8 +346,8 @@
 
 (defmethod act :around ((obj enemy) &key &allow-other-keys)
   (multiple-value-bind (foes allies) (get-actors obj 5
-						 (hostilep actor obj)
-						 (alliedp actor obj))
+						 (hostilep obj actor)
+						 (alliedp obj actor))
     (if (eq (morale obj) 'fearless)
 	(call-next-method obj :foes foes :allies allies)
 	(let* ((allied-strength (+ (level obj)
@@ -352,7 +369,9 @@
 				      :heuristic #'heuristic :allies allies)
 		(flee obj #'heuristic)))))))
 
-(defmethod act ((obj enemy) &key foes allied-strength heuristic &allow-other-keys)
+(defmethod act ((obj enemy)
+		&key foes (allied-strength 0) (heuristic #'movement-cost)
+		&allow-other-keys)
   (let ((target (get-closest-of-list obj (or (loop for foe in foes
 						   when (<= (level foe) allied-strength)
 						     collect foe)
@@ -864,13 +883,13 @@
 	   (call-next-method)))))
 
 (defmethod hostilep ((obj creature) (to creature))
-  (maskp (types obj) (enemies to)))
+  (maskp (enemies obj) (types to)))
 
 (defmethod hostilep ((obj shopkeeper) (to creature))
   (member to (targets obj) :test #'equal))
 
 (defmethod alliedp ((obj creature) (to creature))
-  (maskp (types obj) (allies to)))
+  (maskp (allies obj) (types to)))
 
 (defmethod make-shopkeeper :around (pos)
   (let ((shopkeeper (call-next-method)))
@@ -886,21 +905,30 @@
 
 (defmethod pos ((obj list)) obj)
 
-(macrolet ((define-mask-accessors (&rest names)
-	     `(progn
-		,@(loop for name in names
-			collect `(defmethod (setf ,name) ((value number) (obj creature))
-				   (setf (slot-value obj ',name) value))
-			collect `(defmethod (setf ,name) ((value list) (obj creature))
-				   (setf (slot-value obj ',name) (make-mask value)))
-			collect `(defmethod ,name ((obj creature))
-				   (let ((value (slot-value obj ',name)))
-				     (if (numberp value)
-					 value
-					 (let ((mask (make-mask value)))
-					   (setf (,name obj) mask)
-					   mask))))))))
-  (define-mask-accessors resistances immunities absorbances vulnerabilities
-    allies enemies types))
-
 (defmethod (setf enemies) (value (obj shopkeeper)))
+
+(defmethod reanimate :around ((obj actor) &optional master)
+  (unless (solid (pos obj))
+    (let ((new-creature (call-next-method)))
+      (when new-creature
+	(remove-non-solid (pos obj))
+	(when master
+	  (setf (enemies new-creature) (enemies master)))
+	new-creature))))
+
+(defmethod reanimate ((obj bones) &optional master)
+  (make-skeleton (pos obj)))
+
+(defmethod reanimate ((obj corpse) &optional master)
+  (let ((zombie (make-zombie (pos obj)))
+	(weapon (loop for loot in (loot obj)
+		      when (weaponp loot)
+			return loot)))
+    (when weapon
+      (equip weapon zombie))
+    zombie))
+
+(defmethod cast-spell ((spell spell) (obj creature))
+  (if (spell-requires-target-p spell)
+      nil
+      (funcall (spell-function spell) obj)))
