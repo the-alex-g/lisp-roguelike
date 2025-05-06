@@ -117,10 +117,15 @@
   (with-time-safe-owned-item
       (print-to-log (description item))))
 
-(defaction #\q 1 "quaff"
+(defaction #\q 1 "quaff a potion"
   (with-filter #'quaffablep
     (with-time-safe-owned-item
       (quaff item *player*))))
+
+(defaction #\z 1 "zap a wand"
+  (with-filter #'zappablep
+    (with-time-safe-owned-item
+	(zap item *player*))))
 
 (defaction #\R 0 "rest"
   (flet ((cannot-rest ()

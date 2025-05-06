@@ -19,6 +19,10 @@
   (declare (ignore obj))
   t)
 
+(defmethod zappablep ((obj wand))
+  (declare (ignore obj))
+  t)
+
 (defmethod playerp ((obj player))
   (declare (ignore obj))
   t)
@@ -58,12 +62,6 @@
 	   (= 1 (direction obj)))))
 
 (defmethod hiddenp ((obj symbol)) t)
-
-(defmethod name ((obj ladder))
-  (cond ((= -1 (direction obj))
-	 'ladder-leading-up)
-	((= 1 (direction obj))
-	 'ladder-leading-down)))
 
 (defmethod pickup :around ((item gold))
   (remove-non-solid (pos item))
@@ -110,13 +108,22 @@
 (defmethod evadesp ((obj creature) dc)
   (>= (roll 1 20 (dex obj)) dc))
 
-(defmethod name ((obj character)) "wall")
+(defmethod name ((obj ladder))
+  (cond ((= -1 (direction obj))
+	 'ladder-leading-up)
+	((= 1 (direction obj))
+	 'ladder-leading-down)))
+
+(defmethod name ((obj wand))
+  (format t "wand of ~a" (spell-name (spell obj))))
+
+(defmethod name ((obj character)) 'wall)
 
 (defmethod name ((obj symbol)) obj)
 
-(defmethod name ((obj secret-equipment))
+(defmethod name :around ((obj secret-equipment))
   (if (identifiedp obj)
-      (slot-value obj 'name)
+      (call-next-method)
       (cover-name obj)))
 
 (defmethod (setf health) (value (obj creature))
@@ -345,7 +352,7 @@
 	 (move-towards (home obj) obj #'movement-cost))))
 
 (defmethod act :around ((obj enemy) &key &allow-other-keys)
-  (multiple-value-bind (foes allies) (get-actors-in-los-of obj t nil
+  (multiple-value-bind (foes allies) (get-actors-in-los-of obj t nil nil
 							   (hostilep obj actor)
 							   (alliedp obj actor))
     (if (eq (morale obj) 'fearless)
@@ -932,3 +939,6 @@
   (if (spell-requires-target-p spell)
       nil
       (funcall (spell-function spell) obj)))
+
+(defmethod zap ((obj wand) (zapper creature))
+  (cast-spell (spell obj) zapper))

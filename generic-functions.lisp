@@ -56,6 +56,9 @@
 (defgeneric quaffablep (obj)
   (:method (obj) nil))
 
+(defgeneric zappablep (obj)
+  (:method (obj) nil))
+
 (defgeneric movement-cost (object)
   (:method (object) 0)
   (:method ((object (eql nil))) 0))
@@ -160,3 +163,5 @@ on enemies, calls #'act until object runs out of energy")
 
 (defgeneric cast-spell (spell obj)
   (:method (spell obj)))
+
+(defgeneric zap (obj zapper))

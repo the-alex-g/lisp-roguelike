@@ -16,11 +16,14 @@
 	  when (= (distance (pos from) (pos hostile)) min-distance)
 	    return hostile)))
 
-(defmacro get-actors-in-los-of (obj search-solid search-non-solid &rest filters)
+(defmacro get-actors-in-los-of (obj search-solid search-non-solid range &rest filters)
   (let ((varnames (loop repeat (length filters) collect (gensym))))
     `(let ,(loop for varname in varnames collect `(,varname nil))
        (flet ((collect-actor (actor)
 		(when (and (not (equal actor ,obj))
+			   ,(if range
+				`(<= (distance (pos ,obj) (pos actor)) ,range)
+				t)
 			   (visiblep actor ,obj))
 		  (cond ,@(loop for filter in filters
 				for varname in varnames

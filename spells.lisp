@@ -13,6 +13,4 @@
        (defun ,name (caster) (cast-spell ,spell caster)))))
 
 (defspell animate-dead nil
-  (loop-in-circle 3
-		  when (has-los (pos caster) (vec+ (cons x y) (pos caster)))
-		  do (reanimate (contents (vec+ (cons x y) (pos caster))) caster)))
+  (get-actors-in-los-of caster nil t 3 (reanimate actor caster)))

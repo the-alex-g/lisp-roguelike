@@ -12,6 +12,10 @@
       ,@body)
     *tests*))
 
+;;; override default illuminatedp function
+(defun illuminatedp (pos)
+  t)
+
 (defun print-test (string passedp &rest args)
   (format t "~&~:[~c[31mFAIL~;~c[32mPASS~]~:*~c[0m: ~?" passedp #\esc string args)
   (unless passedp

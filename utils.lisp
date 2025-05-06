@@ -69,17 +69,6 @@
 		(loop for y from (- ,chord) to ,chord
 		      ,@body)))))
 
-(defmacro for-cell-in-los-of (obj &body body)
-  (let ((counter (gensym)))
-    `(let ((,counter 0))
-       (flood-fill (pos ,obj) ((incf ,counter)
-			       (> ,counter 10000)
-			       :neighbor-conditions (visiblep pos ,obj)
-			       :stop-for-occupied nil)
-		   (remhash (pos ,obj) cells)
-		   (loop for cell being the hash-keys of cells
-			 do (progn ,@body))))))
-
 (defun vec+ (&rest vectors)
   (loop for v in vectors
 	sum (car v) into x

@@ -11,6 +11,7 @@
  (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger"
    :break-chance 100)
  (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2 :char #\&)
+ (defsecretequipment wand (unidentified-wand) ((spell (randnth *spells*))))
  (defsecretequipment healing-potion
      ((blue-potion :color '(0 1 5))
       (green-potion :color 'green-4)
