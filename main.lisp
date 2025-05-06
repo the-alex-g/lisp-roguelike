@@ -274,7 +274,7 @@
 			*experience*
 			(xp-for-next-level))
 	 (log-to-string "FOOD ~d/~d"
-			(hunger *player*)
+			(round (hunger *player*))
 			(max-hunger *player*))
 	 (log-to-string "GOLD ~d" *gold*))))
 
@@ -374,7 +374,10 @@
 (load "methods.lisp")
 
 (let ((goblins '((75 make-goblin)
-		 (25 make-goblin-archer))))
+		 (25 make-goblin-archer)))
+      (undead '((20 make-zombie)
+		(75 make-skeleton)
+		(5 make-necromancer))))
   (add-layer `((75 ((75 ((75 ,goblins)
 			 (25 make-kobold)))
 		    (25 make-troll)))

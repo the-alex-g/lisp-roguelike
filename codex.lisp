@@ -40,8 +40,9 @@
 			 (avoid-dc 10)
 			 (searchedp nil))
   :color 'red :hiddenp t)
-(defactor corpse #\c (loot (decay-time 100)))
-(defactor bones #\x ())
+(defabstract actor remains ((reanimateablep t)))
+(defactor corpse #\c (loot (decay-time 100)) :inherit remains)
+(defactor bones #\x () :inherit remains)
 (defactor ladder #\# (direction))
 (defactor pit-trap #\! () :inherit trap)
 (defactor table #\space () :bg-color '(2 1 0) :neighbors 8 :inherit furniture)
@@ -53,7 +54,7 @@
 (define-mask-set '(good evil goblin troll kobold sprout demon undead humanoid))
 
 (defabstract enemy undead ()
-  :types '(undead evil)
+  :types '(undead)
   :morale 'fearless
   :allies '(undead)
   :enemies (mask-all '(undead)))

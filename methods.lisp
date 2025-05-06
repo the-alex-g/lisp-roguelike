@@ -27,7 +27,7 @@
   (declare (ignore obj))
   t)
 
-(defmethod corpsep ((obj corpse))
+(defmethod corpsep ((obj remains))
   (declare (ignore obj))
   t)
 
@@ -36,6 +36,14 @@
     (setf (name corpse) (log-to-string "~a corpse" (name obj)))
     (setf (loot corpse) (get-loot obj))
     corpse))
+
+(defmethod drop-corpse ((obj skeleton))
+  (make-bones (pos obj)))
+
+(defmethod drop-corpse :around ((obj undead))
+  (let ((corpse (call-next-method)))
+    (when corpse
+      (setf (reanimateablep corpse) (= 0 (random 3))))))
 
 (defmethod drop-corpse ((obj sprout)))
 
@@ -420,7 +428,8 @@
 
 (defmethod act ((obj necromancer) &key foes allied-stregth heuristic &allow-other-keys)
   (let ((target (get-closest-of-list obj foes))
-	(corpses (get-actors-in-los-of obj nil t nil (corpsep actor))))
+	(corpses (get-actors-in-los-of obj nil t nil (and (corpsep actor)
+							  (reanimateablep actor)))))
     (when target
       (setf (target-pos obj) (pos target)))
     (cond ((has-status-p obj 'resting) nil)
@@ -431,7 +440,7 @@
 	     (if (or (>= (length corpses-in-range) 3)
 		     (= (length corpses-in-range) (length corpses)))
 		 (animate-dead obj)
-		 (move-towards (get-closest-of-list obj corpses) obj heuristic))))
+		 (move-towards (pos (get-closest-of-list obj corpses)) obj heuristic))))
 	  ((and target (<= (distance (pos obj) (pos target)) 4))
 	   (if (< (health obj) (max-health obj))
 	       (life-drain obj target)
@@ -521,7 +530,7 @@
     (attack passive active)))
 
 (defmethod move-into ((passive creature) (active player))
-  (when (if (hostilep active passive)
+  (when (if (hostilep passive active)
 	    t
 	    (confirmp "that creature does not appear hostile. Do you want to attack it?"))
     (attack passive active)))
@@ -957,8 +966,9 @@
 
 (defmethod (setf enemies) (value (obj shopkeeper)))
 
-(defmethod reanimate :around ((obj actor) &optional master)
-  (unless (solid (pos obj))
+(defmethod reanimate :around ((obj remains) &optional master)
+  (unless (or (solid (pos obj))
+	      (not (reanimateablep obj)))
     (let ((new-creature (call-next-method)))
       (when new-creature
 	(remove-non-solid (pos obj))
