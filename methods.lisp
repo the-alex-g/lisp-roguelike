@@ -940,5 +940,14 @@
       nil
       (funcall (spell-function spell) obj)))
 
+(defmethod zap :around ((obj wand) zapper)
+  (if (> (charges obj) 0)
+      (call-next-method)
+      (when (playerp zapper)
+	(print-to-log "there is no effect"))))
+
 (defmethod zap ((obj wand) (zapper creature))
-  (cast-spell (spell obj) zapper))
+  (when (visiblep zapper *player*)
+    (print-to-log "~a zaps a ~a" (name zapper) (name obj)))
+  (cast-spell (spell obj) zapper)
+  (decf (charges obj)))

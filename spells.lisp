@@ -13,4 +13,15 @@
        (defun ,name (caster) (cast-spell ,spell caster)))))
 
 (defspell animate-dead nil
-  (get-actors-in-los-of caster nil t 3 (reanimate actor caster)))
+  (let ((animated-dead (get-actors-in-los-of caster nil t 3 (reanimate actor caster))))
+    (if (visiblep caster *player*)
+	(print-to-log "~:[there is no effect~;~
+                        beams of dark energy lance out from ~a, animating ~d undead minions~]"
+		      animated-dead
+		      (name caster)
+		      (length animated-dead))
+	(let ((visible-dead (loop for undead in animated-dead
+				  when (visiblep undead *player*) collect it)))
+	  (when visible-dead
+	    (print-to-log "beams of dark energy strike ~d corpses, animating them as undead minions"
+			  (length visible-dead)))))))
