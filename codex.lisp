@@ -50,7 +50,7 @@
 
 ;; ENEMIES
 
-(define-mask-set '(good evil goblin troll kobold sprout demon undead))
+(define-mask-set '(good evil goblin troll kobold sprout demon undead humanoid))
 
 (defabstract enemy undead ()
   :types '(undead evil)
@@ -110,7 +110,6 @@
   :natural-weapons '(1 8 0 0 bludgeoning)
   :str 2 :dex -1)
 (defenemy shopkeeper #\U ((domain 4) targets home)
-  :types '(demon)
   :color 'purple-4
   :health (roll 3 10 5)
   :idle #'no-idle
@@ -127,6 +126,15 @@
   :health (roll 1 6)
   :vulnerable '(bludgeoning)
   :int -4 :wis -4 :cha -4)
+(defenemy necromancer #\h ()
+  :types '(undead)
+  :allies '(undead)
+  :enemies (mask-all '(undead))
+  :color '(1 2 3)
+  :health (roll 1 8)
+  :str -1 :int 4 :wis 3
+  :primary-stat 'intl
+  :morale -2)
 
 ;; STATUSES
 
@@ -135,6 +143,8 @@
 (defstatus brave)
 (defstatus immobilized)
 (defstatus elevated :duration -1)
+(defstatus weak)
+(defstatus clumsy)
 
 ;; TERRAINS
 

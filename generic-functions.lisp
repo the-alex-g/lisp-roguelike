@@ -16,6 +16,9 @@
 (defgeneric playerp (obj)
   (:method (obj) nil))
 
+(defgeneric corpsep (obj)
+  (:method (obj) nil))
+
 (defgeneric sell-price (item))
 
 (defgeneric color (obj)
@@ -161,7 +164,7 @@ on enemies, calls #'act until object runs out of energy")
 (defgeneric reanimate (obj &optional master)
   (:method (obj &optional master)))
 
-(defgeneric cast-spell (spell obj)
-  (:method (spell obj)))
+(defgeneric cast-spell (spell obj &key &allow-other-keys)
+  (:method (spell obj &key &allow-other-keys)))
 
 (defgeneric zap (obj zapper))

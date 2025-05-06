@@ -27,6 +27,10 @@
   (declare (ignore obj))
   t)
 
+(defmethod corpsep ((obj corpse))
+  (declare (ignore obj))
+  t)
+
 (defmethod drop-corpse ((obj enemy))
   (let ((corpse (make-corpse (pos obj))))
     (setf (name corpse) (log-to-string "~a corpse" (name obj)))
@@ -83,6 +87,15 @@
 
 (defmethod remove-status ((status elevated))
   (decf (dex (target status))))
+
+(defmethod remove-status ((status weak))
+  (incf (str (target status))))
+
+(defmethod remove-status ((status clumsy))
+  (incf (dex (target status))))
+
+(DEFMETHOD REMOVE-STATUS :AFTER ((STATUS STATUS))
+  (SETF (STATUSES (TARGET STATUS)) (REMOVE STATUS (STATUSES (TARGET STATUS)))))
 
 (defmethod trigger :around ((trap trap) activator)
   (setf (hiddenp trap) nil)
@@ -338,7 +351,7 @@
 		       1)))))
 
 (defmethod level ((obj creature))
-  (* (1+ (str obj))
+  (* (1+ (funcall (primary-stat obj) obj))
      (/ (health obj) (max-health obj))))
 
 (defmethod act :around ((obj shopkeeper) &key &allow-other-keys)
@@ -404,6 +417,30 @@
 	  (t
 	   ;; idle
 	   (funcall (idle-behavior obj) obj)))))
+
+(defmethod act ((obj necromancer) &key foes allied-stregth heuristic &allow-other-keys)
+  (let ((target (get-closest-of-list obj foes))
+	(corpses (get-actors-in-los-of obj nil t nil (corpsep actor))))
+    (when target
+      (setf (target-pos obj) (pos target)))
+    (cond ((has-status-p obj 'resting) nil)
+	  (corpses
+	   (let ((corpses-in-range (loop for corpse in corpses
+					 when (<= (distance (pos corpse) (pos obj)) 3)
+					   collect corpse)))
+	     (if (or (>= (length corpses-in-range) 3)
+		     (= (length corpses-in-range) (length corpses)))
+		 (animate-dead obj)
+		 (move-towards (get-closest-of-list obj corpses) obj heuristic))))
+	  ((and target (<= (distance (pos obj) (pos target)) 4))
+	   (if (< (health obj) (max-health obj))
+	       (life-drain obj target)
+	       (enervate obj target)))
+	  ((target-pos obj) (move-towards (target-pos obj) obj heuristic))
+	  ((< (health obj) (max-health obj))
+	   (apply-to-obj (make-resting-status)))
+	  (t
+	   (funcall (idle-behavior obj) obj)))))  
 
 (defmethod act ((obj sprout) &key allies foes &allow-other-keys)
   (let ((target (or (get-closest-of-list obj allies)
@@ -603,7 +640,16 @@
   (setf (target-pos subj) nil))
 
 (defmethod apply-to ((subj creature) (obj elevated))
+  (declare (ignore obj))
   (incf (dex subj)))
+
+(defmethod apply-to ((subj creature) (obj clumsy))
+  (declare (ignore obj))
+  (decf (dex subj)))
+
+(defmethod apply-to ((subj creature) (obj weak))
+  (declare (ignore obj))
+  (decf (str subj)))
 
 (DEFMETHOD DAMAGE ((DEFENDER CREATURE) (damage damage))
   (LET* ((BASE-DAMAGE (MAX 1 (- (damage-amount damage) (ARMOR DEFENDER))))
@@ -852,9 +898,6 @@
   (< (RANDOM 100)
      (MAX (MIN 1 (BREAK-CHANCE OBJ)) (+ (BREAK-CHANCE OBJ) OFFSET))))
 
-(DEFMETHOD REMOVE-STATUS :AFTER ((STATUS STATUS))
-  (SETF (STATUSES (TARGET STATUS)) (REMOVE STATUS (STATUSES (TARGET STATUS)))))
-
 (defmethod get-attack ((weapon equipment) (attacker creature))
   (apply #'generate-attack attacker (atk weapon)))
 
@@ -935,9 +978,14 @@
       (equip weapon zombie))
     zombie))
 
-(defmethod cast-spell ((spell spell) (obj creature))
+(defmethod cast-spell ((spell spell) (obj creature) &key target &allow-other-keys)
   (if (spell-requires-target-p spell)
-      nil
+      (funcall (spell-function spell) obj target)
+      (funcall (spell-function spell) obj)))
+
+(defmethod cast-spell ((spell spell) (obj player) &key &allow-other-keys)
+  (if (spell-requires-target-p spell)
+      (funcall (spell-function spell) obj (choose-target 'free-form 100))
       (funcall (spell-function spell) obj)))
 
 (defmethod zap :around ((obj wand) zapper)

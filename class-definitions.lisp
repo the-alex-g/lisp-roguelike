@@ -48,6 +48,7 @@
    (evasion :initform 0 :initarg :evd :writer (setf evasion))
    (max-health :initform 10 :reader max-health)
    (idle-time :initform 0 :accessor idle-time)
+   (primary-stat :initform 'str :initarg :primary-stat :reader primary-stat)
    (equipment :initform (make-hash-table) :accessor equipment)
    (natural-weapons :initform nil :accessor natural-weapons :initarg :natural-weapons)
    (allies :initform 0 :initarg :allies)

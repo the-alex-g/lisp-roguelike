@@ -121,7 +121,28 @@
 	(print-test "goblin neutral to zombie"
 		    (not (hostilep goblin zombie)))
 	(print-test "zombie not hostile to player"
-		    (not (hostilep zombie *player*)))))))
+		    (not (hostilep zombie *player*))))))
+  (subheader "life drain")
+  (with-clean-board
+    (let* ((caster (make-goblin +zero+))
+	   (target (make-goblin +right+))
+	   (target-initial-health (health target)))
+      (setf (slot-value caster 'max-health) (1+ (health caster)))
+      (let ((damage (life-drain caster target)))
+	(print-test "target was damaged" (= (health target)
+					    (max 0 (- target-initial-health damage))))
+	(print-test "caster was healed"
+		    (= (health caster) (max-health caster))))))
+  (subheader "enervate")
+  (with-clean-board
+    (let* ((caster (make-goblin +zero+))
+	   (target (make-goblin +right+))
+	   (target-initial-health (health target))
+	   (damage (enervate caster target)))
+      (print-test "target was damaged" (= (health target)
+					  (max 0 (- target-initial-health damage))))
+      (print-test "target was inflicted with a status"
+		  (= (length (statuses target)) 1)))))
 
 (deftest vector-math
   (flet ((test (test value function &rest args)
