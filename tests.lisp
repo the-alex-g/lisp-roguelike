@@ -1,13 +1,22 @@
 (defparameter *tests-failed* 0)
+(defparameter *tests* nil)
 
 (defmacro with-clean-board (&body body)
   `(let ((*current-layer* (make-layer)))
      ,@body))
 
+(defmacro deftest (name &body body)
+  `(push
+    (defun ,(read-from-string (format nil "test-~a" name)) ()
+      (flag (log-to-string "testing ~a" ',name))
+      ,@body)
+    *tests*))
+
 (defun print-test (string passedp &rest args)
   (format t "~&~:[~c[31mFAIL~;~c[32mPASS~]~:*~c[0m: ~?" passedp #\esc string args)
   (unless passedp
-    (incf *tests-failed*)))
+    (incf *tests-failed*))
+  passedp)
 
 (defun flag (string)
   (format t "~2%~:@(~a~)~2%" string))
@@ -15,8 +24,13 @@
 (defun subheader (string)
   (format t "~&~a~%" (apply-color string 'yellow-4)))
 
-(defun test-masks ()
-  (flag "testing masks")
+(deftest tests
+  (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
+	      (= *tests-failed* 0)
+	      *tests-failed*)
+  (setf *tests-failed* 0))
+
+(deftest masks
   (define-mask-set '(a b c d))
   (print-test "matching any" (= (mask (make-mask '(a b))
 				      (make-mask '(b c)))
@@ -40,8 +54,7 @@
       (print-test "value can be changed to a list"
 		  (= (allies creature) (make-mask '(kobold evil)))))))
 
-(defun test-combat ()
-  (flag "TESTING COMBAT")
+(deftest combat
   (let ((enemy (make-instance 'creature :name "enemy" :health 10))
 	(attack1 (make-attack :amount 5 :to-hit 10 :types '(slashing)))
 	(attack2 (make-attack :amount 5 :to-hit 5 :types '(slashing)))
@@ -67,8 +80,7 @@
 		  (= (length (statuses enemy)) 1))
       (my-attack "killing" attack3 0))))
 
-(defun test-corpse-decays ()
-  (flag "TESTING CORPSE DECAYS")
+(deftest corpse-decays
   (with-clean-board
       (let ((corpse (drop-corpse (make-goblin '(-10 . -10)))))
 	(loop repeat (decay-time corpse)
@@ -77,8 +89,7 @@
 	(print-test "it's named correctly"
 		    (string= (name (non-solid (pos corpse))) "goblin bones")))))
 
-(defun test-spells ()
-  (flag "testing spells")
+(deftest spells
   (subheader "animate dead")
   (with-clean-board
       (place *player* +zero+)
@@ -95,19 +106,20 @@
 		(eq (name (solid '(3 . 0))) 'skeleton))
     (print-test "missed corpse"
 		(not (solid '(4 . 0))))
+    (print-test "dagger unharmed" (eq (name (contents '(-1 . 0))) 'dagger))
     (let ((zombie (solid '(2 . 0)))
 	  (goblin (make-goblin '(1 . 1))))
-      (print-test "zombie aligned properly"
-		  (= (enemies zombie) (enemies *player*)))
-      (print-test "zombie hostile to goblin"
-		  (hostilep zombie goblin))
-      (print-test "goblin neutral to zombie"
-		  (not (hostilep goblin zombie)))
-      (print-test "zombie not hostile to player"
-		  (not (hostilep zombie *player*))))))
+      (when zombie
+	(print-test "zombie aligned properly"
+		    (= (enemies zombie) (enemies *player*)))
+	(print-test "zombie hostile to goblin"
+		    (hostilep zombie goblin))
+	(print-test "goblin neutral to zombie"
+		    (not (hostilep goblin zombie)))
+	(print-test "zombie not hostile to player"
+		    (not (hostilep zombie *player*)))))))
 
-(defun test-vector-math ()
-  (flag "TESTING VECTOR MATH")
+(deftest vector-math
   (flet ((test (test value function &rest args)
 	   (let ((result (apply function args)))
 	     (print-test "(~a ~{~a~^ ~}) = ~a"
@@ -118,8 +130,7 @@
     (test #'= 5.0 (lambda (foo) (vec-length foo :exactp t)) '(3 . 4))
     (test #'= 4 #'vec-length '(3 . 4))))
 
-(defun test-equipment ()
-  (flag "TESTING EQUIPPING")
+(deftest equipment
   (let ((actor (make-instance 'creature
 			      :slot-nums '((hand 2) (body 1))))
 	(two-hand-equipment (make-instance 'equipment
@@ -160,8 +171,7 @@
       (equip unequippable-equipment actor)
       (test 'foobar nil))))
 
-(defun test-movement ()
-  (flag "TESTING MOVEMENT AND POSITIONING")
+(deftest movement
   (with-clean-board
       (let ((actor (make-instance 'creature :name 'actor))
 	    (obstacle (make-instance 'actor :name 'obstacle))
@@ -196,8 +206,7 @@
 	  (test +right+ 'actor nil)
 	  (test '(2 . 0) 'obstacle nil)))))
 
-(defun test-priority-lists ()
-  (flag "testing priority lists")
+(deftest priority-lists
   (print-test "appending works"
 	      (equal (priority-append '((2 . b) (4 . d)) '((1 . a) (3 . c)))
 		     '((1 . a) (2 . b) (3 . c) (4 . d))))
@@ -205,8 +214,7 @@
 	      (equal (priority-add '((1 . a) (2 . b)) '(3 . c))
 		     '((1 . a) (2 . b) (3 . c)))))
 
-(defun test-a-star ()
-  (flag "testing a*")
+(deftest a-star
   (with-clean-board
     (labels ((print-explored-cells (cells &optional path)
 	       (loop for y from -1 to 6
@@ -226,8 +234,7 @@
 								   1))
 	(print-explored-cells cells path)))))
 
-(defun test-throw ()
-  (flag "testing throwing")
+(deftest throw
   (with-clean-board
     (let ((*player* (make-instance 'player :name 'actor))
 	  (*inventory* nil)
@@ -251,8 +258,7 @@
 	(test-board +right+ 'item nil)
 	(test-board +right+ nil t)))))
 
-(defun test-status ()
-  (flag "testing status")
+(deftest statuses
   (let ((*player* (make-instance 'creature :name 'player))
 	(status (make-instance 'status)))
     (apply-to *player* status)
@@ -268,8 +274,7 @@
 		(statuses *player*))))
 
 (defenemy test-creature #\T () :health 7)
-(defun test-max-health ()
-  (flag "testing max health")
+(deftest max-health
   (let ((test-creature (make-test-creature +zero+)))
     (print-test "max health = starting health"
 		(eq (health test-creature) (max-health test-creature)))
@@ -277,8 +282,7 @@
     (print-test "health caps at max health"
 		(eq (health test-creature) (max-health test-creature)))))
 
-(defun test-shops ()
-  (flag "testing shops")
+(deftest shops
   (with-clean-board
     (let ((cells (append (loop for x below 3 collect (cons x 0))
 			 (loop for x below 6 collect (cons x 1))
@@ -330,8 +334,7 @@
 
 (defsecretequipment test-equipment ((cover-name :color 34 :char #\t)) () :color 31
   :char #\f)
-(defun test-secret-equipment ()
-  (flag "testing secret equipment")
+(deftest secret-equipment
   (let ((equipment (make-test-equipment)))
     (print-test "secret name" (eq (name equipment) 'cover-name))
     (print-test "color updated" (= (color equipment) 34))
@@ -340,23 +343,5 @@
     (print-test "identified" (eq (name equipment) 'test-equipment))))
 
 (defun test ()
-  (test-combat)
-  (test-masks)
-  (test-vector-math)
-  (test-equipment)
-  (test-movement)
-  (test-status)
-  (test-max-health)
-  (test-shops)
-  (test-throw)
-  (test-secret-equipment)
-  (test-priority-lists)
-  (test-a-star)
-  (test-corpse-decays)
-  (test-spells)
-  (flag "testing tests")
-  (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
-	      (= *tests-failed* 0)
-	      *tests-failed*)
-  (setf *tests-failed* 0)
+  (mapc #'funcall *tests*)
   (format t "~2%"))

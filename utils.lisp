@@ -69,6 +69,17 @@
 		(loop for y from (- ,chord) to ,chord
 		      ,@body)))))
 
+(defmacro for-cell-in-los-of (obj &body body)
+  (let ((counter (gensym)))
+    `(let ((,counter 0))
+       (flood-fill (pos ,obj) ((incf ,counter)
+			       (> ,counter 10000)
+			       :neighbor-conditions (visiblep pos ,obj)
+			       :stop-for-occupied nil)
+		   (remhash (pos ,obj) cells)
+		   (loop for cell being the hash-keys of cells
+			 do (progn ,@body))))))
+
 (defun vec+ (&rest vectors)
   (loop for v in vectors
 	sum (car v) into x
@@ -313,7 +324,8 @@
       list1))
 
 (defmacro flood-fill (start (value-to-store exit-condition
-			     &key (solid t) (stop-for-occupied t) (go-until nil))
+			     &key (solid t) (stop-for-occupied t) (go-until nil)
+			     (neighbor-conditions t))
 		      &body body)
   `(let ((cells (make-hash-table :test #'equal)))
      (setf (gethash ,start cells) t)
@@ -325,6 +337,7 @@
 		(and pos
 		     (not (gethash pos cells))
 		     (not (wallp (solid pos)))
+		     ,neighbor-conditions
 		     ,(if stop-for-occupied
 			  `(or (not (occupiedp pos)) (equal pos ,go-until))
 			  t)))

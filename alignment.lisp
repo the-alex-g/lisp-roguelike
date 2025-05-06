@@ -16,22 +16,21 @@
 	  when (= (distance (pos from) (pos hostile)) min-distance)
 	    return hostile)))
 
-(defmacro get-actors (obj range &rest filters)
-  (let ((varnames (loop repeat (length filters) collect (gensym)))
-	(blanket-condition (gensym)))
+(defmacro get-actors-in-los-of (obj search-solid search-non-solid &rest filters)
+  (let ((varnames (loop repeat (length filters) collect (gensym))))
     `(let ,(loop for varname in varnames collect `(,varname nil))
-       (loop-in-circle ,range
-	 with actor = nil
-	 with ,blanket-condition = nil
-	 do (setf actor (contents (vec+ (cons x y) (pos ,obj))))
-	 do (setf ,blanket-condition (and actor
-					  (not (equal actor ,obj))
-					  (visiblep actor ,obj)))
-	 ,@(apply #'append
-		  (loop for filter in filters
-			for varname in varnames
-			collect `(when (and ,blanket-condition ,filter)
-				   do (push actor ,varname)))))
+       (flet ((collect-actor (actor)
+		(when (and (not (equal actor ,obj))
+			   (visiblep actor ,obj))
+		  (cond ,@(loop for filter in filters
+				for varname in varnames
+				collect `(,filter (push actor ,varname)))))))
+	 ,(when search-solid
+	    '(loop for actor being the hash-values of (solid-actors)
+	      do (collect-actor actor)))
+	 ,(when search-non-solid
+	    '(loop for actor being the hash-values of (non-solid-actors)
+	      do (collect-actor actor))))
        (values ,@varnames))))
 
 (defun get-closest-of-list (to list &optional (filter (lambda (x) t)))

@@ -345,9 +345,9 @@
 	 (move-towards (home obj) obj #'movement-cost))))
 
 (defmethod act :around ((obj enemy) &key &allow-other-keys)
-  (multiple-value-bind (foes allies) (get-actors obj 5
-						 (hostilep obj actor)
-						 (alliedp obj actor))
+  (multiple-value-bind (foes allies) (get-actors-in-los-of obj t nil
+							   (hostilep obj actor)
+							   (alliedp obj actor))
     (if (eq (morale obj) 'fearless)
 	(call-next-method obj :foes foes :allies allies)
 	(let* ((allied-strength (+ (level obj)
