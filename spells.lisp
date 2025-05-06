@@ -24,4 +24,5 @@
 				  when (visiblep undead *player*) collect it)))
 	  (when visible-dead
 	    (print-to-log "beams of dark energy strike ~d corpses, animating them as undead minions"
-			  (length visible-dead)))))))
+			  (length visible-dead)))))
+    animated-dead))

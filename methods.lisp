@@ -115,7 +115,7 @@
 	 'ladder-leading-down)))
 
 (defmethod name ((obj wand))
-  (format t "wand of ~a" (spell-name (spell obj))))
+  (log-to-string "wand of ~a" (spell-name (spell obj))))
 
 (defmethod name ((obj character)) 'wall)
 
@@ -949,5 +949,6 @@
 (defmethod zap ((obj wand) (zapper creature))
   (when (visiblep zapper *player*)
     (print-to-log "~a zaps a ~a" (name zapper) (name obj)))
-  (cast-spell (spell obj) zapper)
+  (when (cast-spell (spell obj) zapper)
+    (identify obj))
   (decf (charges obj)))
