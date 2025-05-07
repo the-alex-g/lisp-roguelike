@@ -87,6 +87,39 @@
 		  (= (length (statuses enemy)) 1))
       (my-attack "killing" attack3 0))))
 
+(deftest movement-costs
+  (with-clean-board
+      (make-pit-trap +zero+)
+    (setf (terrain +right+) 'standard)
+    (setf (terrain +zero+) 'standard)
+    (print-test "movement cost of nowhere is 1" (= 1 (movement-cost +right+)))
+    (print-test "actual movement cost is low ~d" (= 1 (movement-cost +zero+ :actual t))
+		(movement-cost +zero+ :actual t))
+    (print-test "percieved movement cost is high ~d"
+		(= 11 (movement-cost +zero+))
+		(movement-cost +zero+))))
+
+(deftest traps
+  (with-clean-board
+    (let* ((mark (make-goblin +zero+))
+	   (initial-health (health mark))
+	   (trap-1 (make-pit-trap '(1 . 0)))
+	   (trap-2 (make-pit-trap '(2 . 0))))
+      (setf (dex mark) -100)
+      (move-into trap-1 mark t)
+      (print-test "mark was damaged (~d to ~d health)" (< (health mark) initial-health)
+		  initial-health (health mark))
+      (setf (health mark) initial-health)
+      (move-into trap-2 mark nil)
+      (print-test "mark didn't fall in" (= initial-health (health mark))))))
+
+(deftest checks
+  (let ((tester (make-goblin +zero+)))
+    (setf (dex tester) 100)
+    (setf (str tester) -100)
+    (print-test "check succeeds" (checkp #'dex tester 10))
+    (print-test "check fails" (not (checkp #'str tester 10)))))
+
 (deftest corpse-decays
   (with-clean-board
       (let ((corpse (drop-corpse (make-goblin '(-10 . -10)))))
@@ -245,24 +278,25 @@
 		     '((1 . a) (2 . b) (3 . c)))))
 
 (deftest a-star
-  (with-clean-board
-    (labels ((print-explored-cells (cells &optional path)
-	       (loop for y from -1 to 6
-		     do (format t "~{~c~}~%"
-				(loop for x from -1 to 11
-				      collect (cond ((or (equal (cons x y) +zero+)
-							 (equal (cons x y) '(10 . 5)))
-						     #\*)
-						    ((member (cons x y) path :test #'equal)
-						     #\@)
-						    ((gethash (cons x y) cells)
-						     #\#)
-						    (t
-						     #\.)))))))
-      (multiple-value-bind (path cells) (a-star +zero+ '(10 . 5) (lambda (pos)
-								   (declare (ignore pos))
-								   1))
-	(print-explored-cells cells path)))))
+    (with-clean-board
+	(make-pit-trap '(2 . 2))
+      (labels ((print-explored-cells (cells &optional path)
+		 (loop for y from -1 to 6
+		       do (format t "~{~a~}~%"
+				  (loop for x from -1 to 11
+					collect (cond ((contents (cons x y))
+						       (display-char (contents (cons x y))))
+						      ((or (equal (cons x y) +zero+)
+							   (equal (cons x y) '(10 . 5)))
+						       #\*)
+						      ((member (cons x y) path :test #'equal)
+						       #\@)
+						      ((gethash (cons x y) cells)
+						       #\#)
+						      (t
+						       #\.)))))))
+	(multiple-value-bind (path cells) (a-star +zero+ '(10 . 5) #'movement-cost)
+	  (print-explored-cells cells path)))))
 
 (deftest throw
   (with-clean-board

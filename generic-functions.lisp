@@ -62,9 +62,9 @@
 (defgeneric zappablep (obj)
   (:method (obj) nil))
 
-(defgeneric movement-cost (object)
-  (:method (object) 0)
-  (:method ((object (eql nil))) 0))
+(defgeneric movement-cost (object &rest keys &key &allow-other-keys)
+  (:method (object &rest keys &key &allow-other-keys) 0)
+  (:method ((object (eql nil)) &rest keys &key &allow-other-keys) 0))
 
 (defgeneric apply-to (subj obj)
   (:method (subj obj)))
@@ -94,11 +94,11 @@
   (:documentation "make a thing happen to the activator")
   (:method (object activator)))
 
-(defgeneric move-into (passive active)
+(defgeneric move-into (passive active repositioningp)
   (:documentation "resolves any effects that occur when active moves into passive and returns cost
 of interaction")
-  (:method ((passive (eql nil)) active))
-  (:method (passive active)))
+  (:method ((passive (eql nil)) active repositioningp))
+  (:method (passive active repositioningp)))
 
 (defgeneric reposition (obj new-pos)
   (:documentation "moves a solid object into a new position, calling (move-into). If the position

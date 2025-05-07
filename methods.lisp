@@ -31,7 +31,7 @@
   (declare (ignore obj))
   t)
 
-(defmethod checkp ((stat symbol) (obj creature) (dc fixnum))
+(defmethod checkp (stat (obj creature) (dc fixnum))
   (>= (roll 1 20 (funcall stat obj)) dc))
 
 (defmethod checkp (stat (obj breakable) dc)
@@ -113,21 +113,27 @@
 
 (defmethod trigger :around ((trap trap) (activator creature))
   (setf (hiddenp trap) nil)
-  (if (>= (roll 1 20 (dex activator)) (avoid-dc trap))
-      (progn (print-to-log "you triggered a ~a but dodged out of the way"
-			   (name trap))
-	     (flag-warning))
+  (if (checkp #'dex activator (avoid-dc trap))
+      (when (visiblep activator *player*)
+	(print-to-log "~a triggered a ~a but dodged out of the way"
+		      (name activator)
+		      (name trap))
+	(when (playerp activator)
+	  (flag-warning)))
       (call-next-method)))
 
 (defmethod trigger ((trap pit-trap) (activator creature))
   (let ((damage (damage activator (make-damage :source trap
 					       :amount (roll 1 6)
 					       :types '(bludgeoning)))))
-    (when (playerp activator)
-      (print-to-log "you triggered a ~a and took ~d damage"
+    (when (visiblep activator *player*)
+      (print-to-log "~a triggered a ~a and took ~d damage"
+		    (name activator)
 		    (name trap)
 		    damage)
-      (flag-alert))))
+      (when (playerp activator)
+	(flag-alert)))
+    1))
 
 (defmethod evasion ((obj creature))
   (max 1 (+ 5 (dex obj) (slot-value obj 'evasion))))
@@ -517,38 +523,45 @@
       (call-next-method)))
 
 (defmethod reposition ((obj actor) new-pos)
-  (let ((collider (solid new-pos))
-	(cost (move-into new-pos obj)))
+  (let* ((collider (solid new-pos))
+	 (cost (move-into new-pos obj (not collider))))
     (unless collider
       (force-movement obj new-pos))
     (if collider 1 cost)))
 
-(defmethod move-into ((position list) active)
-  (let ((cost (movement-cost position)))
+(defmethod move-into ((position list) active repositioningp)
+  (let ((cost (movement-cost position :actual t)))
     (mapc (lambda (p)
-	    (move-into p active))
+	    (let ((result (move-into p active repositioningp)))
+	      (when (numberp result)
+		(incf cost result))))
 	  (contents position :all t))
     cost))
 
-(defmethod move-into ((passive breakable) (active player))
+(defmethod move-into ((passive breakable) (active player) repositioningp)
+  (declare (ignore repositioningp))
   (when (and (equal (solid (pos passive)) passive)
 	     (confirmp "do you want to attack the ~a?" (name passive)))
     (attack passive active)))
 
-(defmethod move-into ((passive creature) (active player))
+(defmethod move-into ((passive creature) (active player) repositioningp)
+  (declare (ignore repositioningp))
   (when (if (hostilep passive active)
 	    t
 	    (confirmp "that creature does not appear hostile. Do you want to attack it?"))
     (attack passive active)))
 
-(defmethod move-into ((passive creature) (active creature))
+(defmethod move-into ((passive creature) (active creature) repositioningp)
+  (declare (ignore repositioningp))
   (when (hostilep active passive)
     (attack passive active)))
 
-(defmethod move-into ((passive table) (active creature))
-  (apply-to active (make-elevated-status)))
+(defmethod move-into ((passive table) (active creature) repositioningp)
+  (when repositioningp
+    (apply-to active (make-elevated-status))))
 
-(defmethod move-into ((passive sprout) (active sprout))
+(defmethod move-into ((passive sprout) (active sprout) repositioningp)
+  (declare (ignore repositioningp))
   (remove-solid (pos passive))
   (remove-solid (pos active))
   (setf (health (make-sprout-hulk (pos passive)))
@@ -558,26 +571,28 @@
   (when (visiblep (pos passive) *player*)
     (print-to-log "two sprouts combine to form a sprout hulk")))
 
-(defmethod move-into ((passive sprout) (active sprout-hulk))
+(defmethod move-into ((passive sprout) (active sprout-hulk) repositioningp)
+  (declare (ignore repositioningp))
   (force-movement active (pos passive))
   (setf (deadp passive) t)
   (incf (health active) (health passive))
   (when (visiblep (pos passive) *player*)
-    (print-to-log "the sprout hulk absorbs a smaller sprout"))
-  (movement-cost (pos passive)))
+    (print-to-log "the sprout hulk absorbs a smaller sprout")))
 
-(defmethod move-into ((passive sprout-hulk) (active sprout))
+(defmethod move-into ((passive sprout-hulk) (active sprout) repositioningp)
+  (declare (ignore repositioningp))
   (remove-solid (pos active))
   (setf (deadp active) t)
   (incf (health passive) (health active))
   (when (visiblep (pos passive) *player*)
     (print-to-log "the sprout hulk absorbs a smaller sprout")))
 
-(defmethod move-into ((passive trap) (active player))
-    (when (< (random 100) (trigger-chance passive))
-      (trigger passive active)))
+(defmethod move-into ((passive trap) (active creature) repositioningp)
+  (when (and repositioningp (< (random 100) (trigger-chance passive)))
+    (trigger passive active)))
 
-(defmethod move-into ((passive shopkeeper) (active player))
+(defmethod move-into ((passive shopkeeper) (active player) repositioningp)
+  (declare (ignore repositioningp))
   (if (hostilep passive active)
       (attack passive active)
       (let ((action (get-item-from-list '(attack sell buy) :what 'option)))
@@ -638,14 +653,21 @@
       (PRINT-TO-LOG "you see a wall")
       (CALL-NEXT-METHOD)))
 
-(DEFMETHOD MOVEMENT-COST ((POSITION LIST))
-  (APPLY #'+ (MAPCAR #'MOVEMENT-COST (CONTENTS POSITION :ALL T))))
+(DEFMETHOD MOVEMENT-COST ((POSITION LIST) &rest keys &key &allow-other-keys)
+  (loop for item in (contents position :all t)
+	sum (apply #'movement-cost item keys)))
 
-(DEFMETHOD MOVEMENT-COST ((TERRAIN SYMBOL))
+(DEFMETHOD MOVEMENT-COST ((TERRAIN SYMBOL) &rest keys &key &allow-other-keys)
+  (declare (ignore keys))
   (GETHASH TERRAIN *TERRAIN-COSTS* 1))
 
-(DEFMETHOD MOVEMENT-COST ((CREATURE CREATURE))
+(DEFMETHOD MOVEMENT-COST ((CREATURE CREATURE) &rest keys &key &allow-other-keys)
+  (declare (ignore keys))
   (IDLE-TIME CREATURE))
+
+(defmethod movement-cost ((trap trap) &rest keys &key (actual nil) &allow-other-keys)
+  (declare (ignore keys))
+  (if actual 0 10))
 
 (DEFMETHOD APPLY-TO :BEFORE ((SUBJ CREATURE) (OBJ STATUS))
   (SETF (TARGET OBJ) SUBJ)

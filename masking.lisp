@@ -21,5 +21,5 @@
 		   a)
 		  (t 0))))
 
-(defun maskp (a b)
-  (> (mask a b) 0))
+(defun maskp (a b &key (match :any))
+  (> (mask a b :match match) 0))

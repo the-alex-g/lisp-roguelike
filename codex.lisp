@@ -122,6 +122,7 @@
     :inherit undead
     :color '(2 3 2)
     :health (roll 1 8)
+    :idle #'wander
     :str 1 :con 1 :dex -2 :int -4 :wis -4 :cha -4 :spd 3/5)
   (defenemy skeleton #\s ()
     :inherit undead
