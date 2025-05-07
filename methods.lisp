@@ -385,29 +385,34 @@
 	 (move-towards (home obj) obj #'movement-cost))))
 
 (defmethod act :around ((obj enemy) &key &allow-other-keys)
+  (assert (pos obj))
   (multiple-value-bind (foes allies) (get-actors-in-los-of obj t nil nil
 							   (hostilep obj actor)
 							   (alliedp obj actor))
-    (if (eq (morale obj) 'fearless)
-	(call-next-method obj :foes foes :allies allies)
-	(let* ((allied-strength (+ (level obj)
-				   (morale obj)
-				   (loop for ally in allies
-					 sum (fear-of ally (pos obj)))))
-	       (fearsome-foes (loop for foe in foes
-				    when (> (level foe) allied-strength)
-				      collect foe))
-	       (fear (loop for foe in fearsome-foes sum (fear-of foe (pos obj)))))
-;	  (when (visiblep obj *player*)
-;	    (print-to-log "fear: ~d   strength: ~d" fear allied-strength))
-	  (flet ((heuristic (pos)
-		   (+ (movement-cost pos)
-		      (loop for foe in fearsome-foes
-			    sum (fear-of foe pos)))))
-	    (if (< fear allied-strength)
-		(call-next-method obj :foes foes :allied-strength allied-strength
-				      :heuristic #'heuristic :allies allies)
-		(flee obj #'heuristic)))))))
+    (flet ((perform-regular-activation (&rest keys &key &allow-other-keys)
+	     (cond ((and (not foes) (has-status-p obj 'resting)) nil)
+		   ((not (apply #'call-next-method obj keys))
+		    (if (< (health obj) (max-health obj))
+			(apply-to obj (make-resting-status))
+			(funcall (idle-behavior obj) obj))))))
+      (if (eq (morale obj) 'fearless)
+	  (perform-regular-activation :foes foes :allies allies)
+	  (let* ((allied-strength (+ (level obj)
+				     (morale obj)
+				     (loop for ally in allies
+					   sum (fear-of ally (pos obj)))))
+		 (fearsome-foes (loop for foe in foes
+				      when (> (level foe) allied-strength)
+					collect foe))
+		 (fear (loop for foe in fearsome-foes sum (fear-of foe (pos obj)))))
+	    (flet ((heuristic (pos)
+		     (+ (movement-cost pos)
+			(loop for foe in fearsome-foes
+			      sum (fear-of foe pos)))))
+	      (if (< fear allied-strength)
+		  (perform-regular-activation :foes foes :allied-strength allied-strength
+					      :heuristic #'heuristic :allies allies)
+		  (flee obj #'heuristic))))))))
 
 (defmethod act ((obj enemy)
 		&key foes (allied-strength 0) (heuristic #'movement-cost)
@@ -419,10 +424,7 @@
 	(primary (car (weapons obj))))
     (when target
       (setf (target-pos obj) (pos target)))
-    (cond ((has-status-p obj 'resting)
-	   ;; if resting, do nothing
-	   nil)
-	  ((and target (<= (distance (pos obj) (pos target)) (range primary)))
+    (cond ((and target (<= (distance (pos obj) (pos target)) (range primary)))
 	   ;; if has target and target is in range, attack
 	   (attack target obj))
 	  ((and (not target) (< (health obj) (/ (max-health obj) 2)))
@@ -430,22 +432,15 @@
 	   (apply-to obj (make-resting-status)))
 	  ((target-pos obj)
 	   ;; if knows about a target, move towards it
-	   (move-towards (target-pos obj) obj heuristic))
-	  ((< (health obj) (max-health obj))
-	   ;; damaged at all
-	   (apply-to obj (make-resting-status)))
-	  (t
-	   ;; idle
-	   (funcall (idle-behavior obj) obj)))))
+	   (move-towards (target-pos obj) obj heuristic)))))
 
-(defmethod act ((obj necromancer) &key foes allied-stregth heuristic &allow-other-keys)
+(defmethod act ((obj necromancer) &key foes heuristic &allow-other-keys)
   (let ((target (get-closest-of-list obj foes))
 	(corpses (get-actors-in-los-of obj nil t nil (and (corpsep actor)
 							  (reanimateablep actor)))))
     (when target
       (setf (target-pos obj) (pos target)))
-    (cond ((has-status-p obj 'resting) nil)
-	  (corpses
+    (cond (corpses
 	   (let ((corpses-in-range (loop for corpse in corpses
 					 when (<= (distance (pos corpse) (pos obj)) 3)
 					   collect corpse)))
@@ -457,11 +452,8 @@
 	   (if (< (health obj) (max-health obj))
 	       (life-drain obj target)
 	       (enervate obj target)))
-	  ((target-pos obj) (move-towards (target-pos obj) obj heuristic))
-	  ((< (health obj) (max-health obj))
-	   (apply-to-obj (make-resting-status)))
-	  (t
-	   (funcall (idle-behavior obj) obj)))))  
+	  ((target-pos obj)
+	   (move-towards (target-pos obj) obj heuristic)))))
 
 (defmethod act ((obj sprout) &key allies foes &allow-other-keys)
   (let ((target (or (get-closest-of-list obj allies)
@@ -527,7 +519,9 @@
 	 (cost (move-into new-pos obj (not collider))))
     (unless collider
       (force-movement obj new-pos))
-    (if collider 1 cost)))
+    (cond ((wallp collider) 0)
+	  (collider 1)
+	  (t cost))))
 
 (defmethod move-into ((position list) active repositioningp)
   (let ((cost (movement-cost position :actual t)))
