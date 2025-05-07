@@ -950,7 +950,8 @@
 	   (call-next-method)))))
 
 (defmethod hostilep ((obj creature) (to creature))
-  (maskp (enemies obj) (types to)))
+  (and (maskp (enemies obj) (types to))
+       (not (alliedp obj to))))
 
 (defmethod hostilep ((obj shopkeeper) (to creature))
   (member to (targets obj) :test #'equal))

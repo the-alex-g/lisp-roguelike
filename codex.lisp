@@ -53,94 +53,95 @@
 ;; ENEMIES
 
 (define-mask-set '(good evil goblin troll kobold sprout demon undead humanoid))
-
-(defabstract enemy undead ()
-  :types '(undead)
-  :morale 'fearless
-  :allies '(undead)
-  :enemies (mask-all '(undead)))
-
-(defenemy goblin #\g ()
-  :types '(goblin evil)
-  :allies '(goblin troll)
-  :enemies '(good)
-  :color 'green-4
-  :health (roll 1 4 1)
-  :equips (make-dagger)
-  :dex 1
-  :meat (make-goblin-meat)
-  :loot `(((50 ,(make-gold 1)))))
-(defenemy goblin-archer #\g ()
-  :inherit goblin
-  :equips (make-crude-bow)
-  :morale -0.5)
-(defenemy kobold #\k ()
-  :types '(kobold evil)
-  :allies '(kobold)
-  :enemies '(good troll)
-  :color '(4 1 0)
-  :natural-weapons '(1 3 0 0 piercing)
-  :health (roll 1 4 1)
-  :equips (make-dagger)
-  :str 1 :dex 1 :armor 1
-  :meat (make-kobold-meat))
-(defenemy troll #\T ()
-  :type '(troll evil)
-  :enemies '(good)
-  :color '(0 3 5)
-  :health (roll 2 8)
-  :equips (make-warclub)
-  :str 2 :dex -1 :armor 1 :spd 3/4 :con 2
-  :meat (roll 2 10 20))
-(defenemy sprout #\% ()
-  :types '(sprout)
-  :allies '(sprout)
-  :enemies (mask-all '(sprout))
-  :color '(1 5 0)
-  :health (roll 1 4)
-  :int -4
-  :morale 'fearless
-  :vulnerable '(fire slashing)
-  :resist '(bludgeoning piercing)
-  :natural-weapons '(1 1 0 0 slashing))
-(defenemy grenadier-sprout #\% ()
-  :inherit sprout
-  :color '(4 2 5))
-(defenemy sprout-hulk #\H ()
-  :inherit sprout
-  :health (roll 4 4 2)
-  :natural-weapons '(1 8 0 0 bludgeoning)
-  :str 2 :dex -1)
-(defenemy shopkeeper #\U ((domain 4) targets home)
-  :color 'purple-4
-  :health (roll 3 10 5)
-  :idle #'no-idle
-  :str 3 :dex 2 :int 4 :wis 3 :cha 4
-  :equips `(,(make-sword-+1) ,(make-sword-+1)))
-(defenemy zombie #\z ()
-  :inherit undead
-  :color '(2 3 2)
-  :health (roll 1 8)
-  :str 1 :con 1 :dex -2 :int -4 :wis -4 :cha -4 :spd 3/5)
-(defenemy skeleton #\s ()
-  :inherit undead
-  :color '(5 5 3)
-  :health (roll 1 6)
-  :vulnerable '(bludgeoning)
-  :int -4 :wis -4 :cha -4)
-(defenemy necromancer #\h ()
-  :types '(undead)
-  :allies '(undead)
-  :enemies (mask-all '(undead))
-  :color '(1 2 3)
-  :health (roll 1 8)
-  :str -1 :int 4 :wis 3
-  :primary-stat 'intl
-  :morale -2
-  :loot `(((50 ,(make-gold (roll 1 2))))
-	  ((75 ,(let ((wand (make-wand)))
-		  (setf (spell wand) (randnth (list *enervate* *animate-dead* *drain-life*)))
-		  wand)))))
+(let ((mask-living (mask-all '(undead demon))))
+  (defabstract enemy undead ()
+    :types '(undead)
+    :morale 'fearless
+    :allies '(undead)
+    :enemies mask-living)
+  
+  (defenemy goblin #\g ()
+    :types '(goblin evil humanoid)
+    :allies '(goblin troll)
+    :enemies '(good)
+    :color 'green-4
+    :health (roll 1 4 1)
+    :equips (make-dagger)
+    :dex 1
+    :meat (make-goblin-meat)
+    :loot `(((50 ,(make-gold 1)))))
+  (defenemy goblin-archer #\g ()
+    :inherit goblin
+    :equips (make-crude-bow)
+    :morale -0.5)
+  (defenemy kobold #\k ()
+    :types '(kobold evil humanoid)
+    :allies '(kobold)
+    :enemies '(good troll)
+    :color '(4 1 0)
+    :natural-weapons '(1 3 0 0 piercing)
+    :health (roll 1 4 1)
+    :equips (make-dagger)
+    :str 1 :dex 1 :armor 1
+    :meat (make-kobold-meat))
+  (defenemy troll #\T ()
+    :type '(troll evil)
+    :enemies '(good)
+    :color '(0 3 5)
+    :health (roll 2 8)
+    :equips (make-warclub)
+    :str 2 :dex -1 :armor 1 :spd 3/4 :con 2
+    :meat (roll 2 10 20))
+  (defenemy sprout #\% ()
+    :types '(sprout)
+    :allies '(sprout)
+    :enemies (mask-all '(sprout))
+    :color '(1 5 0)
+    :health (roll 1 4)
+    :int -4
+    :morale 'fearless
+    :vulnerable '(fire slashing)
+    :resist '(bludgeoning piercing)
+    :natural-weapons '(1 1 0 0 slashing))
+  (defenemy grenadier-sprout #\% ()
+    :inherit sprout
+    :color '(4 2 5))
+  (defenemy sprout-hulk #\H ()
+    :inherit sprout
+    :health (roll 4 4 2)
+    :natural-weapons '(1 8 0 0 bludgeoning)
+    :str 2 :dex -1)
+  (defenemy shopkeeper #\U ((domain 4) targets home)
+    :types '(demon)
+    :color 'purple-4
+    :health (roll 3 10 5)
+    :idle #'no-idle
+    :str 3 :dex 2 :int 4 :wis 3 :cha 4
+    :equips `(,(make-sword-+1) ,(make-sword-+1)))
+  (defenemy zombie #\z ()
+    :inherit undead
+    :color '(2 3 2)
+    :health (roll 1 8)
+    :str 1 :con 1 :dex -2 :int -4 :wis -4 :cha -4 :spd 3/5)
+  (defenemy skeleton #\s ()
+    :inherit undead
+    :color '(5 5 3)
+    :health (roll 1 6)
+    :vulnerable '(bludgeoning)
+    :int -4 :wis -4 :cha -4)
+  (defenemy necromancer #\h ()
+    :types '(undead humanoid)
+    :allies '(undead)
+    :enemies mask-living
+    :color '(1 2 3)
+    :health (roll 1 8)
+    :str -1 :int 4 :wis 3
+    :primary-stat 'intl
+    :morale -2
+    :loot `(((50 ,(make-gold (roll 1 2))))
+	    ((75 ,(let ((wand (make-wand)))
+		    (setf (spell wand) (randnth (list *enervate* *animate-dead* *life-drain*)))
+		    wand))))))
 
 ;; STATUSES
 
