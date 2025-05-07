@@ -171,3 +171,10 @@ on enemies, calls #'act until object runs out of energy")
 
 (defgeneric checkp (stat obj dc)
   (:method (stat obj dc) nil))
+
+(defgeneric place-into (place obj)
+  (:documentation "called when an object is placed using the (place) function. If this method
+returns true, placement continues normally.")
+  (:method (place obj) t))
+
+(defgeneric cook (obj))

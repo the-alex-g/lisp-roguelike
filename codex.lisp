@@ -7,13 +7,15 @@
  (defequipment sword () :atk '(1 6 0 0 slashing) :inherit weapon :char #\^)
  (defequipment sword-+1 () :atk '(1 6 1 1 slashing) :inherit weapon :break-chance 1 :char #\^)
  (defequipment dagger () :atk '(1 4 0 0 piercing) :inherit weapon :char #\^)
- (defequipment bow () :atk '(1 4 0 0 piercing) :inherit weapon :range 4 :char #\) :size 2)
- (defequipment food ((sustenance (roll 2 10 10))) :description "recovers 12-30 hunger"
-   :break-chance 100)
+ (defequipment bow () :atk '(1 4 0 0 piercing) :inherit weapon :range 4 :char #\) :size 2
+		      :burn-time 25)
+ (defequipment food ((sustenance (roll 2 10 10)) (cooking 0)) :description "recovers 12-30 hunger"
+   :break-chance 100 :char #\")
  (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2 :char #\&)
+ (defequipment faggot () :atk '(1 3 0 0 bludeoning) :char #\& :burn-time 100)
  (defsecretequipment wand (unidentified-wand) ((spell (randnth *spells*))
 					       (charges (roll 1 4)))
-   :char #\/)
+   :char #\/ :burn-time 5)
  (defsecretequipment healing-potion
      ((blue-potion :color '(0 1 5))
       (green-potion :color 'green-4)
@@ -36,7 +38,8 @@
 
 ;; FURNITURE
 
-(defabstract actor trap ((trigger-chance 100)
+(defabstract actor hazard ())
+(defabstract hazard trap ((trigger-chance 100)
 			 (find-dc 10)
 			 (avoid-dc 10)
 			 (searchedp nil))
@@ -46,6 +49,7 @@
 (defactor bones #\x () :inherit remains)
 (defactor ladder #\# (direction))
 (defactor pit-trap #\! () :inherit trap)
+(defactor fire #\& ((fuel 0)) :color '(5 3 0) :illumination 3 :inherit hazard)
 (defactor table #\space () :bg-color '(2 1 0) :neighbors 8 :inherit furniture)
 (defactor brazier #\u () :color '(5 4 0) :illumination 3
   :neighbors '(5 3) :inherit breakable :solidp t)

@@ -79,6 +79,7 @@
 
 (defclass equipment (breakable)
   ((atk :initform '(1 3 0 0 bludgeoning) :initarg :atk :accessor atk)
+   (burn-time :initform 0 :initarg :burn-time :accessor burn-time)
    (range :initform 1 :initarg :range :accessor range)
    (size :initform 1 :initarg :size :accessor size)
    (price :initform 2 :initarg :price :accessor price)

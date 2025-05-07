@@ -148,17 +148,19 @@
     (initialize-board hazards furniture)))
 
 (defun place (obj pos &key (solid t))
-  (flood-fill pos (t (unless (occupiedp current) current)
-		     :stop-for-occupied nil
-		     :solid solid)
-    (when result
-      (if solid
-	  (setf (solid result) obj)
-	  (setf (non-solid result) obj))
-      (setf (pos obj) result)))
-  (when (> (illumination obj) 0)
-    (add-glowing obj))
-  obj)
+  (when (loop for place in (contents pos :all t)
+	      always (place-into place obj))
+    (flood-fill pos (t (unless (occupiedp current) current)
+		       :stop-for-occupied nil
+		       :solid solid)
+		(when result
+		  (if solid
+		      (setf (solid result) obj)
+		      (setf (non-solid result) obj))
+		  (setf (pos obj) result)))
+    (when (> (illumination obj) 0)
+      (add-glowing obj))
+    obj))
 
 (defun force-movement (obj new-pos)  
   (remove-solid (pos obj))

@@ -159,6 +159,10 @@
       (call-next-method)
       (cover-name obj)))
 
+(defmethod name ((obj food))
+  (log-to-string "~[~;cooked ~;burnt ~]~a"
+		 (cooking obj) (slot-value obj 'name)))
+
 (defmethod (setf health) (value (obj creature))
   (cond ((<= value 0)
 	 (setf (slot-value obj 'health) 0))
@@ -304,6 +308,12 @@
 (defmethod surrounding-name ((obj actor))
   (name obj))
 
+(defmethod place-into ((fire fire) (obj equipment))
+  (incf (fuel fire) (burn-time obj))
+  (when (visiblep fire *player*)
+    (print-to-log "the fire has consumed ~a" (name obj)))
+  nil)
+
 (defmethod throw-at :before (target (item equipment) (thrower player))
   (declare (ignore target))
   (when (equippedp item thrower)
@@ -312,6 +322,10 @@
 
 (defmethod throw-at ((target creature) (item equipment) (thrower creature))
   (attack target (get-attack item thrower)))
+
+(defmethod throw-at ((target fire) (item equipment) thrower)
+  (declare (ignore thrower))
+  (place-into target item))
 
 (defmethod throw-at (target (item sprout-bomb) (thrower creature))
   (declare (ignore item))
@@ -340,6 +354,19 @@
   (when (= (decay-time obj) 0)
     (remove-non-solid (pos obj))
     (drop-bones obj)))
+
+(defmethod update ((obj fire))
+  (decf (fuel obj))
+  (when (= 0 (fuel obj))
+    (remove-non-solid (pos obj))
+    (when (visiblep obj *player*)
+      (print-to-log "the fire has gone out")))
+  (when (solid (pos obj))
+    (print-to-log "the fire burns ~a for ~d damage"
+		  (name (solid (pos obj)))
+		  (damage (solid (pos obj)) (make-damage :amount (roll 2 4)
+							 :types '(fire)
+							 :source obj)))))
 
 (defmethod update ((obj elevated))
   (let ((f (non-solid (pos (target obj)))))
@@ -659,8 +686,8 @@
   (declare (ignore keys))
   (IDLE-TIME CREATURE))
 
-(defmethod movement-cost ((trap trap) &rest keys &key (actual nil) &allow-other-keys)
-  (declare (ignore keys))
+(defmethod movement-cost ((obj hazard) &rest keys &key (actual nil) &allow-other-keys)
+  (declare (ignore keys obj))
   (if actual 0 10))
 
 (DEFMETHOD APPLY-TO :BEFORE ((SUBJ CREATURE) (OBJ STATUS))
@@ -1040,3 +1067,18 @@
   (when (cast-spell (spell obj) zapper)
     (identify obj))
   (decf (charges obj)))
+
+(defmethod cook (obj)
+  (print-to-log "you can't cook that"))
+
+(defmethod cook ((obj food))
+  (cond ((= (cooking obj) 0)
+	 (setf (sustenance obj) (round (* (sustenance obj) 1.5)))
+	 (print-to-log "the ~a has been cooked" (name obj)))
+	((= (cooking obj) 1)
+	 (setf (sustenance obj) (round (* (sustenance obj) 1/3)))
+	 (print-to-log "the ~a has been charred" (name obj)))
+	(t
+	 (remove-from-inventory obj)
+	 (print-to-log "the ~a has been burnt beyond use" (name obj))))
+  (incf (cooking obj)))

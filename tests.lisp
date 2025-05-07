@@ -37,6 +37,27 @@
 	      *tests-failed*)
   (setf *tests-failed* nil))
 
+(deftest cooking
+    (let ((food (make-food)))
+      (setf (sustenance food) 10)
+      (cook food)
+      (print-test "food is cooked" (string= (name food) "cooked food"))
+      (print-test "sustenance increased" (= (sustenance food) 15))
+      (cook food)
+      (print-test "food is burnt" (string= (name food) "burnt food"))
+      (print-test "sustenance decreased" (= (sustenance food) 5))))
+
+(deftest fire
+  (with-clean-board
+    (let ((fire (make-fire +zero+))
+	  (goblin (make-goblin +zero+)))
+      (make-faggot-pickup +zero+)
+      (print-test "fire consumed faggot... ~d fuel" (= (fuel fire) 100)
+		  (fuel fire))
+      (loop repeat 100 do (update fire))
+      (print-test "fire went out" (not (non-solid +zero+)))
+      (print-test "goblin died" (deadp goblin)))))
+
 (deftest masks
   (define-mask-set '(a b c d))
   (print-test "matching any" (= (mask (make-mask '(a b))
@@ -174,13 +195,16 @@
     (let* ((caster (make-goblin +zero+))
 	   (target (make-goblin +right+))
 	   (target-initial-health (health target)))
-      (setf (intl caster) 1000)
+      (setf (intl caster) 1000) ;; so that there's no chance of avoiding the status
       (let ((damage (enervate caster target)))
-	(print-test "target was damaged ~d (from ~d to ~d)" (= (health target)
-					       (max 0 (- target-initial-health damage)))
-		    damage (health target) target-initial-health)
+	(print-test "target was damaged" (= (health target)
+					    (max 0 (- target-initial-health damage))))
 	(print-test "target was inflicted with a status"
-		    (= (length (statuses target)) 1))))))
+		    (= (length (statuses target)) 1)))
+      (setf (intl caster) -100)
+      (enervate caster target)
+      (print-test "target avoided the status"
+		  (= (length (statuses target)) 1)))))
 
 (deftest vector-math
   (flet ((test (test value function &rest args)

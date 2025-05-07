@@ -133,6 +133,25 @@
   (with-direction (setf .time. 0)
     (look-at (vec+ (pos *player*) direction))))
 
+(defaction #\B 1 "start a fire"
+  (with-time-safe-item-from-inventory
+      (cond ((shopkeeper item)
+	     (print-to-log "you must buy that before burning it"))
+	     ((= (burn-time item) 0)
+	      (print-to-log "you can't burn that"))
+	     (t
+	      (with-direction (setf .time. 0)
+		(setf (fuel (make-fire (vec+ (pos *player*) direction))) (burn-time item))
+		(remove-from-inventory item))))))
+
+(defaction #\c 4 "cook"
+  (if (loop for direction in +directions+
+	      thereis (eq (name (non-solid (vec+ (pos *player*) direction))) 'fire))
+      (with-time-safe-item-from-inventory
+	  (cook item))
+      (progn (setf .time. 0)
+	     (print-to-log "you can't cook without a fire"))))
+
 (defaction #\# 0 "open a REPL"
   (labels ((read-and-eval (previous-input)
 	     (let ((input (if previous-input
