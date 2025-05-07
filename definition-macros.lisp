@@ -160,3 +160,19 @@
 	   (print-to-log "you must buy that before ~aing it" ',action)
 	   (unless (eq (call-next-method) ',dont-remove-key)
 	     (remove-from-inventory item)))))))
+
+(defmacro defaction ((&rest keys) time description &body body)
+  (let ((key (gensym))
+	(key-list (gensym)))
+    `(let ((,key-list (ensure-list ',keys)))
+       (loop for ,key in ,key-list
+	     when (gethash ,key *action-descriptions*)
+	       do (print-to-log "You're declaring the ~a action twice!" ,key)
+	     do (setf (gethash ,key *actions*)
+		      (lambda ()
+			(let ((.time. ,time))
+			  ,@body
+			  .time.))))
+       (setf (gethash (format nil "~{~c~#[~; or ~;, ~]~}" ,key-list)
+		      *action-descriptions*)
+	     ,description))))

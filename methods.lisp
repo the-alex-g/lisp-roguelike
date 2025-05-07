@@ -31,6 +31,12 @@
   (declare (ignore obj))
   t)
 
+(defmethod checkp ((stat symbol) (obj creature) (dc fixnum))
+  (>= (roll 1 20 (funcall stat obj)) dc))
+
+(defmethod checkp (stat (obj breakable) dc)
+  (member stat '(str con)))
+
 (defmethod drop-corpse ((obj enemy))
   (let ((corpse (make-corpse (pos obj))))
     (setf (name corpse) (log-to-string "~a corpse" (name obj)))
@@ -105,7 +111,7 @@
 (DEFMETHOD REMOVE-STATUS :AFTER ((STATUS STATUS))
   (SETF (STATUSES (TARGET STATUS)) (REMOVE STATUS (STATUSES (TARGET STATUS)))))
 
-(defmethod trigger :around ((trap trap) activator)
+(defmethod trigger :around ((trap trap) (activator creature))
   (setf (hiddenp trap) nil)
   (if (>= (roll 1 20 (dex activator)) (avoid-dc trap))
       (progn (print-to-log "you triggered a ~a but dodged out of the way"
@@ -700,7 +706,9 @@
 (DEFMETHOD VISIBLEP ((C CHARACTER) FROM) T)
 
 (DEFMETHOD VISIBLEP ((POS LIST) (FROM CREATURE))
-  (AND (HAS-LOS POS (POS FROM)) (OR (DARKVISIONP FROM) (ILLUMINATEDP POS))))
+  (AND (HAS-LOS POS (POS FROM))
+       (OR (DARKVISIONP FROM)
+	   (ILLUMINATEDP POS))))
 
 (DEFMETHOD VISIBLEP ((OBJ ACTOR) FROM)
   (IF (HIDDENP OBJ)
@@ -956,7 +964,7 @@
 	  do (loop for y from (- (cdr pos) (domain shopkeeper))
 		     to (+ (cdr pos) (domain shopkeeper))
 		   when (and (= (random 6) 0)
-			     (not (equal (cons x y) pos))
+			     (not (solid (cons x y)))
 			     (visiblep (cons x y) shopkeeper))
 		     do (place-shop-item (cons x y) shopkeeper)))
     (setf (home shopkeeper) (pos shopkeeper))
@@ -998,11 +1006,16 @@
       (funcall (spell-function spell) obj (choose-target 'free-form 100))
       (funcall (spell-function spell) obj)))
 
-(defmethod zap :around ((obj wand) zapper)
+(defmethod zap :around ((obj wand) (zapper creature))
   (if (> (charges obj) 0)
       (call-next-method)
       (when (playerp zapper)
 	(print-to-log "there is no effect"))))
+
+(defmethod zap :around ((obj equipment) (zapper player))
+  (if (shopkeeper obj)
+      (print-to-log "you must buy that before zapping it")
+      (call-next-method)))
 
 (defmethod zap ((obj wand) (zapper creature))
   (when (visiblep zapper *player*)

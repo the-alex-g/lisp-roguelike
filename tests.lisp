@@ -1,5 +1,6 @@
-(defparameter *tests-failed* 0)
+(defparameter *tests-failed* nil)
 (defparameter *tests* nil)
+(defparameter *scope* nil)
 
 (defmacro with-clean-board (&body body)
   `(let ((*current-layer* (make-layer)))
@@ -9,7 +10,8 @@
   `(push
     (defun ,(read-from-string (format nil "test-~a" name)) ()
       (flag (log-to-string "testing ~a" ',name))
-      ,@body)
+      (let ((*scope* ',name))
+	,@body))
     *tests*))
 
 ;;; override default illuminatedp function
@@ -19,7 +21,7 @@
 (defun print-test (string passedp &rest args)
   (format t "~&~:[~c[31mFAIL~;~c[32mPASS~]~:*~c[0m: ~?" passedp #\esc string args)
   (unless passedp
-    (incf *tests-failed*))
+    (push *scope* *tests-failed*))
   passedp)
 
 (defun flag (string)
@@ -29,10 +31,11 @@
   (format t "~&~a~%" (apply-color string 'yellow-4)))
 
 (deftest tests
-  (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
-	      (= *tests-failed* 0)
+  (print-test "~[all tests passed~:;~:*~d test~:p failed in scope~:p ~{~a~^ ~}~]"
+	      (= (length *tests-failed*) 0)
+	      (length *tests-failed*)
 	      *tests-failed*)
-  (setf *tests-failed* 0))
+  (setf *tests-failed* nil))
 
 (deftest masks
   (define-mask-set '(a b c d))
@@ -137,12 +140,14 @@
   (with-clean-board
     (let* ((caster (make-goblin +zero+))
 	   (target (make-goblin +right+))
-	   (target-initial-health (health target))
-	   (damage (enervate caster target)))
-      (print-test "target was damaged" (= (health target)
-					  (max 0 (- target-initial-health damage))))
-      (print-test "target was inflicted with a status"
-		  (= (length (statuses target)) 1)))))
+	   (target-initial-health (health target)))
+      (setf (intl caster) 1000)
+      (let ((damage (enervate caster target)))
+	(print-test "target was damaged ~d (from ~d to ~d)" (= (health target)
+					       (max 0 (- target-initial-health damage)))
+		    damage (health target) target-initial-health)
+	(print-test "target was inflicted with a status"
+		    (= (length (statuses target)) 1))))))
 
 (deftest vector-math
   (flet ((test (test value function &rest args)

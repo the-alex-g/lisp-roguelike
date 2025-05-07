@@ -1,22 +1,3 @@
-(defparameter *actions* (make-hash-table))
-(defparameter *action-descriptions* (make-hash-table))
-
-(defmacro defaction ((&rest keys) time description &body body)
-  (let ((key (gensym))
-	(key-list (gensym)))
-    `(let ((,key-list (ensure-list ',keys)))
-       (loop for ,key in ,key-list
-	     when (gethash ,key *action-descriptions*)
-	       do (print-to-log "You're declaring the ~a action twice!" ,key)
-	     do (setf (gethash ,key *actions*)
-		      (lambda ()
-			(let ((.time. ,time))
-			  ,@body
-			  .time.))))
-       (setf (gethash (format nil "~{~c~#[~; or ~;, ~]~}" ,key-list)
-		      *action-descriptions*)
-	     ,description))))
-
 (defmacro on-new-screen (&body body)
   `(progn (clear-screen)
 	  ,@body

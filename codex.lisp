@@ -12,7 +12,8 @@
    :break-chance 100)
  (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2 :char #\&)
  (defsecretequipment wand (unidentified-wand) ((spell (randnth *spells*))
-					       (charges (roll 1 4))))
+					       (charges (roll 1 4)))
+   :char #\/)
  (defsecretequipment healing-potion
      ((blue-potion :color '(0 1 5))
       (green-potion :color 'green-4)
@@ -135,7 +136,11 @@
   :health (roll 1 8)
   :str -1 :int 4 :wis 3
   :primary-stat 'intl
-  :morale -2)
+  :morale -2
+  :loot `(((50 ,(make-gold (roll 1 2))))
+	  ((75 ,(let ((wand (make-wand)))
+		  (setf (spell wand) (randnth (list *enervate* *animate-dead* *drain-life*)))
+		  wand)))))
 
 ;; STATUSES
 

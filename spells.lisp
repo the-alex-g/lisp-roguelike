@@ -10,7 +10,8 @@
 					   ,@body))))
        (push ,spell *spells*)
        (defparameter ,(read-from-string (format nil "*~a*" name)) ,spell)
-       (defun ,name (caster &optional target) (cast-spell ,spell caster :target target)))))
+       (defun ,name (caster &optional target)
+	 (cast-spell ,spell caster :target target)))))
 
 (defspell animate-dead nil
   (let ((animated-dead (get-actors-in-los-of caster nil t 3 (reanimate actor caster))))
@@ -29,7 +30,9 @@
 
 (defspell life-drain t
   (let* ((damage (damage target (make-damage :source caster
-					     :amount (roll 1 4)
+					     :amount (if (checkp #'con target (+ 10 (intl caster)))
+							 (roll 1 2)
+							 (roll 1 4))
 					     :types '(necrotic))))
 	 (previous-health (health caster))
 	 (health-gain (- (incf (health caster) damage) previous-health)))
@@ -54,9 +57,10 @@
 			(make-damage :source caster
 				     :amount (roll 1 4)
 				     :types '(necrotic)
-				     :statuses (list (if (= (random 2) 0)
-							 (make-weak-status :duration 2)
-							 (make-clumsy-status :duration 2)))))))
+				     :statuses (unless (checkp #'con target (+ 10 (intl caster)))
+						 (list (if (= (random 2) 0)
+							   (make-weak-status :duration 2)
+							   (make-clumsy-status :duration 2))))))))
     (cond ((visiblep caster *player*)
 	   (print-to-log "~a fires a beam of dark energy~:[~; at ~a, dealing ~d damage~]"
 			 (name caster) (visiblep target *player*) (name target) damage))

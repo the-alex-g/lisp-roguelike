@@ -18,6 +18,9 @@
 		 :color 'red
 		 :illumination 5
 		 :char #\@))
+(defparameter *actions* (make-hash-table))
+(defparameter *action-descriptions* (make-hash-table))
+
 
 (mapc #'load
       (list "bsp-dungeon.lisp"
@@ -27,9 +30,9 @@
 	    "definition-macros.lisp"
 	    "shops.lisp"
 	    "idle-behaviors.lisp"
-	    "codex.lisp"
 	    "alignment.lisp"
 	    "spells.lisp"
+	    "codex.lisp"
 	    "leveling.lisp"))
 
 (define-mask-set '(slashing piercing bludgeoning acid lightning cold fire holy unholy necrotic))
@@ -314,8 +317,8 @@
 				     (cond ((characterp actor)
 					    (apply-color actor
 							 (if has-los-p
-							     (darken 255 (darkness pos) 240)
-							     240)))
+							     (darken 255 (darkness pos) 237)
+							     237)))
 					   ((and actor (not (hiddenp actor)) has-los-p)
 					    (display-char actor :darken (darkness pos)))
 					   (has-los-p
@@ -378,15 +381,17 @@
       (undead '((20 make-zombie)
 		(75 make-skeleton)
 		(5 make-necromancer))))
-  (add-layer `((75 ((75 ((75 ,goblins)
-			 (25 make-kobold)))
+  (add-layer `((75 ((75 ((73 ,goblins)
+			 (23 make-kobold)
+			 (4 make-necromancer)))
 		    (25 make-troll)))
 	       (25 make-pit-trap))
 	     '((50 make-brazier)
 	       (50 make-wall)))
   
-  (let ((cells (add-layer `((75 ((75 ,goblins)
-				 (25 make-kobold)))
+  (let ((cells (add-layer `((75 ((73 ,goblins)
+				 (23 make-kobold)
+				 (4 make-necromancer)))
 			    (25 make-pit-trap))
 			  '((50 make-wall)
 			    (50 make-brazier)))))

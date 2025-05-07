@@ -168,3 +168,6 @@ on enemies, calls #'act until object runs out of energy")
   (:method (spell obj &key &allow-other-keys)))
 
 (defgeneric zap (obj zapper))
+
+(defgeneric checkp (stat obj dc)
+  (:method (stat obj dc) nil))
