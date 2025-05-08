@@ -482,6 +482,24 @@
 	  ((target-pos obj)
 	   (move-towards (target-pos obj) obj heuristic)))))
 
+(defmethod act ((obj ghoul) &key foes &allow-other-keys)
+  (let ((corpse (get-closest-of-list obj
+				     (get-actors-in-los-of obj nil t nil (eq (type-of actor)
+									     'corpse))))
+	(target (get-closest-of-list obj foes)))
+    (when target
+      (setf (target-pos obj) (pos target)))
+    (cond ((target-pos obj)
+	   (move-towards (target-pos obj) obj #'movement-cost))
+	  ((not corpse) nil)
+	  ((<= (distance (pos corpse) (pos obj)) 1)
+	   (remove-non-solid (pos corpse))
+	   (if (reanimateablep corpse)
+	       (make-ghoul (pos corpse))
+	       (incf (health obj) 4)))
+	  (t
+	   (move-towards (pos corpse) obj #'movement-cost)))))
+
 (defmethod act ((obj sprout) &key allies foes &allow-other-keys)
   (let ((target (or (get-closest-of-list obj allies)
 		    (get-closest-of-list obj foes))))
@@ -988,13 +1006,6 @@
 	  (t
 	   'n))))
 
-(defmethod make-sprout :around (pos)
-  (let ((index (random 4)))
-    (cond ((= index 3)
-	   (make-grenadier-sprout pos))
-	  (t
-	   (call-next-method)))))
-
 (defmethod hostilep ((obj creature) (to creature))
   (and (maskp (enemies obj) (types to))
        (not (alliedp obj to))))
@@ -1016,6 +1027,18 @@
 		     do (place-shop-item (cons x y) shopkeeper)))
     (setf (home shopkeeper) (pos shopkeeper))
     shopkeeper))
+
+(defmethod make-sprout :around (pos)
+  (let ((index (random 4)))
+    (cond ((= index 3)
+	   (make-grenadier-sprout pos))
+	  (t
+	   (call-next-method)))))
+
+(defmethod make-zombie :around (pos)
+  (if (= 0 (random 10))
+      (make-ghoul pos)
+      (call-next-method)))
 
 (defmethod pos ((obj list)) obj)
 

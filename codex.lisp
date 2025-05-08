@@ -128,6 +128,11 @@
     :health (roll 1 8)
     :idle #'wander
     :str 1 :con 1 :dex -2 :int -4 :wis -4 :cha -4 :spd 3/5)
+  (defenemy ghoul #\g ()
+    :inherit undead
+    :color '(4 5 4)
+    :health (roll 1 6 2)
+    :dex 1 :int -2 :cha -4 :spd 5/4)
   (defenemy skeleton #\s ()
     :inherit undead
     :color '(5 5 3)
