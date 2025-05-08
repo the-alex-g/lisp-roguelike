@@ -1,4 +1,5 @@
 (defparameter *spells* nil)
+(defparameter *identified-wands* nil)
 
 (defmacro defspell (name requires-target-p &body body)
   (let ((spell (gensym)))

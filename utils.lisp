@@ -348,6 +348,16 @@
        (let ((result (iterate (list ,start))))
 	 ,@body))))
 
+(defmacro print-if-visible (obj-1 obj-2 &rest strings-and-args)
+  `(let ((obj-1-visible (visiblep ,obj-1 *player*))
+	 (obj-2-visible (visiblep ,obj-2 *player*)))
+     (cond ((and obj-1-visible obj-2-visible)
+	    (print-to-log ,@(car strings-and-args)))
+	   (obj-1-visible
+	    (print-to-log ,@(cadr strings-and-args)))
+	   (obj-2-visible
+	    (print-to-log ,@(caddr strings-and-args))))))
+
 (defun apply-color (arg color &key (bg nil)
 				(function (lambda (&rest args) (apply #'format nil args))))
   (funcall function "~c[~d;5;~dm~a~0@*~c[40;37m" #\esc

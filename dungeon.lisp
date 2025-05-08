@@ -97,8 +97,10 @@
   (setf (solid pos) 'wall))
 
 (defun place-walls (cells)
-  (loop for x from -1 to (1+ (car *board-size*))
-	do (loop for y from -1 to (1+ (cdr *board-size*))
+  (loop for x from (1- (loop for cell in cells minimize (car cell)))
+	  to (1+ (loop for cell in cells maximize (car cell)))
+	do (loop for y from (1- (loop for cell in cells minimize (cdr cell)))
+		   to (1+ (loop for cell in cells maximize (cdr cell)))
 		 ;; cell is not on board
 		 unless (member (cons x y) cells :test #'equal)
 		   ;; cell is next to board

@@ -783,10 +783,9 @@
     (make-hostile defender (damage-source attack))))
 
 (DEFMETHOD ATTACK ((DEFENDER BREAKABLE) (ATTACK ATTACK))
-  (PRINT-TO-LOG "~a hit ~a for ~d damage~:[~;, ~a~]" (name (damage-source ATTACK))
-                (NAME DEFENDER) (DAMAGE DEFENDER attack)
-                (DEADP DEFENDER)
-		(DEATH DEFENDER)))
+  (print-attack-results (damage-source attack)
+			defender
+			(damage defender attack)))
 
 (DEFMETHOD ATTACK (DEFENDER (ATTACKER CREATURE))
   (MAPC
@@ -797,12 +796,11 @@
 
 (DEFMETHOD ATTACK ((DEFENDER CREATURE) (ATTACK ATTACK))
   (IF (>= (ATTACK-TO-HIT ATTACK) (EVASION DEFENDER))
-      (PRINT-TO-LOG "~:[~;~a hit ~a for ~d damage~:[~;, ~a~]~]"
-                    (VISIBLEP DEFENDER *PLAYER*) (name (damage-source ATTACK))
-                    (NAME DEFENDER)
-                    (DAMAGE DEFENDER attack)
-                    (DEADP DEFENDER) (DEATH DEFENDER))
-      (PRINT-TO-LOG "~a missed ~a" (name (damage-source ATTACK)) (NAME DEFENDER))))
+      (print-attack-results (damage-source attack) defender (damage defender attack))
+      (print-if-visible (damage-source attack) defender
+			("~a missed ~a" (name (damage-source attack)) (name defender))
+			("~a attacks an unseen target" (name (damage-source attack)))
+			("~a dodges an attack" (name defender)))))
 
 (DEFMETHOD PICKUP :AFTER ((ITEM EQUIPMENT))
   (REMOVE-NON-SOLID (POS ITEM))
@@ -859,8 +857,6 @@
   (IF (NON-SOLID POS)
       (BG-COLOR (NON-SOLID POS))
       (BG-COLOR (TERRAIN POS))))
-
-(defmethod display-char ((obj character) &key &allow-other-keys) obj)
 
 (DEFMETHOD DISPLAY-CHAR ((OBJ ACTOR) &key darken &allow-other-keys)
   (LET ((TEXT
@@ -945,6 +941,13 @@
 
 (DEFMETHOD IDENTIFY ((OBJ SECRET-EQUIPMENT))
   (SETF (IDENTIFIEDP OBJ) T))
+
+(defmethod identify ((obj wand))
+  (unless (identifiedp obj)
+    (push (spell-name (spell obj)) *identified-wands*)))
+
+(defmethod identifiedp ((obj wand))
+  (member (spell-name (spell obj)) *identified-wands*))
 
 (DEFMETHOD MEAT ((OBJ ENEMY))
   (LET ((MEAT (SLOT-VALUE OBJ 'MEAT)))

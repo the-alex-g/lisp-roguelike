@@ -32,7 +32,8 @@
   (:method ((obj symbol)) nil))
 
 (defgeneric display-char (obj &key &allow-other-keys)
-  (:method ((obj character) &key &allow-other-keys) obj))
+  (:method ((obj character) &key &allow-other-keys) obj)
+  (:method ((obj (eql nil)) &key &allow-other-keys) #\space))
 
 (defgeneric deadp (obj))
 

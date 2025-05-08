@@ -84,6 +84,14 @@
 				      (cadr result)
 				      (name (car result))))))
 
+(defun print-attack-results (attacker defender damage)
+  (print-if-visible attacker defender
+		    ("~a hit ~a for ~d damage~:[~;, ~a~]" (name attacker) (NAME DEFENDER)
+							  damage (DEADP DEFENDER) (DEATH DEFENDER))
+		    ("~a attacks an unseen target" (name attacker))
+		    ("~a was hit for ~d damage~:[~;, ~a~]" (name defender) damage
+							   (deadp defender) (death defender))))
+
 ;;; for use in in-game repl
 (defun pp (&optional (offset +zero+))
   (vec+ (pos *player*) offset))
