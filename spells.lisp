@@ -1,7 +1,7 @@
 (defparameter *spells* nil)
 (defparameter *identified-wands* nil)
 
-(defmacro defspell (name requires-target-p &body body)
+(defmacro defspell (name cost requires-target-p &body body)
   (let ((spell (gensym)))
     `(let ((,spell (make-spell :requires-target-p ,requires-target-p
 			       :name ',name
@@ -14,7 +14,7 @@
        (defun ,name (caster &optional target)
 	 (cast-spell ,spell caster :target target)))))
 
-(defspell animate-dead nil
+(defspell animate-dead 2 nil
   (let ((animated-dead (get-actors-in-los-of caster nil t 3 (reanimate actor caster))))
     (if (visiblep caster *player*)
 	(print-to-log "~[~;there is no effect~;~
@@ -29,7 +29,7 @@
 			  (length visible-dead)))))
     animated-dead))
 
-(defspell life-drain t
+(defspell life-drain 1 t
   (let* ((damage (damage target (make-damage :source caster
 					     :amount (if (checkp #'con target (+ 10 (intl caster)))
 							 (roll 1 2)
@@ -46,7 +46,7 @@
 		       (name target) damage))
     damage))
 
-(defspell enervate t
+(defspell enervate 1 t
   (let ((damage (damage target
 			(make-damage :source caster
 				     :amount (roll 1 4)

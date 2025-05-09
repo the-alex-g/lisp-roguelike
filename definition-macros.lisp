@@ -56,6 +56,7 @@
 					   :pos pos
 					   :char ,display-char
 					   :name ',name)))
+	     (setf (mana new-enemy) (* (mana-multiplier new-enemy) (intl new-enemy)))
 	     (place new-enemy pos)
 	     (mapc (lambda (i)
 		     (equip i new-enemy))

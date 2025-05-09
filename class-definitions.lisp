@@ -9,6 +9,7 @@
 
 (defstruct spell
   function
+  (cost 1)
   (requires-target-p nil)
   name)
 
@@ -60,7 +61,9 @@
    (immunities :initform 0 :initarg :immune)
    (vulnerabilities :initform 0 :initarg :vulnerable)
    (absorbances :initform 0 :initarg :absorb)
-   (darkvisionp :initform t :accessor darkvisionp :initarg :darkvisionp)))
+   (darkvisionp :initform t :accessor darkvisionp :initarg :darkvisionp)
+   (mana-multiplier :initform 4 :initarg :mana-multiplier :accessor mana-multiplier)
+   (mana :initform 0 :reader mana)))
 
 (defclass player (creature)
   ((hunger :initform 100 :reader hunger)

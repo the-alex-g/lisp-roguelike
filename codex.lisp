@@ -36,6 +36,12 @@
     (setf (amount gold) amount)
     gold))
 
+(defun make-wand (&rest spell-options)
+  (let ((wand (make-instance 'wand)))
+    (when spell-options
+      (setf (spell wand) (randnth spell-options)))
+    wand))
+
 ;; FURNITURE
 
 (defabstract actor hazard ())
@@ -145,13 +151,12 @@
     :enemies mask-living
     :color '(1 2 3)
     :health (roll 1 8)
-    :str -1 :int 4 :wis 3
+    :str -1 :int 3 :wis 3
+    :mana-multiplier 2
     :primary-stat 'intl
     :morale -2
     :loot `(((50 ,(make-gold (roll 1 2))))
-	    ((75 ,(let ((wand (make-wand)))
-		    (setf (spell wand) (randnth (list *enervate* *animate-dead* *life-drain*)))
-		    wand))))))
+	    ((75 ,(make-wand *enervate* *animate-dead* *life-drain*))))))
 
 ;; STATUSES
 

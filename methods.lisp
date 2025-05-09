@@ -376,6 +376,7 @@
 (defmethod update ((obj resting))
   (when (playerp (target obj))
     (incf (hunger (target obj))))
+  (incf (mana (target obj)))
   (incf (health (target obj)))
   (when (or (= (health (target obj)) (max-health (target obj)))
 	    (and (slot-exists-p obj 'target-pos) (target-pos obj)))
@@ -467,7 +468,7 @@
 							  (reanimateablep actor)))))
     (when target
       (setf (target-pos obj) (pos target)))
-    (cond (corpses
+    (cond ((and corpses (>= (mana obj) (spell-cost *animate-dead*)))
 	   (let ((corpses-in-range (loop for corpse in corpses
 					 when (<= (distance (pos corpse) (pos obj)) 3)
 					   collect corpse)))
@@ -475,7 +476,8 @@
 		     (= (length corpses-in-range) (length corpses)))
 		 (animate-dead obj)
 		 (move-towards (pos (get-closest-of-list obj corpses)) obj heuristic))))
-	  ((and target (<= (distance (pos obj) (pos target)) 4))
+	  ((and target (<= (distance (pos obj) (pos target)) 4)
+		(>= (mana obj) (spell-cost *enervate*)))
 	   (if (< (health obj) (max-health obj))
 	       (life-drain obj target)
 	       (enervate obj target)))
@@ -1066,6 +1068,13 @@
       (equip weapon zombie))
     zombie))
 
+(defmethod cast-spell :around ((spell spell) (obj creature) &key spend-mana-p &allow-other-keys)
+  (if (and spend-mana-p (> (spell-cost spell) (mana obj)))
+      (when (playerp obj)
+	(print-to-log "you do not have enough mana to cast that spell"))
+      (progn (decf (mana obj) (spell-cost spell))
+	     (call-next-method))))
+
 (defmethod cast-spell ((spell spell) (obj creature) &key target &allow-other-keys)
   (if (spell-requires-target-p spell)
       (funcall (spell-function spell) obj target)
@@ -1090,7 +1099,7 @@
 (defmethod zap ((obj wand) (zapper creature))
   (when (visiblep zapper *player*)
     (print-to-log "~a zaps a ~a" (name zapper) (name obj)))
-  (when (cast-spell (spell obj) zapper)
+  (when (cast-spell (spell obj) zapper :spend-mana-p nil)
     (identify obj))
   (decf (charges obj)))
 
@@ -1108,3 +1117,8 @@
 	 (remove-from-inventory obj)
 	 (print-to-log "the ~a has been burnt beyond use" (name obj))))
   (incf (cooking obj)))
+
+(defmethod (setf mana) (value (obj creature))
+  (setf (slot-value obj 'mana)
+	(min (* (intl obj) (mana-multiplier obj))
+	     (max 0 value))))
