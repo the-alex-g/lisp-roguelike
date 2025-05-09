@@ -89,6 +89,7 @@
   (funcall (car (eval-weighted-list spawn-list)) pos))
 
 (defun populate-dungeon (region spawn-list sparseness)
+  (make-shopkeeper (get-spawn-position region 8))
   (loop for cell in region
 	when (= (random sparseness) 0)
 	  do (spawn-object cell spawn-list)))
