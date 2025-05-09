@@ -132,7 +132,11 @@
 		  initial-health (health mark))
       (setf (health mark) initial-health)
       (move-into trap-2 mark nil)
-      (print-test "mark didn't fall in" (= initial-health (health mark))))))
+      (print-test "mark didn't fall in" (= initial-health (health mark)))
+      (setf (health mark) 1)
+      (move mark +right+)
+      (print-test "mark died in trap" (deadp mark))
+      (print-test "mark is gone" (not (solid (pos mark)))))))
 
 (deftest checks
   (let ((tester (make-goblin +zero+)))

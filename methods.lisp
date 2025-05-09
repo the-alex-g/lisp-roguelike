@@ -563,21 +563,18 @@
 
 (defmethod reposition ((obj actor) new-pos)
   (let* ((collider (solid new-pos))
-	 (cost (move-into new-pos obj (not collider))))
-    (unless collider
+	 (cost (movement-cost new-pos :actual t)))
+    (move-into new-pos obj (not collider))
+    (unless (or collider (deadp obj))
       (force-movement obj new-pos))
     (cond ((wallp collider) 0)
 	  (collider 1)
 	  (t cost))))
 
 (defmethod move-into ((position list) active repositioningp)
-  (let ((cost (movement-cost position :actual t)))
-    (mapc (lambda (p)
-	    (let ((result (move-into p active repositioningp)))
-	      (when (numberp result)
-		(incf cost result))))
-	  (contents position :all t))
-    cost))
+  (mapc (lambda (p)
+	  (move-into p active repositioningp))
+	(contents position :all t)))
 
 (defmethod move-into ((passive breakable) (active player) repositioningp)
   (declare (ignore repositioningp))
@@ -587,8 +584,7 @@
 
 (defmethod move-into ((passive creature) (active player) repositioningp)
   (declare (ignore repositioningp))
-  (when (if (hostilep passive active)
-	    t
+  (when (or (hostilep passive active)
 	    (confirmp "that creature does not appear hostile. Do you want to attack it?"))
     (attack passive active)))
 
@@ -828,7 +824,8 @@
   (ADD-TO-INVENTORY ITEM)
   (PRINT-TO-LOG "you picked up a ~a" (NAME ITEM)))
 
-(DEFMETHOD KILL ((OBJ ENEMY) killer) (DROP-CORPSE OBJ))
+(DEFMETHOD KILL ((OBJ ENEMY) killer)
+  (DROP-CORPSE OBJ))
 
 (DEFMETHOD KILL :BEFORE ((OBJ ACTOR) killer)
   (IF (EQUAL (SOLID (POS OBJ)) OBJ)
