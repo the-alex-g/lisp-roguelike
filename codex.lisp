@@ -32,6 +32,8 @@
   :sustenance (roll 1 10 5) :inherit food :description "recovers 6-15 hunger")
 (defequipment goblin-meat ()
   :sustenance (roll 2 10 10) :inherit food :description "recovers 12-30 hunger")
+(defequipment undead-flesh ()
+  :sustenance (roll 3 6 10) :inherit food :description "recovers 13-28 hunger")
 (defequipment fist () :atk '(1 3 -1 0 bludgeoning) :inherit weapon :break-chance -100)
 (defequipment gold (amount) :solidp nil :color 'yellow-4 :char #\*
   :constructor ((&optional (amount 1))
@@ -128,12 +130,14 @@
     :equips `(,(make-sword-+1) ,(make-sword-+1)))
   (defenemy zombie #\z ()
     :inherit undead
+    :meat (make-undead-flesh)
     :color '(2 3 2)
     :health (roll 1 8)
     :idle #'wander
     :str 1 :con 1 :dex -2 :int -4 :wis -4 :cha -4 :spd 3/5)
   (defenemy ghoul #\g ()
     :inherit undead
+    :meat (make-undead-flesh)
     :color '(4 5 4)
     :health (roll 1 6 2)
     :dex 1 :int -2 :cha -4 :spd 5/4)

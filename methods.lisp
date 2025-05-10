@@ -106,6 +106,12 @@
 		(name item)
 		(sustenance item)))
 
+(defmethod eat ((item undead-flesh) (actor creature))
+  (when (next-method-p)
+    (call-next-method))
+  (when (>= (random 2) (cooking item))
+    (apply-to actor (make-graverot-status))))
+
 (defmethod remove-status ((status elevated))
   (decf (dex (target status))))
 
@@ -885,6 +891,9 @@
 (DEFMETHOD WALLP ((OBJ CHARACTER)) (member obj '(#\- #\| #\O)))
 
 (DEFMETHOD SELL-PRICE ((ITEM EQUIPMENT)) (ASH (PRICE ITEM) -1))
+
+(defmethod sell-price ((item quiver))
+  (max 1 (round (/ (arrows item) 10))))
 
 (DEFMETHOD COLOR ((OBJ SYMBOL))
   (LET ((COLOR-SET (ASSOC OBJ *COLORS*)))
