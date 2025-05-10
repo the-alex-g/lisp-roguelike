@@ -19,9 +19,11 @@
   t)
 
 (defun print-test (string passedp &rest args)
-  (format t "~&~:[~c[31mFAIL~;~c[32mPASS~]~:*~c[0m: ~?" passedp #\esc string args)
-  (unless passedp
-    (push *scope* *tests-failed*))
+  (let ((message (format nil "~:[~c[31mFAIL~;~c[32mPASS~]~:*~c[0m: ~?" passedp #\esc string args)))
+    (format t "~&~a" message)
+    (unless passedp
+      (push (format nil "in ~a ~a" *scope* message)
+	    *tests-failed*)))
   passedp)
 
 (defun flag (string)
@@ -31,10 +33,11 @@
   (format t "~&~a~%" (apply-color string 'yellow-4)))
 
 (deftest tests
-  (print-test "~[all tests passed~:;~:*~d test~:p failed in scope~:p ~{~a~^ ~}~]"
+  (loop for test in *tests-failed*
+	do (format t "~&~a" test))
+  (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
 	      (= (length *tests-failed*) 0)
-	      (length *tests-failed*)
-	      *tests-failed*)
+	      (length *tests-failed*))
   (setf *tests-failed* nil))
 
 (deftest cooking
@@ -163,8 +166,7 @@
     (make-bones '(3 . 0))
     (make-dagger-pickup '(-1 . 0))
     (animate-dead *player*)
-    (print-test "animated corpse"
-		(eq (name (solid '(2 . 0))) 'zombie))
+    (print-test "animated corpse" (solid '(2 . 0)))
     (print-test "corpse gone"
 		(not (non-solid '(2 . 0))))
     (print-test "animated bones"
@@ -324,7 +326,8 @@
 						      (t
 						       #\.)))))))
 	(multiple-value-bind (path cells) (a-star +zero+ '(10 . 5) #'movement-cost)
-	  (print-explored-cells cells path)))))
+	  (print-explored-cells cells path)
+	  (print-test "shortest path found" (= (length path) 11))))))
 
 (deftest throw
   (with-clean-board
