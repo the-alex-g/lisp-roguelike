@@ -158,13 +158,14 @@
 
 ;; STATUSES
 
-(defstatus resting :duration -1 :speed 0.2)
-(defstatus frightened)
-(defstatus brave)
-(defstatus immobilized)
-(defstatus elevated :duration -1)
-(defstatus weak)
-(defstatus clumsy)
+(defstatus resting nil :duration -1 :speed 0.2)
+(defstatus frightened nil)
+(defstatus brave nil)
+(defstatus immobilized nil)
+(defstatus elevated nil :duration -1)
+(defstatus weak nil)
+(defstatus clumsy nil)
+(defstatus graverot ((new-day nil)) :duration -1)
 
 ;; TERRAINS
 

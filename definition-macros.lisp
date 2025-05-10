@@ -128,14 +128,15 @@
       (setf (getf keys :display-char) char))
     `(defclass ,name (,inherit)
        (,@(mapcan #'build-slot new-slots)
-	,@(reinit-slots keys nil nil)))))
-
-(defmacro defstatus (name &key (duration 3) (speed 1))
-  `(progn
-     (defclass ,name (status)
-       ((spd :initform ,speed)))
-     (defun ,(constructor name 'status) (&key (duration ,duration) (name ',name))
-       (make-instance ',name :duration duration :name name))))
+	,@(reinit-slots keys nil nil))))
+  
+  (defmacro defstatus (name new-slots &key (duration 3) (speed 1))
+    `(progn
+       (defclass ,name (status)
+	 ((spd :initform ,speed)
+	  ,@(mapcan #'build-slot new-slots)))
+       (defun ,(constructor name 'status) (&key (duration ,duration) (name ',name))
+	 (make-instance ',name :duration duration :name name)))))
 
 (defmacro defsecretequipment (name cover-names new-slots
 			      &rest keys

@@ -115,6 +115,11 @@
 (defmethod remove-status ((status clumsy))
   (incf (dex (target status))))
 
+(defmethod remove-status ((resting resting))
+  (loop for status in (statuses (target resting))
+	when (slot-exists-p status 'new-day)
+	  do (setf (new-day status) t)))
+
 (DEFMETHOD REMOVE-STATUS :AFTER ((STATUS STATUS))
   (SETF (STATUSES (TARGET STATUS)) (REMOVE STATUS (STATUSES (TARGET STATUS)))))
 
@@ -377,6 +382,11 @@
 		  (damage (solid (pos obj)) (make-damage :amount (roll 2 4)
 							 :types '(fire)
 							 :source obj)))))
+
+(defmethod update ((obj graverot))
+  (when (new-day obj)
+    (setf (new-day obj) nil)
+    (decf (str (target obj)))))
 
 (defmethod update ((obj elevated))
   (let ((f (non-solid (pos (target obj)))))

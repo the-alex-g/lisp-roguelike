@@ -390,6 +390,19 @@
     (print-test "used an arrow" (= 0 (arrows quiver)))
     (print-test "cannot attack without arrows" (not (can-attack-p bow *player*)))))
 
+(deftest disease
+  (with-clean-board
+    (let ((goblin (make-goblin +zero+))
+	  (graverot (make-graverot-status))
+	  (resting (make-resting-status)))
+      (apply-to goblin graverot)
+      (setf (new-day graverot) t)
+      (update graverot)
+      (print-test "day updates" (not (new-day graverot)))
+      (apply-to goblin resting)
+      (remove-status resting)
+      (print-test "new day again" (new-day graverot)))))
+
 (deftest shops
   (with-clean-board
     (let ((cells (append (loop for x below 3 collect (cons x 0))
