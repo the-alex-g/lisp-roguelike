@@ -179,3 +179,9 @@ returns true, placement continues normally.")
   (:method (place obj) t))
 
 (defgeneric cook (obj))
+
+(defgeneric can-attack-p (weapon owner &optional for-attack)
+  (:method (weapon owner &optional for-attack) t))
+
+(defgeneric resolve-attack (weapon owner)
+  (:method (weapon owner) nil))

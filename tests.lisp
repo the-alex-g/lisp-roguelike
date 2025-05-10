@@ -374,6 +374,19 @@
     (print-test "health caps at max health"
 		(eq (health test-creature) (max-health test-creature)))))
 
+(deftest bows
+  (let ((*inventory* nil)
+	(quiver (make-quiver 1))
+	(bow (make-bow)))
+    (setf (gethash 'hand (equipment *player*)) (list bow))
+    (print-test "cannot attack without arrows" (not (can-attack-p bow *player*)))
+    (add-to-inventory quiver)
+    (print-test "quiver has one arrow" (= 1 (arrows quiver)))
+    (print-test "can attack with arrows" (can-attack-p bow *player*))
+    (attack (make-goblin +zero+) *player*)
+    (print-test "used an arrow" (= 0 (arrows quiver)))
+    (print-test "cannot attack without arrows" (not (can-attack-p bow *player*)))))
+
 (deftest shops
   (with-clean-board
     (let ((cells (append (loop for x below 3 collect (cons x 0))

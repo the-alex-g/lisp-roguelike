@@ -56,6 +56,13 @@
 (defmethod drop-corpse ((obj grenadier-sprout))
   (make-sprout-bomb-pickup (pos obj)))
 
+(defmethod get-loot :around ((obj goblin-archer))
+  (let ((loot (call-next-method))
+	(arrows (random (arrows obj))))
+    (when (> arrows 0)
+      (push (make-quiver arrows) loot))
+    loot))
+
 (defmethod get-loot ((obj enemy))
   (let ((loot '()))
     (when (meat obj)
@@ -149,6 +156,9 @@
 
 (defmethod name ((obj wand))
   (log-to-string "wand of ~a" (spell-name (spell obj))))
+
+(defmethod name ((obj quiver))
+  (log-to-string "quiver of ~d arrows" (arrows obj)))
 
 (defmethod name ((obj character)) 'wall)
 
@@ -481,6 +491,8 @@
 	   (if (< (health obj) (max-health obj))
 	       (life-drain obj target)
 	       (enervate obj target)))
+	  ((and (not target) (< (mana obj) 2))
+	   (apply-to obj (make-resting-status)))
 	  ((target-pos obj)
 	   (move-towards (target-pos obj) obj heuristic)))))
 
@@ -781,12 +793,22 @@
 (defmethod make-hostile ((obj creature) (to creature))
   (setf (enemies obj) (logior (types to) (enemies obj))))
 
+(defmethod resolve-attack ((weapon bow) (owner player))
+  (loop for item in (get-inventory)
+	when (and (eq (type-of item) 'quiver)
+		  (> (arrows item) 0))
+	  return (decf (arrows item))))
+
+(defmethod resolve-attack ((weapon bow) (owner enemy))
+  (decf (arrows owner)))
+
 (DEFMETHOD ATTACK :AROUND ((DEFENDER CREATURE) ATTACKER)
   (UNLESS (DEADP DEFENDER) (CALL-NEXT-METHOD)))
 
 (DEFMETHOD ATTACK :AFTER (DEFENDER (ATTACKER creature))
   (MAPC
    (LAMBDA (WEAPON)
+     (resolve-attack weapon attacker)
      (WHEN (BREAKSP WEAPON)
        (when (playerp attacker)
 	 (PRINT-TO-LOG "your ~a breaks!" (NAME WEAPON))
@@ -808,7 +830,7 @@
    (LAMBDA (WEAPON)
      (WHEN (<= (DISTANCE (POS DEFENDER) (POS ATTACKER)) (RANGE WEAPON))
        (ATTACK DEFENDER (GET-ATTACK WEAPON ATTACKER))))
-   (WEAPONS ATTACKER)))
+   (WEAPONS ATTACKER :for-attack t)))
 
 (DEFMETHOD ATTACK ((DEFENDER CREATURE) (ATTACK ATTACK))
   (IF (>= (ATTACK-TO-HIT ATTACK) (EVASION DEFENDER))
@@ -926,8 +948,21 @@
 
 (DEFMETHOD DEATH ((OBJ BREAKABLE)) "destroying it")
 
-(DEFMETHOD WEAPONS ((OBJ CREATURE) &key (equipped-only nil) &allow-other-keys)
-  (LET ((HELD-ITEMS (GETHASH 'HAND (EQUIPMENT OBJ)))
+(defmethod can-attack-p ((weapon bow) (owner player) &optional for-attack)
+  (when for-attack
+    (print-to-log "you have no arrows for your bow")
+    (flag-warning))
+  (loop for item in (get-inventory)
+	  thereis (and (eq (type-of item) 'quiver)
+		       (> (arrows item) 0))))
+
+(defmethod can-attack-p ((weapon bow) (owner enemy) &optional for-attack)
+  (> (arrows owner) 0))
+
+(DEFMETHOD WEAPONS ((OBJ CREATURE) &key equipped-only for-attack &allow-other-keys)
+  (LET ((HELD-ITEMS (loop for item in (GETHASH 'HAND (EQUIPMENT OBJ))
+			  when (can-attack-p item obj for-attack)
+			    collect item))
 	(natural-weapons (natural-weapons obj)))
     (COND ((= (LENGTH HELD-ITEMS) 1) HELD-ITEMS)
 	  ((> (LENGTH HELD-ITEMS) 1)
