@@ -93,12 +93,15 @@
 			  &key
 			    (inherit 'equipment inheritp)
 			    (allocate-class nil allocate-class-p)
+			    (constructor nil constructorp)
 			    (char #\? charp)
 			  &allow-other-keys)
     (when inheritp
       (remf keys :inherit))
     (when allocate-class-p
       (remf keys :allocate-class))
+    (when constructorp
+      (remf keys :constructor))
     (when charp
       (remf keys :char)
       (setf (getf keys :display-char) char))
@@ -108,8 +111,12 @@
 				    ,@(reinit-slots keys nil allocate-class)
 				    (name :initform ',name)))
        ;; define constructor function
-       (defun ,(constructor name) ()
-	 (make-instance ',name))
+       (defun ,(constructor name) ,(when constructor (car constructor))
+	 ,(if constructor
+	      `(let ((,name (make-instance ',name)))
+		 ,@(cdr constructor)
+		 ,name)
+	      `(make-instance ',name)))
 
        (defun ,(constructor name 'pickup) (pos)
 	 (place (,(constructor name)) pos :solid nil))))

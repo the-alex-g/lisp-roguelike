@@ -11,11 +11,18 @@
 		      :burn-time 25)
  (defequipment food ((sustenance (roll 2 10 10)) (cooking 0)) :description "recovers 12-30 hunger"
    :break-chance 100 :char #\")
- (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2 :char #\&)
+ (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2
+			  :char #\& :burn-time 50)
  (defequipment faggot () :atk '(1 3 0 0 bludeoning) :char #\& :burn-time 100)
+ (defequipment quiver ((arrows 20)) :char #\q
+				    :constructor ((&optional (amount 20))
+						  (setf (arrows quiver) amount)))
  (defsecretequipment wand (unidentified-wand) ((spell (randnth *spells*))
 					       (charges (roll 1 4)))
-   :char #\/ :burn-time 5)
+   :char #\/ :burn-time 5
+   :constructor ((&rest spell-options)
+		 (when spell-options
+		   (setf (spell wand) (randnth spell-options)))))
  (defsecretequipment healing-potion
      ((blue-potion :color '(0 1 5))
       (green-potion :color 'green-4)
@@ -26,21 +33,12 @@
 (defequipment goblin-meat ()
   :sustenance (roll 2 10 10) :inherit food :description "recovers 12-30 hunger")
 (defequipment fist () :atk '(1 3 -1 0 bludgeoning) :inherit weapon :break-chance -100)
-(defequipment gold (amount) :solidp nil :color 'yellow-4 :char #\*)
+(defequipment gold (amount) :solidp nil :color 'yellow-4 :char #\*
+  :constructor ((&optional (amount 1))
+		(setf (amount gold) amount)))
 (defequipment crude-bow () :inherit bow :atk '(1 3 0 -1 piercing) :break-chance 3)
 (defequipment debt () :break-chance -100000)
 (defequipment sprout-bomb () :char #\* :color '(4 2 5) :break-chance 100)
-
-(defun make-gold (&optional (amount 1))
-  (let ((gold (make-instance 'gold)))
-    (setf (amount gold) amount)
-    gold))
-
-(defun make-wand (&rest spell-options)
-  (let ((wand (make-instance 'wand)))
-    (when spell-options
-      (setf (spell wand) (randnth spell-options)))
-    wand))
 
 ;; FURNITURE
 
@@ -80,7 +78,7 @@
     :dex 1
     :meat (make-goblin-meat)
     :loot `(((50 ,(make-gold 1)))))
-  (defenemy goblin-archer #\g ()
+  (defenemy goblin-archer #\g ((arrows 10))
     :inherit goblin
     :equips (make-crude-bow)
     :morale -0.5)
