@@ -31,7 +31,7 @@
 
 (defspell life-drain 1 t
   (let* ((damage (damage target (make-damage :source caster
-					     :amount (if (checkp #'con target (+ 10 (intl caster)))
+					     :amount (if (checkp #'con+ target (+ 10 (knl+ caster)))
 							 (roll 1 2)
 							 (roll 1 4))
 					     :types '(necrotic))))
@@ -51,7 +51,7 @@
 			(make-damage :source caster
 				     :amount (roll 1 4)
 				     :types '(necrotic)
-				     :statuses (unless (checkp #'con target (+ 10 (intl caster)))
+				     :statuses (unless (checkp #'con+ target (+ 10 (knl+ caster)))
 						 (list (if (= (random 2) 0)
 							   (make-weak-status :duration 2)
 							   (make-clumsy-status :duration 2))))))))

@@ -11,9 +11,25 @@
 					 value
 					 (let ((mask (make-mask value)))
 					   (setf (,name obj) mask)
-					   mask))))))))
+					   mask)))))))
+	   (define-stat-accessors (&rest names)
+	     `(progn ,@(apply #'append (loop for name in names
+				      collect (let ((bonus-name (read-from-string
+								 (format nil "~a+" name)))
+						    (die-name (read-from-string
+							       (format nil "~a-die" name))))
+						`((defmethod (setf ,bonus-name)
+						      (value (obj creature))
+						    (setf (caadr (assoc ',name (stats obj))) value))
+						  (defmethod ,bonus-name ((obj creature))
+						    (caadr (assoc ',name (stats obj))))
+						  (defmethod (setf ,die-name) (value (obj creature))
+						    (setf (cdadr (assoc ',name (stats obj))) value))
+						  (defmethod ,die-name ((obj creature))
+						    (cdadr (assoc ',name (stats obj)))))))))))
   (define-mask-accessors resistances immunities absorbances vulnerabilities
-    allies enemies types))
+    allies enemies types)
+  (define-stat-accessors str dex con knl per det spd cha))
 
 (defmethod quaffablep ((obj potion))
   (declare (ignore obj))
@@ -35,7 +51,7 @@
   (>= (roll 1 20 (funcall stat obj)) dc))
 
 (defmethod checkp (stat (obj breakable) dc)
-  (member stat '(str con)))
+  (member stat '(str+ con)))
 
 (defmethod drop-corpse ((obj enemy))
   (let ((corpse (make-corpse (pos obj))))
@@ -113,13 +129,13 @@
     (apply-to actor (make-graverot-status))))
 
 (defmethod remove-status ((status elevated))
-  (decf (dex (target status))))
+  (decf (dex+ (target status))))
 
 (defmethod remove-status ((status weak))
-  (incf (str (target status))))
+  (incf (str+ (target status))))
 
 (defmethod remove-status ((status clumsy))
-  (incf (dex (target status))))
+  (incf (dex+ (target status))))
 
 (defmethod remove-status ((resting resting))
   (loop for status in (statuses (target resting))
@@ -131,7 +147,7 @@
 
 (defmethod trigger :around ((trap trap) (activator creature))
   (setf (hiddenp trap) nil)
-  (if (checkp #'dex activator (avoid-dc trap))
+  (if (checkp #'dex+ activator (avoid-dc trap))
       (when (visiblep activator *player*)
 	(print-to-log "~a triggered a ~a but dodged out of the way"
 		      (name activator)
@@ -154,10 +170,10 @@
     1))
 
 (defmethod evasion ((obj creature))
-  (max 1 (+ 5 (dex obj) (slot-value obj 'evasion))))
+  (max 1 (+ 5 (dex+ obj) (slot-value obj 'evasion))))
 
 (defmethod evadesp ((obj creature) dc)
-  (>= (roll 1 20 (dex obj)) dc))
+  (>= (roll 1 20 (dex+ obj)) dc))
 
 (defmethod name ((obj ladder))
   (cond ((= -1 (direction obj))
@@ -199,7 +215,7 @@
       (setf (slot-value obj 'health) 0)))
 
 (defmethod (setf con) (value (obj creature))
-  (let ((dhealth (- value (con obj))))
+  (let ((dhealth (- value (con+ obj))))
     (incf (slot-value obj 'max-health)
 	  dhealth)
     (incf (health obj) dhealth)))
@@ -361,7 +377,8 @@
   (incf (idle-time obj)))
 
 (defmethod update :around ((obj status))
-  (incf (energy obj) (/ (spd obj) (spd *player*)))
+  (incf (energy obj) (/ (spd+ obj) (spd+ *player*)))
+  (print (energy obj))
   (loop while (and (>= (energy obj) 1)
 		   (not (= (duration obj) 0)))
 	do (decf (energy obj))
@@ -392,7 +409,7 @@
 (defmethod update ((obj graverot))
   (when (new-day obj)
     (setf (new-day obj) nil)
-    (decf (str (target obj)))))
+    (decf (str+ (target obj)))))
 
 (defmethod update ((obj elevated))
   (let ((f (non-solid (pos (target obj)))))
@@ -409,14 +426,14 @@
     (remove-status obj)))
 
 (defmethod update ((obj player))
-  (decf (hunger obj) (/ 1 (spd *player*))))
+  (decf (hunger obj) (/ 1 (spd+ *player*))))
 
 (defmethod update :around ((obj creature))
   (unless (deadp obj)
     (call-next-method)))
 
 (defmethod update ((obj enemy))
-  (incf (energy obj) (/ (spd obj) (spd *player*)))
+  (incf (energy obj) (/ (spd+ obj) (spd+ *player*)))
   (loop while (>= (energy obj) 1)
 	do (decf (energy obj)
 		 (let ((result (act obj)))
@@ -743,15 +760,15 @@
 
 (defmethod apply-to ((subj creature) (obj elevated))
   (declare (ignore obj))
-  (incf (dex subj)))
+  (incf (dex+ subj)))
 
 (defmethod apply-to ((subj creature) (obj clumsy))
   (declare (ignore obj))
-  (decf (dex subj)))
+  (decf (dex+ subj)))
 
 (defmethod apply-to ((subj creature) (obj weak))
   (declare (ignore obj))
-  (decf (str subj)))
+  (decf (str+ subj)))
 
 (DEFMETHOD DAMAGE ((DEFENDER CREATURE) (damage damage))
   (LET* ((BASE-DAMAGE (MAX 1 (- (damage-amount damage) (ARMOR DEFENDER))))
@@ -1171,5 +1188,5 @@
 
 (defmethod (setf mana) (value (obj creature))
   (setf (slot-value obj 'mana)
-	(min (* (intl obj) (mana-multiplier obj))
+	(min (* (knl+ obj) (mana-multiplier obj))
 	     (max 0 value))))

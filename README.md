@@ -45,7 +45,7 @@ A base class for anything with stats. Inherits from `destructible-object`.
 
 **def**, **str**, **dex**, **cha**, **con**, **det**, **per** all default to 0.
 
-**intl** defaults to 0. the initarg is `:int`.
+**knl+** defaults to 0. the initarg is `:int`.
 
 ### equipment
 

@@ -69,7 +69,7 @@
     :morale 'fearless
     :allies '(undead)
     :enemies mask-living)
-  
+
   (defenemy goblin #\g ()
     :types '(goblin evil humanoid)
     :allies '(goblin troll)
@@ -155,7 +155,7 @@
     :health (roll 1 8)
     :str -1 :int 3 :wis 3
     :mana-multiplier 2
-    :primary-stat 'intl
+    :primary-stat 'knl+
     :morale -2
     :loot `(((50 ,(make-gold (roll 1 2))))
 	    ((75 ,(make-wand *enervate* *animate-dead* *life-drain*))))))

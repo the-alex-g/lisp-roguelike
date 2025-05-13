@@ -44,26 +44,38 @@
     (setf keys (replace-keyword :evd :evasion keys))
     (setf keys (replace-keyword :idle :idle-behavior keys))
     (setf keys (replace-keyword :align :alignment keys))
-    `(progn
-       ;; declare new monster class, including new keys and setting initform of
-       ;; old values
-       (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
-					,@(reinit-slots keys nil nil)))
-       ;; define constructor for new class
-       (defgeneric ,(constructor name) (pos)
-	 (:method (pos)
-	   (let ((new-enemy (make-instance ',name
-					   :pos pos
-					   :char ,display-char
-					   :name ',name)))
-	     (setf (mana new-enemy) (* (mana-multiplier new-enemy) (intl new-enemy)))
-	     (place new-enemy pos)
-	     (mapc (lambda (i)
-		     (equip i new-enemy))
-		   (ensure-list ,equips))
-	     (setf (slot-value new-enemy 'max-health)
-		   (health new-enemy))
-	     new-enemy)))))
+    (let ((stats (loop for key in '(str dex con knl per cha det spd)
+		       if (getf keys key)
+			 collect (let* ((keyword (make-keyword key))
+					(value (getf keys keyword)))
+				   (remf keys keyword)
+				   (if (listp value)
+				       (list key value)
+				       (list key (cons value 6))))
+		       else if (eq key 'spd)
+			      collect (list key (cons 1 6))
+		       else
+			 collect (list key (cons 0 6)))))
+      `(progn
+	 ;; declare new monster class, including new keys and setting initform of
+	 ;; old values
+	 (defclass ,name ,(list inherit) (,@(mapcan #'build-slot new-slots)
+					  (stats :initform ',stats)
+					  (name :initform ',name)
+					  (display-char :initform ,display-char)
+					  ,@(reinit-slots keys nil nil)))
+	 ;; define constructor for new class
+	 (defgeneric ,(constructor name) (pos)
+	   (:method (pos)
+	     (let ((new-enemy (make-instance ',name :pos pos)))
+	       (setf (mana new-enemy) (* (mana-multiplier new-enemy) (knl+ new-enemy)))
+	       (place new-enemy pos)
+	       (mapc (lambda (i)
+		       (equip i new-enemy))
+		     (ensure-list ,equips))
+	       (setf (slot-value new-enemy 'max-health)
+		     (health new-enemy))
+	       new-enemy))))))
 
   ;; define class and constructor function for actor
   (defmacro defactor (name display-char new-slots
@@ -133,7 +145,7 @@
   (defmacro defstatus (name new-slots &key (duration 3) (speed 1))
     `(progn
        (defclass ,name (status)
-	 ((spd :initform ,speed)
+	 ((spd+ :initform ,speed)
 	  ,@(mapcan #'build-slot new-slots)))
        (defun ,(constructor name 'status) (&key (duration ,duration) (name ',name))
 	 (make-instance ',name :duration duration :name name)))))

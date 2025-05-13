@@ -1,9 +1,20 @@
 (macrolet ((define-setter-getter-pairs (&rest names)
 	     `(progn ,@(loop for name in names
 			     collect `(defgeneric (setf ,name) (value obj))
-			     collect `(defgeneric ,name (obj))))))
+			     collect `(defgeneric ,name (obj)))))
+	   (define-stat-setters-and-getters (&rest names)
+	       `(progn ,@(apply #'append (loop for name in names
+					collect (let ((bonus-name (read-from-string
+								   (format nil "~a+" name)))
+						      (die-name (read-from-string
+								 (format nil "~a-die" name))))
+						  `((defgeneric (setf ,bonus-name) (value obj))
+						    (defgeneric ,bonus-name (obj))
+						    (defgeneric (setf ,die-name) (value obj))
+						    (defgeneric ,die-name (obj)))))))))
   (define-setter-getter-pairs resistances immunities
-    absorbances vulnerabilities allies enemies types))
+    absorbances vulnerabilities allies enemies types)
+  (define-stat-setters-and-getters str dex con knl per det cha spd))
 
 (defgeneric drop-corpse (obj))
 

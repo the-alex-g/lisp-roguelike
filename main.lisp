@@ -2,8 +2,8 @@
 (ql:quickload :trivial-raw-io)
 
 (load "masking.lisp")
-(load "generic-functions.lisp")
 (load "utils.lisp")
+(load "generic-functions.lisp")
 (load "log.lisp")
 (load "colors.lisp")
 (load "class-definitions.lisp")
@@ -16,6 +16,9 @@
 		 :health 20
 		 :name "player"
 		 :color 'red
+		 :stats (cons '(spd (1 . 6))
+			      (loop for key in '(str dex con knl per det cha)
+				    collect (list key (cons 0 6))))
 		 :illumination 5
 		 :char #\@))
 (defparameter *actions* (make-hash-table))
@@ -54,8 +57,8 @@
 				    "bones"))))
 
 (defun generate-attack (attacker num die &optional dmg-bonus to-hit types statuses)
-  (make-attack :amount (roll num die (str attacker) dmg-bonus)
-	       :to-hit (roll 1 20 to-hit (dex attacker))
+  (make-attack :amount (roll num die (str+ attacker) dmg-bonus)
+	       :to-hit (roll 1 20 to-hit (dex+ attacker))
 	       :source attacker
 	       :types (make-mask (ensure-list types))
 	       :statuses (ensure-list statuses)))
@@ -272,9 +275,9 @@
 (defun get-player-lines ()
   (flatten
    (list (log-to-string "STR ~@d  DEX ~@d  CON ~@d"
-			(str *player*) (dex *player*) (con *player*))
-	 (log-to-string "INT ~@d  PER ~@d  CHA ~@d"
-			(intl *player*) (per *player*) (cha *player*))
+			(str+ *player*) (dex+ *player*) (con+ *player*))
+	 (log-to-string "KNL ~@d  PER ~@d  CHA ~@d"
+			(knl+ *player*) (per+ *player*) (cha+ *player*))
 	 (mapcar (lambda (weapon)
 		   (log-to-string "~@:(~a~): ~a"
 				  (name weapon)

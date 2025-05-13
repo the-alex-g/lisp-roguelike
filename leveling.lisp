@@ -2,12 +2,12 @@
 (defparameter *level* 1)
 
 (defun increase-health ()
-  (let ((health-increase (max 1 (roll 1 10 (con *player*)))))
+  (let ((health-increase (max 1 (roll 1 10 (con+ *player*)))))
     (incf (slot-value *player* 'max-health) health-increase)
     (incf (health *player*) health-increase)))
 
 (defun increase-stat ()
-  (let ((ability (get-item-from-list '(str con dex spd int per cha det)
+  (let ((ability (get-item-from-list '(str+ con dex spd int per cha det)
 				     :what "ability to increase"
 				     :exit-option nil)))
     (eval `(incf (,ability *player*)))))

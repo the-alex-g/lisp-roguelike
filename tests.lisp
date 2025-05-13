@@ -33,7 +33,7 @@
   (format t "~&~a~%" (apply-color string 'yellow-4)))
 
 (deftest tests
-  (loop for test in *tests-failed*
+  (loop for test in (nreverse *tests-failed*)
 	do (format t "~&~a" test))
   (print-test "~[all tests passed~:;~:*~d test~:p failed~]"
 	      (= (length *tests-failed*) 0)
@@ -85,8 +85,9 @@
       (print-test "value can be changed to a list"
 		  (= (allies creature) (make-mask '(kobold evil)))))))
 
+(defenemy test-enemy #\Q () :health 10)
 (deftest combat
-  (let ((enemy (make-instance 'creature :name "enemy" :health 10))
+  (let ((enemy (make-test-enemy +zero+))
 	(attack1 (make-attack :amount 5 :to-hit 10 :types '(slashing)))
 	(attack2 (make-attack :amount 5 :to-hit 5 :types '(slashing)))
 	(attack3 (make-attack :amount 10 :to-hit 10 :types '(bludgeoning)))
@@ -129,7 +130,7 @@
 	   (initial-health (health mark))
 	   (trap-1 (make-pit-trap '(1 . 0)))
 	   (trap-2 (make-pit-trap '(2 . 0))))
-      (setf (dex mark) -100)
+      (setf (dex+ mark) -100)
       (move-into trap-1 mark t)
       (print-test "mark was damaged (~d to ~d health)" (< (health mark) initial-health)
 		  initial-health (health mark))
@@ -143,10 +144,10 @@
 
 (deftest checks
   (let ((tester (make-goblin +zero+)))
-    (setf (dex tester) 100)
-    (setf (str tester) -100)
-    (print-test "check succeeds" (checkp #'dex tester 10))
-    (print-test "check fails" (not (checkp #'str tester 10)))))
+    (setf (dex+ tester) 100)
+    (setf (str+ tester) -100)
+    (print-test "check succeeds" (checkp #'dex+ tester 10))
+    (print-test "check fails" (not (checkp #'str+ tester 10)))))
 
 (deftest corpse-decays
   (with-clean-board
@@ -201,13 +202,13 @@
     (let* ((caster (make-goblin +zero+))
 	   (target (make-goblin +right+))
 	   (target-initial-health (health target)))
-      (setf (intl caster) 1000) ;; so that there's no chance of avoiding the status
+      (setf (knl+ caster) 1000) ;; so that there's no chance of avoiding the status
       (let ((damage (enervate caster target)))
 	(print-test "target was damaged" (= (health target)
 					    (max 0 (- target-initial-health damage))))
 	(print-test "target was inflicted with a status"
 		    (= (length (statuses target)) 1)))
-      (setf (intl caster) -100)
+      (setf (knl+ caster) -100)
       (enervate caster target)
       (print-test "target avoided the status"
 		  (= (length (statuses target)) 1)))))
@@ -354,8 +355,7 @@
 	(test-board +right+ nil t)))))
 
 (deftest statuses
-  (let ((*player* (make-instance 'creature :name 'player))
-	(status (make-instance 'status)))
+  (let ((status (make-instance 'status :spd 1 :duration 3)))
     (apply-to *player* status)
     (print-test "player has one status"
 		(equal (statuses *player*) (list status)))
@@ -368,9 +368,8 @@
 		(not (statuses *player*))
 		(statuses *player*))))
 
-(defenemy test-creature #\T () :health 7)
 (deftest max-health
-  (let ((test-creature (make-test-creature +zero+)))
+  (let ((test-creature (make-goblin +zero+)))
     (print-test "max health = starting health"
 		(eq (health test-creature) (max-health test-creature)))
     (incf (health test-creature))
