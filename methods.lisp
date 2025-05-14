@@ -31,6 +31,9 @@
     allies enemies types)
   (define-stat-accessors str dex con knl per det spd cha))
 
+(defmethod armor ((obj creature))
+  (elt *armor* (slot-value obj 'armor)))
+
 (defmethod quaffablep ((obj potion))
   (declare (ignore obj))
   t)
@@ -771,7 +774,9 @@
   (decf (str+ subj)))
 
 (DEFMETHOD DAMAGE ((DEFENDER CREATURE) (damage damage))
-  (LET* ((BASE-DAMAGE (MAX 1 (- (damage-amount damage) (ARMOR DEFENDER))))
+  (LET* ((BASE-DAMAGE (MAX 1 (loop repeat (damage-amount damage)
+				   unless (blocksp (armor defender))
+				     sum 1)))
          (MOD-DAMAGE (ROUND (* BASE-DAMAGE (DAMAGE-MODIFIER DEFENDER (damage-types damage)))))
          (REAL-DAMAGE
           (COND ((= MOD-DAMAGE 0) 0) ((< MOD-DAMAGE 0) MOD-DAMAGE)

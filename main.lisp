@@ -23,7 +23,7 @@
 		 :char #\@))
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
-
+(defparameter *armor* #((5 . 6) (3 . 4) (4 . 6) (2 . 4) (1 . 4) (1 . 6)))
 
 (mapc #'load
       (list "bsp-dungeon.lisp"
@@ -47,6 +47,9 @@
 
 (define-condition crash-signalled-condition (condition)
   ((original-error :initarg :error :accessor original-error)))
+
+(defun blocksp (armor)
+  (>= (random (cdr armor)) (car armor)))
 
 (defun drop-bones (from)
   (let ((bones (make-bones (pos from))))
