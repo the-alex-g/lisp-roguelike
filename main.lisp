@@ -57,7 +57,7 @@
 				    "bones"))))
 
 (defun generate-attack (attacker num die &optional dmg-bonus to-hit types statuses)
-  (make-attack :amount (roll num die (str+ attacker) dmg-bonus)
+  (make-attack :amount (roll* (str-die attacker) (str+ attacker) :base 1 :bonusp t)
 	       :to-hit (roll 1 20 to-hit (dex+ attacker))
 	       :source attacker
 	       :types (make-mask (ensure-list types))

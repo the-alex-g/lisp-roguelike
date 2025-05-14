@@ -289,6 +289,15 @@
      (loop for m in modifiers
 	   sum m)))
 
+(defun roll* (die threshold &key (shade 5) (base 0) (bonusp nil))
+  (labels ((internal-roll (bound)
+	     (if (>= (1+ (random die)) bound)
+		 (1+ (internal-roll bound))
+		 0)))
+    (when bonusp
+      (setf threshold (- die threshold)))
+    (+ base (internal-roll (min die (max shade threshold))))))
+
 (defun priority-add (list new-item &optional (priority 0 priorityp))
   (unless priorityp
     (setf priority (car new-item))
