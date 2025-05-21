@@ -173,7 +173,7 @@
     1))
 
 (defmethod evasion ((obj creature))
-  (max 1 (+ 5 (dex+ obj) (slot-value obj 'evasion))))
+  (max 1 (+ (dex+ obj) (slot-value obj 'evasion) (spd-die obj))))
 
 (defmethod evadesp ((obj creature) dc)
   (>= (roll 1 20 (dex+ obj)) dc))
