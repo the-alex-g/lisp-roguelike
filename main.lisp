@@ -13,7 +13,7 @@
 		 :types '(good)
 		 :allies '(good)
 		 :enemies '(evil)
-		 :health 20
+		 :health 4
 		 :name "player"
 		 :color 'red
 		 :stats (cons '(spd (1 . 6))

@@ -161,7 +161,7 @@
 
 (defmethod trigger ((trap pit-trap) (activator creature))
   (let ((damage (damage activator (make-damage :source trap
-					       :amount (roll 1 6)
+					       :amount (roll* 6 5 :base 1)
 					       :types '(bludgeoning)))))
     (when (visiblep activator *player*)
       (print-to-log "~a triggered a ~a and took ~d damage"
@@ -774,9 +774,9 @@
   (decf (str+ subj)))
 
 (DEFMETHOD DAMAGE ((DEFENDER CREATURE) (damage damage))
-  (LET* ((BASE-DAMAGE (MAX 1 (loop repeat (damage-amount damage)
-				   unless (blocksp (armor defender))
-				     sum 1)))
+  (LET* ((BASE-DAMAGE (loop repeat (damage-amount damage)
+			    unless (blocksp (armor defender))
+			      sum 1))
          (MOD-DAMAGE (ROUND (* BASE-DAMAGE (DAMAGE-MODIFIER DEFENDER (damage-types damage)))))
          (REAL-DAMAGE
           (COND ((= MOD-DAMAGE 0) 0) ((< MOD-DAMAGE 0) MOD-DAMAGE)
