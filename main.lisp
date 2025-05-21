@@ -23,7 +23,8 @@
 		 :char #\@))
 (defparameter *actions* (make-hash-table))
 (defparameter *action-descriptions* (make-hash-table))
-(defparameter *armor* #((5 . 6) (3 . 4) (4 . 6) (2 . 4) (1 . 4) (1 . 6)))
+(defconstant +no-armor+ 7)
+(defparameter *armor* #((5 . 6) (3 . 4) (4 . 6) (2 . 4) (2 . 6) (1 . 4) (1 . 6) (10 . 4)))
 
 (mapc #'load
       (list "bsp-dungeon.lisp"
@@ -59,8 +60,10 @@
     (setf (name bones) (concatenate 'string (subseq (name from) 0 (- (length (name from)) 6))
 				    "bones"))))
 
-(defun generate-attack (attacker num die &optional dmg-bonus to-hit types statuses)
-  (make-attack :amount (roll* (str-die attacker) (str+ attacker) :base 1 :bonusp t)
+(defun generate-attack (attacker die types
+			&key (to-hit 0) (dmg-bonus 1) statuses (shade 5)
+			&allow-other-keys)
+  (make-attack :amount (roll* die (str+ attacker) :base dmg-bonus :bonusp t :shade shade)
 	       :to-hit (roll 1 20 to-hit (dex+ attacker))
 	       :source attacker
 	       :types (make-mask (ensure-list types))
@@ -277,14 +280,14 @@
 
 (defun get-player-lines ()
   (flatten
-   (list (log-to-string "STR ~@d  DEX ~@d  CON ~@d"
-			(str+ *player*) (dex+ *player*) (con+ *player*))
-	 (log-to-string "KNL ~@d  PER ~@d  CHA ~@d"
-			(knl+ *player*) (per+ *player*) (cha+ *player*))
+   (list (log-to-string "STR ~@d  DEX ~@d  CON ~@d  DET ~@d"
+			(str+ *player*) (dex+ *player*) (con+ *player*) (det+ *player*))
+	 (log-to-string "SPD ~@d  KNL ~@d  PER ~@d  CHA ~@d"
+			(spd+ *player*) (knl+ *player*) (per+ *player*) (cha+ *player*))
 	 (mapcar (lambda (weapon)
 		   (log-to-string "~@:(~a~): ~a"
 				  (name weapon)
-				  (damage-string (atk weapon))))
+				  (damage-string (atk weapon) (str+ *player*))))
 		 (weapons *player*))
 	 (log-to-string "HEALTH ~d/~d"
 			(health *player*)
@@ -313,7 +316,7 @@
 				when (printp (contents (vec+ (pos *player*) direction)))
 		    		  collect (name (contents (vec+ (pos *player*) direction)))
 				  and collect (concatenate 'string "to the "
-							   (gethash direction +direction-names+)))
+							   (gethash direction *direction-names*)))
 			  (let ((obj (non-solid (pos *player*))))
 			    (when (printp obj)
 			      (list (name obj) "in your space"))))))))

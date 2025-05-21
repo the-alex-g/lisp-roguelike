@@ -13,20 +13,22 @@
 					   (setf (,name obj) mask)
 					   mask)))))))
 	   (define-stat-accessors (&rest names)
-	     `(progn ,@(apply #'append (loop for name in names
-				      collect (let ((bonus-name (read-from-string
-								 (format nil "~a+" name)))
-						    (die-name (read-from-string
-							       (format nil "~a-die" name))))
-						`((defmethod (setf ,bonus-name)
-						      (value (obj creature))
-						    (setf (caadr (assoc ',name (stats obj))) value))
-						  (defmethod ,bonus-name ((obj creature))
-						    (caadr (assoc ',name (stats obj))))
-						  (defmethod (setf ,die-name) (value (obj creature))
-						    (setf (cdadr (assoc ',name (stats obj))) value))
-						  (defmethod ,die-name ((obj creature))
-						    (cdadr (assoc ',name (stats obj)))))))))))
+	     `(progn
+		,@(apply #'append
+			 (loop for name in names
+			       collect (let ((bonus-name (read-from-string (format nil "~a+" name)))
+					     (die-name (read-from-string
+							(format nil "~a-die" name))))
+					 `((defmethod (setf ,bonus-name) (value (obj creature))
+					     (if (> value -4)
+						 (setf (caadr (assoc ',name (stats obj))) value)
+						 (setf (deadp obj) t)))
+					   (defmethod ,bonus-name ((obj creature))
+					     (caadr (assoc ',name (stats obj))))
+					   (defmethod (setf ,die-name) (value (obj creature))
+					     (setf (cdadr (assoc ',name (stats obj))) value))
+					   (defmethod ,die-name ((obj creature))
+					     (cdadr (assoc ',name (stats obj)))))))))))
   (define-mask-accessors resistances immunities absorbances vulnerabilities
     allies enemies types)
   (define-stat-accessors str dex con knl per det spd cha))
@@ -217,11 +219,10 @@
       (setf (slot-value obj 'health) value)
       (setf (slot-value obj 'health) 0)))
 
-(defmethod (setf con) (value (obj creature))
-  (let ((dhealth (- value (con+ obj))))
-    (incf (slot-value obj 'max-health)
-	  dhealth)
-    (incf (health obj) dhealth)))
+(defmethod (setf con+) (value (obj creature))
+  (let ((diff (- value (con+ obj))))
+    (incf (slot-value obj 'max-health) diff )
+    (incf (health obj) diff)))
 
 (defmethod (setf hunger) (value (obj player))
   (cond ((> value (max-hunger obj))
@@ -1058,11 +1059,7 @@
   (apply #'generate-attack attacker (atk weapon)))
 
 (defmethod get-attack ((weapon list) (attacker creature))
-  (apply #'generate-attack attacker (or (loop for i in weapon
-					      when (keywordp i)
-						return trimmed-weapon
-					      collect i into trimmed-weapon)
-					weapon)))
+  (apply #'generate-attack attacker weapon))
 
 (defmethod alignment ((obj creature))
   (let ((alignment (slot-value obj 'alignment)))

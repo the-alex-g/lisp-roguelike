@@ -85,7 +85,7 @@
       (print-test "value can be changed to a list"
 		  (= (allies creature) (make-mask '(kobold evil)))))))
 
-(defenemy test-enemy #\Q () :health 10)
+(defenemy test-enemy #\Q () :health 10 :armor +no-armor+)
 (deftest combat
   (let ((enemy (make-test-enemy +zero+))
 	(attack1 (make-attack :amount 5 :to-hit 10 :types '(slashing)))
@@ -107,7 +107,7 @@
       (my-attack "absorbance" attack1 8)
       (my-attack "health overflow" attack1 10)
       (my-attack "missing" attack2 10)
-      (my-attack "status" status-attack 9)
+      (my-attack "status" status-attack 10)
       (print-test "target has one status"
 		  (= (length (statuses enemy)) 1))
       (my-attack "killing" attack3 0))))
@@ -130,6 +130,7 @@
 	   (initial-health (health mark))
 	   (trap-1 (make-pit-trap '(1 . 0)))
 	   (trap-2 (make-pit-trap '(2 . 0))))
+      (setf (armor mark) +no-armor+)
       (setf (dex+ mark) -100)
       (move-into trap-1 mark t)
       (print-test "mark was damaged (~d to ~d health)" (< (health mark) initial-health)

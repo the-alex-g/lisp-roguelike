@@ -4,16 +4,16 @@
 (defabstract equipment weapon () :weaponp t :break-chance 2)
 
 (add-to-shop
- (defequipment sword () :atk '(1 6 0 0 slashing) :inherit weapon :char #\^)
- (defequipment sword-+1 () :atk '(1 6 1 1 slashing) :inherit weapon :break-chance 1 :char #\^)
- (defequipment dagger () :atk '(1 4 0 0 piercing) :inherit weapon :char #\^)
- (defequipment bow () :atk '(1 4 0 0 piercing) :inherit weapon :range 4 :char #\) :size 2
+ (defequipment sword () :atk '(6 slashing) :inherit weapon :char #\^)
+ (defequipment sword-+1 () :atk '(6 slashing 1 1 nil 4) :inherit weapon :break-chance 1 :char #\^)
+ (defequipment dagger () :atk '(4 piercing) :inherit weapon :char #\^)
+ (defequipment bow () :atk '(4 piercing) :inherit weapon :range 4 :char #\) :size 2
 		      :burn-time 25)
  (defequipment food ((sustenance (roll 2 10 10)) (cooking 0)) :description "recovers 12-30 hunger"
    :break-chance 100 :char #\")
- (defequipment warclub () :atk '(2 6 0 0 bludgeoning) :inherit weapon :size 2
+ (defequipment warclub () :atk '(10 bludgeoning) :inherit weapon :size 2
 			  :char #\& :burn-time 50)
- (defequipment faggot () :atk '(1 3 0 0 bludeoning) :char #\& :burn-time 100)
+ (defequipment faggot () :atk '(8 bludeoning :shade 6) :char #\& :burn-time 100)
  (defequipment quiver ((arrows 20)) :char #\q
 				    :constructor ((&optional (amount 20))
 						  (setf (arrows quiver) amount)))
@@ -34,12 +34,12 @@
   :sustenance (roll 2 10 10) :inherit food :description "recovers 12-30 hunger")
 (defequipment undead-flesh ()
   :sustenance (roll 3 6 10) :inherit food :description "recovers 13-28 hunger")
-(defequipment fist () :atk '(1 3 -1 0 bludgeoning) :inherit weapon :break-chance -100)
+(defequipment fist () :atk '(12 bludgeoning :shade 10) :inherit weapon :break-chance -100)
 (defequipment gold (amount) :solidp nil :color 'yellow-4 :char #\*
   :constructor ((&optional (amount 1))
 		(setf (amount gold) amount)))
-(defequipment crude-bow () :inherit bow :atk '(1 3 0 -1 piercing) :break-chance 3)
-(defequipment debt () :break-chance -100000)
+(defequipment crude-bow () :inherit bow :atk '(6 piercing :shade 6) :break-chance 3)
+(defequipment debt () :break-chance (logand))
 (defequipment sprout-bomb () :char #\* :color '(4 2 5) :break-chance 100)
 
 ;; FURNITURE
@@ -112,14 +112,14 @@
     :morale 'fearless
     :vulnerable '(fire slashing)
     :resist '(bludgeoning piercing)
-    :natural-weapons '(1 1 0 0 slashing))
+    :natural-weapons '(8 slashing :shade 8))
   (defenemy grenadier-sprout #\% ()
     :inherit sprout
     :color '(4 2 5))
   (defenemy sprout-hulk #\H ()
     :inherit sprout
     :health 4
-    :natural-weapons '(1 8 0 0 bludgeoning)
+    :natural-weapons '(10 bludgeoning)
     :str 2 :dex -1)
   (defenemy shopkeeper #\U ((domain 4) targets home)
     :types '(demon)

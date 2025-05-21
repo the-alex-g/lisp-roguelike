@@ -1,20 +1,15 @@
-(defparameter +left+ '(-1 . 0))
-(defparameter +right+ '(1 . 0))
-(defparameter +up+ '(0 . -1))
-(defparameter +down+ '(0 . 1))
-(defparameter +zero+ '(0 . 0))
-(defparameter +directions+ (list +up+ +right+ +down+ +left+
+(defconstant +left+ '(-1 . 0))
+(defconstant +right+ '(1 . 0))
+(defconstant +up+ '(0 . -1))
+(defconstant +down+ '(0 . 1))
+(defconstant +zero+ '(0 . 0))
+(defconstant +directions+ (list +up+ +right+ +down+ +left+
 				 '(1 . 1) '(1 . -1) '(-1 . 1) '(-1 . -1)))
-(defparameter +direction-names+ (make-hash-table :test #'equal))
+(defparameter *direction-names* (make-hash-table :test #'equal))
 (defparameter *in-terminal* (handler-case (sb-posix:tcgetattr 0)
 			      (error () nil)))
 (defparameter *fake-input* nil)
 (defparameter *terminal-size* '(80 . 31))
-
-(setf (gethash +left+ +direction-names+) "west")
-(setf (gethash +right+ +direction-names+) "east")
-(setf (gethash +down+ +direction-names+) "south")
-(setf (gethash +up+ +direction-names+) "north")
 
 (setf *random-state* (make-random-state t))
 
@@ -289,14 +284,25 @@
      (loop for m in modifiers
 	   sum m)))
 
+(defun get-threshold (die threshold shade &key bonusp)
+  (min die (max shade (if bonusp
+			  (- die threshold)
+			  threshold))))
+
 (defun roll* (die threshold &key (shade 5) (base 0) (bonusp nil))
   (labels ((internal-roll (bound)
-	     (if (>= (1+ (random die)) bound)
+	     (if (>= (roll 1 die) bound)
 		 (1+ (internal-roll bound))
 		 0)))
-    (when bonusp
-      (setf threshold (- die threshold)))
-    (+ base (internal-roll (min die (max shade threshold))))))
+    (+ base (internal-roll (get-threshold die threshold shade :bonusp bonusp)))))
+
+(defun damage-string (atk str)
+  (let* ((die (car atk))
+	 (damage-types (ensure-list (cadr atk)))
+	 (rest (cddr atk))
+	 (threshold (get-threshold die str (or (getf rest :shade) 5) :bonusp t)))
+    (log-to-string "d~d/~d~{ ~a~} damage~:[~;~:*, ~@d to hit~]"
+		   die threshold damage-types (getf rest :to-hit))))
 
 (defun priority-add (list new-item &optional (priority 0 priorityp))
   (unless priorityp
@@ -371,12 +377,6 @@
 				(function (lambda (&rest args) (apply #'format nil args))))
   (funcall function "~c[~d;5;~dm~a~0@*~c[40;37m" #\esc
 	   (if bg 48 38) (if (numberp color) color (color color)) arg))
-
-(defun damage-string (atk)
-  (setf (nth 4 atk) (ensure-list (nth 4 atk)))
-  (apply #'log-to-string
-	 "~dd~d~[~:;~:*~@d~]~4@*~{ ~a~} damage~3@*~[~:;~:*, ~@d to hit~]"
-	 atk))
 
 (defun get-direction (&optional input)
   (unless input
