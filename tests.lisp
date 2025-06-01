@@ -167,7 +167,7 @@
     (make-corpse '(4 . 0))
     (make-bones '(3 . 0))
     (make-dagger-pickup '(-1 . 0))
-    (animate-dead *player*)
+    (animate-dead *player* :die 8 :succeedp t)
     (print-test "animated corpse" (solid '(2 . 0)))
     (print-test "corpse gone"
 		(not (non-solid '(2 . 0))))
@@ -193,7 +193,7 @@
 	   (target (make-goblin +right+))
 	   (target-initial-health (health target)))
       (setf (slot-value caster 'max-health) (1+ (health caster)))
-      (let ((damage (life-drain caster target)))
+      (let ((damage (life-drain caster target :succeedp t)))
 	(print-test "target was damaged" (= (health target)
 					    (max 0 (- target-initial-health damage))))
 	(print-test "caster was healed"
@@ -210,7 +210,7 @@
 	(print-test "target was inflicted with a status"
 		    (= (length (statuses target)) 1)))
       (setf (knl+ caster) -100)
-      (enervate caster target)
+      (enervate caster target :succeedp t)
       (print-test "target avoided the status (~d statuses)"
 		  (= (length (statuses target)) 1)
 		  (length (statuses target))))))
@@ -469,6 +469,7 @@
       (print-test "identified" (eq (name equipment) 'test-equipment))
       (print-test "wand unidentified" (eq (name wand) 'unidentified-wand))
       (identify wand)
+      (setf (spell-die-index wand) 2)
       (print-test "wand identified" (string= (name wand) "wand of animate dead"))
       (print-test "other wand unidentified" (eq (name wand-2) 'unidentified-wand))))
 

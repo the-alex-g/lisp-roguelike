@@ -187,7 +187,9 @@
 	 'ladder-leading-down)))
 
 (defmethod name ((obj wand))
-  (log-to-string "wand of ~a" (spell-name (spell obj))))
+  (log-to-string "wand of ~[inferior ~;lesser ~;~;greater ~;excellent ~]~a"
+		 (spell-die-index obj)
+		 (spell-name (spell obj))))
 
 (defmethod name ((obj quiver))
   (log-to-string "quiver of ~d arrows" (arrows obj)))
@@ -786,10 +788,12 @@
   (declare (ignore obj))
   (decf (str+ subj)))
 
-(DEFMETHOD DAMAGE ((DEFENDER CREATURE) (damage damage))
-  (LET* ((BASE-DAMAGE (loop repeat (damage-amount damage)
-			    unless (blocksp (armor defender))
-			      sum 1))
+(DEFMETHOD DAMAGE ((DEFENDER CREATURE) (damage damage) &optional (blockablep t))
+  (LET* ((BASE-DAMAGE (if blockablep
+			  (loop repeat (damage-amount damage)
+				unless (blocksp (armor defender))
+				  sum 1)
+			  (damage-amount damage)))
          (MOD-DAMAGE (ROUND (* BASE-DAMAGE (DAMAGE-MODIFIER DEFENDER (damage-types damage)))))
          (REAL-DAMAGE
           (COND ((= MOD-DAMAGE 0) 0) ((< MOD-DAMAGE 0) MOD-DAMAGE)
@@ -798,19 +802,22 @@
     (mapc (lambda (status) (apply-to defender status)) (damage-statuses damage))
     (MAX 0 REAL-DAMAGE)))
 
-(DEFMETHOD DAMAGE ((DEFENDER BREAKABLE) (damage damage))
+(DEFMETHOD DAMAGE ((DEFENDER BREAKABLE) (damage damage) &optional blockablep)
+  (declare (ignore blockablep))
   (INCF (BREAK-CHANCE DEFENDER) (* 5 (damage-amount damage)))
   (damage-amount damage))
 
-(defmethod damage :after ((defender creature) (damage damage))
+(defmethod damage :after ((defender creature) (damage damage) &optional blockablep)
+  (declare (ignore blockablep))
   (when (slot-exists-p (damage-source damage) 'types)
     (make-hostile defender (damage-source damage))))
 
-(defmethod damage :after (defender (damage damage))
+(defmethod damage :after (defender (damage damage) &optional blockablep)
+  (declare (ignore blockablep))
   (when (deadp defender)
     (kill defender (damage-source damage))))
 
-(defmethod damage :around ((defender sprout-hulk) (damage damage))
+(defmethod damage :around ((defender sprout-hulk) (damage damage) &optional (blockablep t))
   (let ((damage (call-next-method)))
     (when (> damage 0)
       (setf (health (make-sprout (do ((index (random 16) (mod (1+ index) 16))
@@ -1150,22 +1157,23 @@
       (equip weapon zombie))
     zombie))
 
-(defmethod cast-spell :around ((spell spell) (obj creature) &key spend-mana-p &allow-other-keys)
-  (if (and spend-mana-p (> (spell-cost spell) (mana obj)))
-      (when (playerp obj)
-	(print-to-log "you do not have enough mana to cast that spell"))
-      (progn (decf (mana obj) (spell-cost spell))
-	     (call-next-method))))
-
-(defmethod cast-spell ((spell spell) (obj creature) &key target &allow-other-keys)
-  (if (spell-requires-target-p spell)
-      (funcall (spell-function spell) obj target)
-      (funcall (spell-function spell) obj)))
-
-(defmethod cast-spell ((spell spell) (obj player) &key &allow-other-keys)
-  (if (spell-requires-target-p spell)
-      (funcall (spell-function spell) obj (choose-target 'free-form 100))
-      (funcall (spell-function spell) obj)))
+(defmethod cast-spell ((spell spell) (obj creature) &key target die succeedp &allow-other-keys)
+  (unless die
+    (setf die (if (playerp obj)
+		  (get-item-from-list '(4 6 8 10 12)
+				      :naming-function (lambda (v)
+							 (log-to-string "d~d" v))
+				      :what "spell die"
+				      :test #'=)
+		  (best-spell-die (knl+ obj)))))
+  (when die
+    (let* ((successes (roll* die (knl+ obj) :bonusp t))
+	   (delta (- successes (spell-cost spell))))
+      (if (or (>= delta 0) succeedp)
+	  (if (spell-requires-target-p spell)
+	      (funcall (spell-function spell) obj target die (max 0 delta))
+	      (funcall (spell-function spell) obj die (max 0 delta)))
+	  (spell-fail obj (- delta))))))
 
 (defmethod zap :around ((obj wand) (zapper creature))
   (if (> (charges obj) 0)
@@ -1181,7 +1189,7 @@
 (defmethod zap ((obj wand) (zapper creature))
   (when (visiblep zapper *player*)
     (print-to-log "~a zaps a ~a" (name zapper) (name obj)))
-  (when (cast-spell (spell obj) zapper :spend-mana-p nil)
+  (when (cast-spell (spell obj) zapper :succeedp t :die (spell-die (spell-die-index wand)))
     (identify obj))
   (decf (charges obj)))
 

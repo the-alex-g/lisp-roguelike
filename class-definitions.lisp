@@ -79,7 +79,7 @@
    (burn-time :initform 0 :initarg :burn-time :accessor burn-time)
    (range :initform 1 :initarg :range :accessor range)
    (size :initform 1 :initarg :size :accessor size)
-   (price :initform 2 :initarg :price :accessor price)
+   (price :initform 2 :initarg :cost :accessor price)
    (weaponp :initform nil :initarg :weaponp :accessor weaponp)
    (shopkeeper :initform nil :accessor shopkeeper)
    (equip-slot :initform 'hand :initarg :slot :accessor equip-slot)))

@@ -1,20 +1,43 @@
 (defparameter *spells* nil)
 (defparameter *identified-wands* nil)
 
-(defmacro defspell (name cost requires-target-p &body body)
+(defmacro defspell (name (cost requires-target-p) &body body)
   (let ((spell (gensym)))
     `(let ((,spell (make-spell :requires-target-p ,requires-target-p
 			       :name ',name
-			       :function (lambda ,(if requires-target-p
-						      '(caster target)
-						      '(caster))
-					   ,@body))))
+			       :cost ,cost
+			       :function (lambda (caster ,@(if requires-target-p
+							       '(target spell-die)
+							       '(spell-die))
+						  overflow)
+					   (let ((spell-damage (+ overflow
+								  (roll* spell-die 5 :base 1))))
+					     ,@body)))))
        (push ,spell *spells*)
        (defparameter ,(read-from-string (format nil "*~a*" name)) ,spell)
-       (defun ,name (caster &optional target)
-	 (cast-spell ,spell caster :target target)))))
+       (defun ,name (caster ,@(if requires-target-p '(target &key die) '(&key die)) succeedp)
+	 (cast-spell ,spell caster ,@(if requires-target-p
+					 '(:target target :die die)
+					 '(:die die))
+		     :succeedp succeedp)))))
 
-(defspell animate-dead 2 nil
+(defun spell-die (index)
+  (cond ((< index 0) 4)
+	((> index 4) 12)
+	(t (+ 4 (* 2 index)))))
+
+(defun best-spell-die (bonus)
+  (cond ((<= bonus 0) 4)
+	((<= bonus 1) 6)
+	((<= bonus 3) 8)
+	((<= bonus 6) 10)
+	(t 12)))
+
+(defun spell-fail (obj margin)
+  (when (playerp obj)
+    (print-to-log "your spell fails")))
+
+(defspell animate-dead (2 nil)
   (let ((animated-dead (get-actors-in-los-of caster nil t 3 (reanimate actor caster))))
     (if (visiblep caster *player*)
 	(print-to-log "~[~;there is no effect~;~
@@ -29,14 +52,15 @@
 			  (length visible-dead)))))
     animated-dead))
 
-(defspell life-drain 1 t
-  (let* ((damage (damage target (make-damage :source caster
-					     :amount (if (checkp #'con+ target (+ 10 (knl+ caster)))
-							 (roll 1 2)
-							 (roll 1 4))
-					     :types '(necrotic))))
+(defspell life-drain (1 t)
+  (let* ((damage (if (checkp #'con+ target (+ spell-die (knl+ caster) 2))
+		     (damage target (make-damage :source caster
+						 :amount (max 1 (1- spell-damage))
+						 :types '(necrotic))
+			     nil)
+		     0))
 	 (previous-health (health caster))
-	 (health-gain (- (incf (health caster) damage) previous-health)))
+	 (health-gain (- (incf (health caster)) previous-health)))
     (print-if-visible caster target
 		      ("~a fires a beam of red energy at ~a, dealing ~d damage~
                         ~:[~;~%you regain ~d health~]"
@@ -46,10 +70,10 @@
 		       (name target) damage))
     damage))
 
-(defspell enervate 1 t
+(defspell enervate (1 t)
   (let ((damage (damage target
 			(make-damage :source caster
-				     :amount (roll 1 4)
+				     :amount spell-damage
 				     :types '(necrotic)
 				     :statuses (unless (checkp #'con+ target (+ 10 (knl+ caster)))
 						 (list (if (= (random 2) 0)

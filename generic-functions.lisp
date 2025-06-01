@@ -83,8 +83,8 @@
 
 (defgeneric get-attack (weapon attacker))
 
-(defgeneric damage (defender damage)
-  (:method (defender damage)))
+(defgeneric damage (defender damage &optional blockablep)
+  (:method (defender damage &optional blockablep)))
 
 (defgeneric visiblep (pos from))
 
