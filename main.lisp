@@ -366,9 +366,7 @@
 (defun resolve-action (input)
   (let ((action (gethash input *actions*)))
     (if action
-	(restart-case (funcall action)
-	  (keep-going (err) (declare (ignore err)) 0)
-	  (crash (err) (error err)))
+	(funcall action)
 	0)))
 
 (defun initialize-dungeon ()
@@ -409,16 +407,18 @@
 						 :what 'restart-option)
 			     err))
 	   (process-round (input)
-	     (loop repeat (handler-bind ((crash-signalled-condition
-					   (lambda (err)
-					     (terpri)
-					     (error (original-error err))))
-					 (error #'choose-restart))
-			    (resolve-action input))
+	     (loop repeat (resolve-action input)
 		   do (update-actors))
 	     (print-game)))
     (loop until (game-over-p)
-	  do (process-round (custom-read-char))))
+	  do (handler-bind ((crash-signalled-condition
+					   (lambda (err)
+					     (terpri)
+					     (error (original-error err))))
+			    (error #'choose-restart))
+	       (restart-case (process-round (custom-read-char))
+		 (keep-going (err) (declare (ignore err)) 0)
+		 (crash (err) (error 'crash-signalled-condition :error err))))))
   (when (deadp *player*)
     (format t "~a has died.~c[0m~%~%" (name *player*) #\esc)))
 

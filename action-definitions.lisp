@@ -160,8 +160,7 @@
 					   " "
 					   (read-line))
 			      (read-line))))
-	       (if (or (string= "q" input)
-		       (string= "Q" input))
+	       (if (string-equal "Q" input)
 		   'exit-repl
 		   (handler-case (eval (read-from-string input))
 		     (end-of-file () (read-and-eval input))))))

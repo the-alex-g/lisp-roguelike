@@ -20,7 +20,7 @@
    :break-chance 100 :char #\")
  (defequipment warclub () :atk '(10 bludgeoning) :inherit weapon :size 2
 			  :char #\& :burn-time 50)
- (defequipment faggot () :atk '(8 bludeoning :shade 6) :char #\& :burn-time 100)
+ (defequipment faggot () :atk '(8 bludeoning :shade 6) :char #\& :burn-time 100 :break-chance 10)
  (defequipment quiver ((arrows 20)) :char #\q
 				    :constructor ((&optional (amount 20))
 						  (setf (arrows quiver) amount)))

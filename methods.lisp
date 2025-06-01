@@ -21,7 +21,7 @@
 							(format nil "~a-die" name))))
 					 `((defmethod (setf ,bonus-name) (value (obj creature))
 					     (setf (caadr (assoc ',name (stats obj))) value)
-					     (when (> value -4)
+					     (when (< value -4)
 					       (setf (deadp obj) t)))
 					   (defmethod ,bonus-name ((obj creature))
 					     (caadr (assoc ',name (stats obj))))
@@ -388,8 +388,10 @@
   (throw-sprout-bomb (pos target) thrower))
 
 (defmethod throw-at :after ((target list) (item equipment) thrower)
-  (unless (breaksp item)
-    (place item target :solid nil)))
+  (if (breaksp item)
+      (when (playerp thrower)
+	(print-to-log "the ~a breaks" (name item)))
+      (place item target :solid nil)))
 
 (defmethod update :before ((obj creature))
   (mapc #'update (statuses obj))

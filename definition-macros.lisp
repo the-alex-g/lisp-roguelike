@@ -25,8 +25,6 @@
 				   allocate-class
 				   :slotname (symbol-name (car args))))
 		 slotlist))
-	 
-
 	 (replace-keyword (existing new list)
 	   (when (getf list existing)
 	     (setf (getf list new) (getf list existing))
@@ -117,6 +115,7 @@
     (when charp
       (remf keys :char)
       (setf (getf keys :display-char) char))
+    (setf keys (replace-keyword :slot :equip-slot keys))
     `(progn
        ;; define equipment class
        (defclass ,name (,inherit) (,@(mapcan #'build-slot new-slots)
