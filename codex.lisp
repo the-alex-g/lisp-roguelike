@@ -2,8 +2,15 @@
 
 (defabstract secret-equipment potion () :char #\p :break-chance 75)
 (defabstract equipment weapon () :weaponp t :break-chance 2)
+(defabstract equipment armor (armor (dex 0) (evd 0) natural-armor) :char #\;)
 
 (add-to-shop
+ (defequipment leather-armor () :armor 1 :inherit armor :cost 2)
+ (defequipment hide-armor () :armor 2 :inherit armor :cost 3)
+ (defequipment brigandine () :armor 3 :inherit armor :cost 5)
+ (defequipment chain-mail () :armor 4 :evd -1 :inherit armor :cost 12)
+ (defequipment scale-mail () :armor 5 :evd -2 :inherit armor :cost 40)
+ (defequipment plate-mail () :armor 6 :dex -1 :evd -2 :inherit armor :cost 80)
  (defequipment sword () :atk '(6 slashing) :inherit weapon :char #\^)
  (defequipment sword-+1 () :atk '(6 slashing 1 1 nil 4) :inherit weapon :break-chance 1 :char #\^)
  (defequipment dagger () :atk '(4 piercing) :inherit weapon :char #\^)

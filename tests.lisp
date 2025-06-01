@@ -211,8 +211,9 @@
 		    (= (length (statuses target)) 1)))
       (setf (knl+ caster) -100)
       (enervate caster target)
-      (print-test "target avoided the status"
-		  (= (length (statuses target)) 1)))))
+      (print-test "target avoided the status (~d statuses)"
+		  (= (length (statuses target)) 1)
+		  (length (statuses target))))))
 
 (deftest vector-math
   (flet ((test (test value function &rest args)
@@ -470,6 +471,15 @@
       (identify wand)
       (print-test "wand identified" (string= (name wand) "wand of animate dead"))
       (print-test "other wand unidentified" (eq (name wand-2) 'unidentified-wand))))
+
+(deftest armor
+  (let* ((armor (make-leather-armor))
+	 (goblin (make-goblin +zero+))
+	 (initial-armor (slot-value goblin 'armor)))
+    (equip armor goblin)
+    (print-test "armor updated" (= (slot-value goblin 'armor) (armor armor)))
+    (unequip armor goblin :to 'nowhere)
+    (print-test "armor updated" (= (slot-value goblin 'armor) initial-armor))))
 
 (defun test ()
   (mapc #'funcall *tests*)

@@ -284,6 +284,7 @@
 			(str+ *player*) (dex+ *player*) (con+ *player*) (det+ *player*))
 	 (log-to-string "SPD ~@d  KNL ~@d  PER ~@d  CHA ~@d"
 			(spd+ *player*) (knl+ *player*) (per+ *player*) (cha+ *player*))
+	 (log-to-string "ARMOR d~d/~d" (cdr (armor *player*)) (1+ (car (armor *player*))))
 	 (mapcar (lambda (weapon)
 		   (log-to-string "~@:(~a~): ~a"
 				  (name weapon)

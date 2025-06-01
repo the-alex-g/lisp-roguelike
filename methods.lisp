@@ -20,9 +20,9 @@
 					     (die-name (read-from-string
 							(format nil "~a-die" name))))
 					 `((defmethod (setf ,bonus-name) (value (obj creature))
-					     (if (> value -4)
-						 (setf (caadr (assoc ',name (stats obj))) value)
-						 (setf (deadp obj) t)))
+					     (setf (caadr (assoc ',name (stats obj))) value)
+					     (when (> value -4)
+					       (setf (deadp obj) t)))
 					   (defmethod ,bonus-name ((obj creature))
 					     (caadr (assoc ',name (stats obj))))
 					   (defmethod (setf ,die-name) (value (obj creature))
@@ -290,6 +290,19 @@
 		  (equip-item)
 		  items-to-unequip))))))))
 
+(defmethod equip ((item armor) (actor creature))
+  (incf (evasion actor) (evd item))
+  (incf (dex+ actor) (dex item))
+  (setf (natural-armor item) (slot-value actor 'armor))
+  (when (> (armor item) (slot-value actor 'armor))
+    (setf (armor actor) (armor item))))
+
+(defmethod unequip ((item armor) (actor creature) &key to)
+  (declare (ignore to))
+  (decf (evasion actor) (evd item))
+  (decf (dex+ actor) (dex item))
+  (setf (armor actor) (natural-armor item)))
+
 (defmethod unequip :after ((item equipment) (actor player) &key (to 'inventory))
   (declare (ignore actor))
   (cond ((eq to 'inventory)
@@ -382,7 +395,6 @@
 
 (defmethod update :around ((obj status))
   (incf (energy obj) (/ (spd+ obj) (spd+ *player*)))
-  (print (energy obj))
   (loop while (and (>= (energy obj) 1)
 		   (not (= (duration obj) 0)))
 	do (decf (energy obj))
