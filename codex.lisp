@@ -90,8 +90,7 @@
     :loot `(((50 ,(make-gold 1)))))
   (defenemy goblin-archer #\g ((arrows 10))
     :inherit goblin
-    :equips (make-crude-bow)
-    :morale -0.5)
+    :equips (make-crude-bow))
   (defenemy kobold #\k ()
     :types '(kobold evil humanoid)
     :allies '(kobold)
@@ -162,9 +161,7 @@
     :color '(1 2 3)
     :health 4
     :str -1 :int 3 :wis 3
-    :mana-multiplier 2
     :primary-stat 'knl+
-    :morale -2
     :loot `(((50 ,(make-gold (roll 1 2))))
 	    ((75 ,(make-wand *enervate* *animate-dead* *life-drain*))))))
 

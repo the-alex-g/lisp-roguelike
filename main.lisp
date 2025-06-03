@@ -55,7 +55,7 @@
 (defun drop-bones (from)
   (let ((bones (make-bones (pos from))))
     (loop for loot in (loot from)
-	  unless (breaksp loot 50)
+	  unless (breaksp loot 25)
 	    do (place loot (pos from) :solid nil))
     (setf (name bones) (concatenate 'string (subseq (name from) 0 (- (length (name from)) 6))
 				    "bones"))))

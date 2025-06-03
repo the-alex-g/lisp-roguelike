@@ -55,9 +55,7 @@
    (immunities :initform 0 :initarg :immune)
    (vulnerabilities :initform 0 :initarg :vulnerable)
    (absorbances :initform 0 :initarg :absorb)
-   (darkvisionp :initform t :accessor darkvisionp :initarg :darkvisionp)
-   (mana-multiplier :initform 4 :initarg :mana-multiplier :accessor mana-multiplier)
-   (mana :initform 0 :reader mana)))
+   (darkvisionp :initform t :accessor darkvisionp :initarg :darkvisionp)))
 
 (defclass player (creature)
   ((hunger :initform 100 :reader hunger)

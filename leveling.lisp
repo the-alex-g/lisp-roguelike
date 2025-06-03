@@ -1,11 +1,6 @@
 (defparameter *experience* 0)
 (defparameter *level* 1)
 
-(defun increase-health ()
-  (let ((health-increase (max 1 (roll 1 10 (con+ *player*)))))
-    (incf (slot-value *player* 'max-health) health-increase)
-    (incf (health *player*) health-increase)))
-
 (defun increase-stat ()
   (let ((ability (get-item-from-list '(str+ con dex spd int per cha det)
 				     :what "ability to increase"
@@ -19,7 +14,7 @@
 (defun level-up ()
   (decf *experience* (xp-for-next-level))
   (incf *level*)
-  (increase-health)
+  (incf (health *player*))
   (increase-stat)
   (print-to-log "you leveled up to level ~d" *level*)
   (if (>= *experience* (xp-for-next-level))

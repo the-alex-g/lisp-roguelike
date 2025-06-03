@@ -66,7 +66,6 @@
 	 (defgeneric ,(constructor name) (pos)
 	   (:method (pos)
 	     (let ((new-enemy (make-instance ',name :pos pos)))
-	       (setf (mana new-enemy) (* (mana-multiplier new-enemy) (knl+ new-enemy)))
 	       (place new-enemy pos)
 	       (mapc (lambda (i)
 		       (equip i new-enemy))

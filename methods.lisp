@@ -439,7 +439,6 @@
 (defmethod update ((obj resting))
   (when (playerp (target obj))
     (incf (hunger (target obj))))
-  (incf (mana (target obj)))
   (incf (health (target obj)))
   (when (or (= (health (target obj)) (max-health (target obj)))
 	    (and (slot-exists-p obj 'target-pos) (target-pos obj)))
@@ -476,7 +475,6 @@
 	 (move-towards (home obj) obj #'movement-cost))))
 
 (defmethod act :around ((obj enemy) &key &allow-other-keys)
-  (assert (pos obj))
   (multiple-value-bind (foes allies) (get-actors-in-los-of obj t nil nil
 							   (hostilep obj actor)
 							   (alliedp obj actor))
@@ -531,7 +529,7 @@
 							  (reanimateablep actor)))))
     (when target
       (setf (target-pos obj) (pos target)))
-    (cond ((and corpses (>= (mana obj) (spell-cost *animate-dead*)))
+    (cond (corpses
 	   (let ((corpses-in-range (loop for corpse in corpses
 					 when (<= (distance (pos corpse) (pos obj)) 3)
 					   collect corpse)))
@@ -539,13 +537,10 @@
 		     (= (length corpses-in-range) (length corpses)))
 		 (animate-dead obj)
 		 (move-towards (pos (get-closest-of-list obj corpses)) obj heuristic))))
-	  ((and target (<= (distance (pos obj) (pos target)) 4)
-		(>= (mana obj) (spell-cost *enervate*)))
+	  ((and target (<= (distance (pos obj) (pos target)) 4))
 	   (if (< (health obj) (max-health obj))
 	       (life-drain obj target)
 	       (enervate obj target)))
-	  ((and (not target) (< (mana obj) 2))
-	   (apply-to obj (make-resting-status)))
 	  ((target-pos obj)
 	   (move-towards (target-pos obj) obj heuristic)))))
 
@@ -1209,8 +1204,3 @@
 	 (remove-from-inventory obj)
 	 (print-to-log "the ~a has been burnt beyond use" (name obj))))
   (incf (cooking obj)))
-
-(defmethod (setf mana) (value (obj creature))
-  (setf (slot-value obj 'mana)
-	(min (* (knl+ obj) (mana-multiplier obj))
-	     (max 0 value))))
