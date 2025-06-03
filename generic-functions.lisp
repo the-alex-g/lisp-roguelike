@@ -144,8 +144,6 @@ on enemies, calls #'act until object runs out of energy")
 (defgeneric equip (item actor)
   (:method (item actor)))
 
-(defgeneric alignment (obj))
-
 (defgeneric hostilep (obj to)
   (:method (obj to) nil))
 

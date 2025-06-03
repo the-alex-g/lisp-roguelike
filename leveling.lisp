@@ -2,10 +2,10 @@
 (defparameter *level* 1)
 
 (defun increase-stat ()
-  (let ((ability (get-item-from-list '(str+ con dex spd int per cha det)
+  (let ((ability (get-item-from-list '(str con dex spd int per cha det)
 				     :what "ability to increase"
 				     :exit-option nil)))
-    (eval `(incf (,ability *player*)))))
+    (eval `(incf (,(read-from-string (format nil "~a+" ability)) *player*)))))
 
 ;; triangular numbers times 10
 (defun xp-for-next-level ()

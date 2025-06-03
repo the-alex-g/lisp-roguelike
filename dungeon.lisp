@@ -111,11 +111,9 @@
 		     do (make-wall (cons x y)))))
 
 (defun generate-terrain (cells)
-  (loop for cell in cells
-	do (let ((noise (vec-noise cell :wavelength 5)))
-	     (setf (terrain cell)
-		   (cond ((< noise 0.25) 'difficult)
-			 (t 'standard))))))
+  (mapc (lambda (cell)
+	  (setf (terrain cell) 'standard))
+	cells))
 
 (defun furnish-dungeon (rooms furniture)
   (mapc (lambda (room)

@@ -1077,23 +1077,6 @@
 (defmethod get-attack ((weapon list) (attacker creature))
   (apply #'generate-attack attacker weapon))
 
-(defmethod alignment ((obj creature))
-  (let ((alignment (slot-value obj 'alignment)))
-    (cond ((has-status-p obj 'neutral)
-	   'n)
-	  ((eq alignment 'n)
-	   (apply-alignment-status obj))
-	  ((has-status-p obj 'evil)
-	   'e)
-	  ((has-status-p obj 'good)
-	   'g)
-	  ((eq alignment 'e)
-	   'e)
-	  ((eq alignment 'g)
-	   'g)
-	  (t
-	   'n))))
-
 (defmethod hostilep ((obj creature) (to creature))
   (and (maskp (enemies obj) (types to))
        (not (alliedp obj to))))
