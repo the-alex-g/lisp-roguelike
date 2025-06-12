@@ -53,7 +53,10 @@
   t)
 
 (defmethod checkp (stat (obj creature) (dc fixnum))
-  (>= (roll 1 20 (funcall stat obj)) dc))
+  (let* ((roll (roll 1 20))
+	 (result (+ roll (funcall stat obj)))
+	 (critp (or (= roll 20) (> roll 21))))
+    (values (or critp (>= result dc)) result critp)))
 
 (defmethod checkp (stat (obj breakable) dc)
   (member stat '(str+ con)))

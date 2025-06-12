@@ -204,7 +204,7 @@
 	   (target (make-goblin +right+))
 	   (target-initial-health (health target)))
       (setf (knl+ caster) 1000) ;; so that there's no chance of avoiding the status
-      (let ((damage (enervate caster target)))
+      (let ((damage (or (enervate caster target) 0)))
 	(print-test "target was damaged" (= (health target)
 					    (max 0 (- target-initial-health damage))))
 	(print-test "target was inflicted with a status"

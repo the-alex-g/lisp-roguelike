@@ -63,11 +63,13 @@
 (defun generate-attack (attacker die types
 			&key (to-hit 0) (dmg-bonus 1) statuses (shade 5)
 			&allow-other-keys)
-  (make-attack :amount (roll* die (str+ attacker) :base dmg-bonus :bonusp t :shade shade)
-	       :to-hit (roll 1 20 to-hit (dex+ attacker))
-	       :source attacker
-	       :types (make-mask (ensure-list types))
-	       :statuses (ensure-list statuses)))
+  (multiple-value-bind (passedp result critp) (checkp #'dex+ attacker 0)
+    (make-attack :amount (+ (roll* die (str+ attacker) :base dmg-bonus :bonusp t :shade shade)
+			    (if critp (roll* 8 5 :base 1) 0))
+		 :to-hit (if critp 1000 result)
+		 :source attacker
+		 :types (make-mask (ensure-list types))
+		 :statuses (ensure-list statuses))))
 
 (defun explode-at (pos radius evd-dc damage)
   (let (results)
@@ -403,7 +405,7 @@
   (labels ((choose-restart (err)
 	     (format t "~%ERROR: ~a~%" (type-of err))
 	     (invoke-restart (get-item-from-list '(keep-going crash)
-						 :exit-option nil
+						 :exit-option nil :anp nil
 						 :what 'restart-option)
 			     err))
 	   (process-round (input)
