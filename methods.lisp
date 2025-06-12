@@ -1172,7 +1172,7 @@
 (defmethod zap ((obj wand) (zapper creature))
   (when (visiblep zapper *player*)
     (print-to-log "~a zaps a ~a" (name zapper) (name obj)))
-  (when (cast-spell (spell obj) zapper :succeedp t :die (spell-die (spell-die-index wand)))
+  (when (cast-spell (spell obj) zapper :succeedp t :die (spell-die (spell-die-index obj)))
     (identify obj))
   (decf (charges obj)))
 
