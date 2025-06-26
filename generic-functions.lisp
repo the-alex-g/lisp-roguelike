@@ -169,6 +169,9 @@ on enemies, calls #'act until object runs out of energy")
 (defgeneric evadesp (obj dc)
   (:method (obj dc) nil))
 
+(defgeneric evd+ (obj)
+  (:method (obj) 0))
+
 (defgeneric make-hostile (obj to))
 
 (defgeneric reanimate (obj &optional master)

@@ -1,3 +1,6 @@
+(defconstant +easy+ 6)
+(defconstant +med+ 8)
+(defconstant +hard+ 12)
 (defconstant +left+ '(-1 . 0))
 (defconstant +right+ '(1 . 0))
 (defconstant +up+ '(0 . -1))

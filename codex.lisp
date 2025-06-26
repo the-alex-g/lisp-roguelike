@@ -54,8 +54,8 @@
 
 (defabstract actor hazard ())
 (defabstract hazard trap ((trigger-chance 100)
-			 (find-dc 10)
-			 (avoid-dc 10)
+			 (find-dc +med+)
+			 (avoid-dc +med+)
 			 (searchedp nil))
   :color 'red :hiddenp t)
 (defabstract actor remains ((reanimateablep t)))

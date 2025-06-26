@@ -1,3 +1,6 @@
+(define-condition crash-signalled-condition (condition)
+  ((original-error :initarg :error :accessor original-error)))
+
 (defstruct damage
   (amount 0 :type fixnum)
   source

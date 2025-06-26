@@ -53,9 +53,9 @@
   t)
 
 (defmethod checkp (stat (obj creature) (dc fixnum))
-  (let* ((roll (roll 1 20))
+  (let* ((roll (roll 1 12))
 	 (result (+ roll (funcall stat obj)))
-	 (critp (or (= roll 20) (> roll 21))))
+	 (critp (or (= roll 12) (>= roll 14))))
     (values (or critp (>= result dc)) result critp)))
 
 (defmethod checkp (stat (obj breakable) dc)
@@ -178,10 +178,13 @@
     1))
 
 (defmethod evasion ((obj creature))
-  (max 1 (+ (dex+ obj) (slot-value obj 'evasion) (spd-die obj))))
+  (max 1 (floor (+ (dex+ obj) (slot-value obj 'evasion) (/ (spd-die obj) 2)))))
 
-(defmethod evadesp ((obj creature) dc)
-  (>= (roll 1 20 (dex+ obj)) dc))
+(defmethod evd+ ((obj creature))
+  (- (evasion obj) 6))
+
+(defmethod evadesp ((obj creature) (dc fixnum))
+  (checkp #'evd+ obj dc))
 
 (defmethod name ((obj ladder))
   (cond ((= -1 (direction obj))
@@ -742,7 +745,7 @@
 
 (DEFMETHOD LOOK-AT ((OBJECT TRAP))
   (COND ((SEARCHEDP OBJECT) (CALL-NEXT-METHOD))
-        ((>= (ROLL 1 20 (PER *PLAYER*)) (FIND-DC OBJECT))
+        ((checkp #'PER+ *PLAYER* (FIND-DC OBJECT))
          (PRINT-TO-LOG "you found a ~a" (NAME OBJECT))
          (SETF (HIDDENP OBJECT) NIL))
         (T (CALL-NEXT-METHOD)))

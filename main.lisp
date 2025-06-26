@@ -43,11 +43,9 @@
 
 (defparameter *game-over-p* nil)
 (defparameter *print-surroundings-mode* 'my-space)
+(defparameter *lightmap* (make-hash-table :test #'equal))
 
 (setf (slot-value *player* 'max-health) (health *player*))
-
-(define-condition crash-signalled-condition (condition)
-  ((original-error :initarg :error :accessor original-error)))
 
 (defun blocksp (armor)
   (>= (random (cdr armor)) (car armor)))
@@ -151,8 +149,6 @@
 		    (setf (gethash key memos) new-val)
 		    new-val))))
 	  nil))))
-
-(defparameter *lightmap* (make-hash-table :test #'equal))
 
 (defun generate-lightmap (glowing-actors)
   (flet ((light-strength (distance light)
