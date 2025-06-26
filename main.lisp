@@ -140,15 +140,14 @@
 		      (loop for y below (abs dy)
 			    never (pos-opaquep (/ y (abs dy)))))))))
     (defun has-los (to from)
-      (if (and to from)
-	  (let ((key (list to from)))
-	    (multiple-value-bind (memo memo-existsp) (gethash key memos)
-	      (if memo-existsp
-		  memo
-		  (let ((new-val (calculate-los to from)))
-		    (setf (gethash key memos) new-val)
-		    new-val))))
-	  nil))))
+      (when (and to from)
+	(let ((key (list to from)))
+	  (multiple-value-bind (memo memo-existsp) (gethash key memos)
+	    (if memo-existsp
+		memo
+		(let ((new-val (calculate-los to from)))
+		  (setf (gethash key memos) new-val)
+		  new-val))))))))
 
 (defun generate-lightmap (glowing-actors)
   (flet ((light-strength (distance light)

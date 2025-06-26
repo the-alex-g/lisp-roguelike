@@ -1153,13 +1153,11 @@
 				      :test #'=)
 		  (best-spell-die (knl+ obj)))))
   (when die
-    (let* ((successes (roll* die (knl+ obj) :bonusp t))
-	   (delta (- successes (spell-cost spell))))
-      (if (or (>= delta 0) succeedp)
-	  (if (spell-requires-target-p spell)
-	      (funcall (spell-function spell) obj target die (max 0 delta))
-	      (funcall (spell-function spell) obj die (max 0 delta)))
-	  (spell-fail obj (- delta))))))
+    (if (or (checkp #'knl+ obj (+ die (spell-cost spell))) succeedp)
+	(if (spell-requires-target-p spell)
+	    (funcall (spell-function spell) obj target die)
+	    (funcall (spell-function spell) obj die))
+	(spell-fail obj (roll 1 die (spell-cost spell))))))
 
 (defmethod zap :around ((obj wand) (zapper creature))
   (if (> (charges obj) 0)

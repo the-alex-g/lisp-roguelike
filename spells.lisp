@@ -8,10 +8,8 @@
 			       :cost ,cost
 			       :function (lambda (caster ,@(if requires-target-p
 							       '(target spell-die)
-							       '(spell-die))
-						  overflow)
-					   (let ((spell-damage (+ overflow
-								  (roll* spell-die 5 :base 1))))
+							       '(spell-die)))
+					   (let ((spell-damage (roll* spell-die 5 :base 1)))
 					     ,@body)))))
        (push ,spell *spells*)
        (defparameter ,(read-from-string (format nil "*~a*" name)) ,spell)
@@ -33,7 +31,7 @@
 	((<= bonus 6) 10)
 	(t 12)))
 
-(defun spell-fail (obj margin)
+(defun spell-fail (obj roll)
   (when (playerp obj)
     (print-to-log "your spell fails")))
 
@@ -52,7 +50,7 @@
 			  (length visible-dead)))))
     animated-dead))
 
-(defspell life-drain (1 t)
+(defspell life-drain (0 t)
   (let* ((damage (if (checkp #'con+ target (+ spell-die (knl+ caster) 2))
 		     (damage target (make-damage :source caster
 						 :amount (max 1 (1- spell-damage))
@@ -70,7 +68,7 @@
 		       (name target) damage))
     damage))
 
-(defspell enervate (1 t)
+(defspell enervate (0 t)
   (let ((damage (damage target
 			(make-damage :source caster
 				     :amount spell-damage
