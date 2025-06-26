@@ -209,7 +209,7 @@
 					    (max 0 (- target-initial-health damage))))
 	(print-test "target was inflicted with a status"
 		    (= (length (statuses target)) 1)))
-      (setf (knl+ caster) -100)
+      (setf (con+ target) 100)
       (enervate caster target :succeedp t)
       (print-test "target avoided the status (~d statuses)"
 		  (= (length (statuses target)) 1)

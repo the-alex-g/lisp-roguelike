@@ -9,7 +9,8 @@
 			       :function (lambda (caster ,@(if requires-target-p
 							       '(target spell-die)
 							       '(spell-die)))
-					   (let ((spell-damage (roll* spell-die 5 :base 1)))
+					   (let ((spell-damage (roll* spell-die 5 :base 1))
+						 (spell-duration (roll 1 spell-die (knl+ caster))))
 					     ,@body)))))
        (push ,spell *spells*)
        (defparameter ,(read-from-string (format nil "*~a*" name)) ,spell)
@@ -73,10 +74,11 @@
 			(make-damage :source caster
 				     :amount spell-damage
 				     :types '(necrotic)
-				     :statuses (unless (checkp #'con+ target (+ 10 (knl+ caster)))
-						 (list (if (= (random 2) 0)
-							   (make-weak-status :duration 2)
-							   (make-clumsy-status :duration 2))))))))
+				     :statuses (unless (checkp #'con+ target spell-die)
+						 (list (make-drain-status
+							:ability (if (= (random 2) 0)
+								     'str+
+								     'dex+))))))))
     (print-if-visible caster target
 		      ("~a fires a beam of dark energy at ~a, dealing ~d damage"
 		       (name caster) (name target) damage)

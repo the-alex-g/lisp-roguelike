@@ -56,7 +56,10 @@
   (let* ((roll (roll 1 12))
 	 (result (+ roll (funcall stat obj)))
 	 (critp (or (= roll 12) (>= roll 14))))
-    (values (or critp (>= result dc)) result critp)))
+    (values (if (= roll 1)
+		nil
+		(or critp (>= result dc)))
+	    result critp)))
 
 (defmethod checkp (stat (obj breakable) dc)
   (member stat '(str+ con)))
@@ -139,11 +142,8 @@
 (defmethod remove-status ((status elevated))
   (decf (dex+ (target status))))
 
-(defmethod remove-status ((status weak))
-  (incf (str+ (target status))))
-
-(defmethod remove-status ((status clumsy))
-  (incf (dex+ (target status))))
+(defmethod remove-drain ((status drain))
+  (eval `(incf (,(ability status) ,(target status)))))
 
 (defmethod remove-status ((resting resting))
   (loop for status in (statuses (target resting))
@@ -227,9 +227,9 @@
       (setf (slot-value obj 'health) value)
       (setf (slot-value obj 'health) 0)))
 
-(defmethod (setf con+) (value (obj creature))
+(defmethod (setf con+) :before (value (obj creature))
   (let ((diff (- value (con+ obj))))
-    (incf (slot-value obj 'max-health) diff )
+    (incf (slot-value obj 'max-health) diff)
     (incf (health obj) diff)))
 
 (defmethod (setf hunger) (value (obj player))
@@ -448,6 +448,10 @@
   (incf (health (target obj)))
   (when (or (= (health (target obj)) (max-health (target obj)))
 	    (and (slot-exists-p obj 'target-pos) (target-pos obj)))
+    (remove-status obj)))
+
+(defmethod update ((obj drain))
+  (when (has-status-p (target obj) 'resting)
     (remove-status obj)))
 
 (defmethod update ((obj player))
@@ -783,13 +787,8 @@
   (declare (ignore obj))
   (incf (dex+ subj)))
 
-(defmethod apply-to ((subj creature) (obj clumsy))
-  (declare (ignore obj))
-  (decf (dex+ subj)))
-
-(defmethod apply-to ((subj creature) (obj weak))
-  (declare (ignore obj))
-  (decf (str+ subj)))
+(defmethod apply-to ((subj creature) (obj drain))
+  (eval `(decf (,(ability obj) ,subj))))
 
 (DEFMETHOD DAMAGE ((DEFENDER CREATURE) (damage damage) &optional (blockablep t))
   (LET* ((BASE-DAMAGE (if blockablep

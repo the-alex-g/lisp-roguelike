@@ -140,13 +140,15 @@
        (,@(mapcan #'build-slot new-slots)
 	,@(reinit-slots keys nil nil))))
   
-  (defmacro defstatus (name new-slots &key (duration 3) (speed 1))
+  (defmacro defstatus (name new-slots &key (duration 3) (speed 1) (inherit 'status))
     `(progn
-       (defclass ,name (status)
+       (defclass ,name (,inherit)
 	 ((spd+ :initform ,speed)
+	  (duration :initform ,duration)
+	  (name :initform ',name)
 	  ,@(mapcan #'build-slot new-slots)))
-       (defun ,(constructor name 'status) (&key (duration ,duration) (name ',name))
-	 (make-instance ',name :duration duration :name name)))))
+       (defun ,(constructor name 'status) (&rest keys &key &allow-other-keys)
+	 (apply #'make-instance ',name keys)))))
 
 (defmacro defsecretequipment (name cover-names new-slots
 			      &rest keys

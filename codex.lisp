@@ -172,9 +172,8 @@
 (defstatus brave nil)
 (defstatus immobilized nil)
 (defstatus elevated nil :duration -1)
-(defstatus weak nil)
-(defstatus clumsy nil)
 (defstatus graverot ((new-day nil)) :duration -1)
+(defstatus drain (ability) :duration -1)
 
 ;; TERRAINS
 
